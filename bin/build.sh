@@ -60,7 +60,58 @@ echo "*** Building I2EAP6 ROM ***"
 ./bin/mmbutils/beeb getfile ./src/out/out.ssd ./src/out/ap6
 
 ############################################################
-# Build i2c.ssd
+# Build I2CTEST-only ROMs (minimal ROMs for merging)
+############################################################
+
+# Compile I2CTEST-only BBC Micro target
+echo ""
+echo "*** Building T.I2CB ROM ***"
+./bin/beebasm -i ./src/I2CBeeb.asm -do ./src/out/testb.ssd -title I2C \
+    -S INCBUS="./src/inc/bus/B.asm" \
+    -S INCRTC="./src/inc/rtc/DS3231.asm" \
+    -S INCTARGET="./src/inc/targets/B.asm" \
+    -D ALTBASE=0 \
+    -D PAD=1 \
+    -D I2CTEST_ONLY=1 \
+    -o "T.I2CB"
+# Extract from ssd to output folder
+./bin/mmbutils/beeb getfile ./src/out/testb.ssd ./src/out/testb
+
+# Compile I2CTEST-only Electron target
+echo ""
+echo "*** Building T.I2CET ROM ***"
+./bin/beebasm -i ./src/I2CBeeb.asm -do ./src/out/teste.ssd -title I2C \
+    -S INCBUS="./src/inc/bus/E.asm" \
+    -S INCRTC="./src/inc/rtc/DS3231.asm" \
+    -S INCTARGET="./src/inc/targets/E.asm" \
+    -D ALTBASE=0 \
+    -D PAD=1 \
+    -D I2CTEST_ONLY=1 \
+    -o "T.I2CET"
+# Extract from ssd to output folder
+./bin/mmbutils/beeb getfile ./src/out/teste.ssd ./src/out/teste
+
+# Compile I2CTEST-only Electron AP6 target
+echo ""
+echo "*** Building T.I2CEAP6 ROM ***"
+./bin/beebasm -i ./src/I2CBeeb.asm -do ./src/out/testap6.ssd -title I2C \
+    -S INCBUS="./src/inc/bus/EAP6.asm" \
+    -S INCRTC="./src/inc/rtc/PCF8583.asm" \
+    -S INCTARGET="./src/inc/targets/EAP6.asm" \
+    -D ALTBASE=0 \
+    -D PAD=0 \
+    -D I2CTEST_ONLY=1 \
+    -o "T.I2CEAP6"
+# Extract from ssd to output folder
+./bin/mmbutils/beeb getfile ./src/out/testap6.ssd ./src/out/testap6
+
+# Copy I2CTEST-only ROMs to dist folder
+cp ./src/out/testb/T.I2CB ./dist/i2cbt.rom
+cp ./src/out/teste/T.I2CET ./dist/i2cet.rom
+cp ./src/out/testap6/T.I2CEAP6 ./dist/i2ceap6t.rom
+
+############################################################
+# Build i2c.ssd (includes both production and test ROMs)
 ############################################################
 
 # Always delete the old SSD to avoid trailing dot issues
@@ -69,8 +120,12 @@ echo "*** Building I2C.SSD ***"
 rm -f ./dist/i2c.ssd
 # Create ./dist/i2c.ssd using mmbutils
 ./bin/mmbutils/beeb blank_ssd ./dist/i2c.ssd
-# Add outputs above to ssd
+# Add production ROMs to ssd
 ./bin/mmbutils/beeb putfile ./dist/i2c.ssd ./src/out/ap6/I2CEAP6 ./src/out/b/I2CB ./src/out/e/I2CE
+# Add test ROMs to ssd (add individually to ensure they're all included)
+./bin/mmbutils/beeb putfile ./dist/i2c.ssd ./src/out/testb/T.I2CB
+./bin/mmbutils/beeb putfile ./dist/i2c.ssd ./src/out/teste/T.I2CET
+./bin/mmbutils/beeb putfile ./dist/i2c.ssd ./src/out/testap6/T.I2CEAP6
 ./bin/mmbutils/beeb title ./dist/i2c.ssd i2crom
 
 ############################################################
@@ -80,59 +135,6 @@ rm -f ./dist/i2c.ssd
 cp ./src/out/b/I2CB ./dist/i2cb.rom
 cp ./src/out/e/I2CE ./dist/i2ce.rom
 cp ./src/out/ap6/I2CEAP6 ./dist/i2ceap6.rom
-
-############################################################
-# Build I2CTEST-only ROMs (minimal ROMs for merging)
-############################################################
-
-# Compile I2CTEST-only BBC Micro target
-echo ""
-echo "*** Building I2CBT ROM ***"
-./bin/beebasm -i ./src/I2CBeeb.asm -do ./src/out/testb.ssd -title I2C \
-    -S INCBUS="./src/inc/bus/B.asm" \
-    -S INCRTC="./src/inc/rtc/DS3231.asm" \
-    -S INCTARGET="./src/inc/targets/B.asm" \
-    -D ALTBASE=0 \
-    -D PAD=1 \
-    -D I2CTEST_ONLY=1 \
-    -o "I2CBT"
-# Extract from ssd to output folder
-./bin/mmbutils/beeb getfile ./src/out/testb.ssd ./src/out/testb
-
-# Compile I2CTEST-only Electron target
-echo ""
-echo "*** Building I2CET ROM ***"
-./bin/beebasm -i ./src/I2CBeeb.asm -do ./src/out/teste.ssd -title I2C \
-    -S INCBUS="./src/inc/bus/E.asm" \
-    -S INCRTC="./src/inc/rtc/DS3231.asm" \
-    -S INCTARGET="./src/inc/targets/E.asm" \
-    -D ALTBASE=0 \
-    -D PAD=1 \
-    -D I2CTEST_ONLY=1 \
-    -o "I2CET"
-# Extract from ssd to output folder
-./bin/mmbutils/beeb getfile ./src/out/teste.ssd ./src/out/teste
-
-# Compile I2CTEST-only Electron AP6 target
-echo ""
-echo "*** Building I2CEAP6T ROM ***"
-mkdir -p ./src/out/testap6
-./bin/beebasm -i ./src/I2CBeeb.asm -title I2C \
-    -S INCBUS="./src/inc/bus/EAP6.asm" \
-    -S INCRTC="./src/inc/rtc/PCF8583.asm" \
-    -S INCTARGET="./src/inc/targets/EAP6.asm" \
-    -D ALTBASE=0 \
-    -D PAD=0 \
-    -D I2CTEST_ONLY=1 \
-    -o "I2CEAP6T"
-# Copy ROM directly (workaround for beebasm -do issue with I2CTEST_ONLY=1)
-cp ./I2CEAP6T ./src/out/testap6/I2CEAP6T
-rm -f ./I2CEAP6T
-
-# Copy I2CTEST-only ROMs to dist folder
-cp ./src/out/testb/I2CBT ./dist/i2cbt.rom
-cp ./src/out/teste/I2CET ./dist/i2cet.rom
-cp ./src/out/testap6/I2CEAP6T ./dist/i2ceap6t.rom
 
 ################################################################################
 # Update Dev Folders used with real target machines via UPURSFS
@@ -156,15 +158,9 @@ cp ./dev/roms/I2C* ./dev/eap6
 # Copy test ROMs to dev/eap6 for hardware testing
 echo ""
 echo "*** Copying Test ROMs to Dev Folder ***"
-cp ./src/out/testb/I2CBT ./dev/eap6/
-cp ./src/out/testb/I2CBT.inf ./dev/eap6/ 2>/dev/null || true
-cp ./src/out/teste/I2CET ./dev/eap6/
-cp ./src/out/teste/I2CET.inf ./dev/eap6/ 2>/dev/null || true
-cp ./src/out/testap6/I2CEAP6T ./dev/eap6/
-# Create .inf file for I2CEAP6T (not created by beebasm without -do)
-if [ ! -f ./dev/eap6/I2CEAP6T.inf ]; then
-    # Create .inf file (format: $.FILENAME      LOADADDR EXECADDR CRC=XXXX)
-    # For ROMs, LOADADDR and EXECADDR are typically 8000 8000
-    # CRC will be calculated by the system, using placeholder for now
-    echo '$.I2CEAP6T     8000   8000 CRC=0000' > ./dev/eap6/I2CEAP6T.inf
-fi
+cp ./src/out/testb/T.I2CB ./dev/eap6/
+cp ./src/out/testb/T.I2CB.inf ./dev/eap6/ 2>/dev/null || true
+cp ./src/out/teste/T.I2CET ./dev/eap6/
+cp ./src/out/teste/T.I2CET.inf ./dev/eap6/ 2>/dev/null || true
+cp ./src/out/testap6/T.I2CEAP6 ./dev/eap6/
+cp ./src/out/testap6/T.I2CEAP6.inf ./dev/eap6/ 2>/dev/null || true

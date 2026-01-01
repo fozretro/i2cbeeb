@@ -22,3 +22,8 @@ __pycache__/
 
 # Build output directories
 src/out/
+
+# Temporary build files
+out.ssd
+*.ssd
+!dist/i2c.ssd
