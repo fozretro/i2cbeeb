@@ -60,7 +60,7 @@ echo "*** Building I2EAP6 ROM ***"
 ./bin/mmbutils/beeb getfile ./src/out/out.ssd ./src/out/ap6
 
 ############################################################
-# Build I2CTEST-only ROMs (minimal ROMs for merging)
+# Build test ROMs (all commands plus I2CTEST)
 ############################################################
 
 # Compile I2CTEST-only BBC Micro target
@@ -105,11 +105,6 @@ echo "*** Building T.I2CEAP6 ROM ***"
 # Extract from ssd to output folder
 ./bin/mmbutils/beeb getfile ./src/out/testap6.ssd ./src/out/testap6
 
-# Copy I2CTEST-only ROMs to dist folder
-cp ./src/out/testb/T.I2CB ./dist/i2cbt.rom
-cp ./src/out/teste/T.I2CET ./dist/i2cet.rom
-cp ./src/out/testap6/T.I2CEAP6 ./dist/i2ceap6t.rom
-
 ############################################################
 # Build i2c.ssd (includes both production and test ROMs)
 ############################################################
@@ -129,12 +124,18 @@ rm -f ./dist/i2c.ssd
 ./bin/mmbutils/beeb title ./dist/i2c.ssd i2crom
 
 ############################################################
-# Output indivudal roms to the dist folder
+# Output individual ROMs to the dist folder
 ############################################################
 
+# Copy production ROMs to dist folder
 cp ./src/out/b/I2CB ./dist/i2cb.rom
 cp ./src/out/e/I2CE ./dist/i2ce.rom
 cp ./src/out/ap6/I2CEAP6 ./dist/i2ceap6.rom
+
+# Copy test ROMs to dist folder
+cp ./src/out/testb/T.I2CB ./dist/i2cbt.rom
+cp ./src/out/teste/T.I2CET ./dist/i2cet.rom
+cp ./src/out/testap6/T.I2CEAP6 ./dist/i2ceap6t.rom
 
 ################################################################################
 # Update Dev Folders used with real target machines via UPURSFS
