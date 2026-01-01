@@ -14,6 +14,7 @@ ap6idle	= 	$11			\idle value of AP6 ctrl reg
 
 upiob	=	ap6reg		\alias
 getsda	= 	xsdahi		\alias
+getscl	=	xsclhi		\alias
 
 \-------------------------------------------------------------------------------
 \*** Macro definitions ***
@@ -108,6 +109,15 @@ MACRO i2cstart
 	i2cidle
 	sdalo
 	scllo
+ENDMACRO
+
+\-------------------------------------------------------------------------------
+\readscl - reads SCL state. Returns A=0 if low, A!=0 if high.
+\Matches the pattern used in sclhi macro for reading SCL.
+
+MACRO readscl
+	LDA	upiob		\read SCL state from upiob (ap6reg alias)
+	AND	#getscl
 ENDMACRO
 
 \-------------------------------------------------------------------------------

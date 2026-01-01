@@ -12,6 +12,7 @@ upifr	=	$FCBD		\Interrupt Flag Register
 xsdahi	=	$FE			\AND #xsdahi = bit 0 reset = data hi
 xsdalo	=	$01			\OR #xsdalo = bit 0 set = data lo
 getsda	=	$01			\upiob AND #getsda to read data
+getscl	=	$08			\upifr AND #getscl to read clock (CB2 flag)
 
 \-------------------------------------------------------------------------------
 \*** Macro definitions ***
@@ -24,15 +25,14 @@ getsda	=	$01			\upiob AND #getsda to read data
 
 MACRO sclhi
 	LDA	upifr		\first clear any CB2 flag in IFR
-	ORA	#$08
+	ORA	#getscl
 	STA	upifr
 	LDA	uppcr		\set CB2 to input in 6522 PCR
 	AND	#$1F
 	ORA	#$60		\011x xxxx
 	STA	uppcr
 .cstr	
-	LDA	upifr		\wait for CB2 to transit high
-	AND	#$08
+	readscl			\wait for CB2 to transit high
 	BNE	sclx		\clock hi, exit immediately
 	LDA	$FF			\else slave is clock stretching so..
 	AND	#&80		\test for user <Esc> press
@@ -122,6 +122,15 @@ MACRO i2cstart
 	i2cidle
 	sdalo
 	scllo
+ENDMACRO
+
+\-------------------------------------------------------------------------------
+\readscl - reads SCL state. Returns A=0 if low, A!=0 if high.
+\Matches the pattern used in sclhi macro for reading SCL (CB2 flag).
+
+MACRO readscl
+	LDA	upifr		\read SCL state from upifr (CB2 flag)
+	AND	#getscl
 ENDMACRO
 
 \-------------------------------------------------------------------------------

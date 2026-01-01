@@ -797,22 +797,14 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 .testgo	
 	NOP					\assembler call entry point
 .staritest	
-	LDX	#0				\index for string
-.testloop	
-	LDA	testmsg,X		\get character from test message
-	BEQ	testdone		\if null terminator, done
-	JSR	OSASCI			\print character
-	INX					\next character
-	BNE	testloop		\loop
-.testdone	
+	JSR	runtests			\run all registered tests
 	PLA					\MOS command graceful exit
 	TAY
 	PLA
 	TAX
 	LDA	#0				\set A=0 to inform MOS command taken
 	RTS					\return to MOS
-
-.testmsg	EQUS	"Test", cr, 0		\test message string
+	INCLUDE 	"./src/tests/tests.asm"
 	ENDIF
 
 \-------------------------------------------------------------------------------

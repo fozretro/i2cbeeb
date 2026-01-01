@@ -26,8 +26,7 @@ MACRO sclhi
 	AND	#xsclhi		\only clear b4 of DDR
 	STA	upddrb
 .cstr	
-	LDA	upiob		\wait for b4 to transit high
-	AND	#getscl
+	readscl			\wait for SCL to transit high
 	BEQ	cstr		\clock lo, wait...
 .sclx	
 	NOP				\clock hi, continue
@@ -115,6 +114,15 @@ MACRO i2cstart
 	i2cidle
 	sdalo
 	scllo
+ENDMACRO
+
+\-------------------------------------------------------------------------------
+\readscl - reads SCL state. Returns A=0 if low, A!=0 if high.
+\Matches the pattern used in sclhi macro for reading SCL.
+
+MACRO readscl
+	LDA	upiob		\read SCL state from upiob
+	AND	#getscl
 ENDMACRO
 
 \-------------------------------------------------------------------------------
