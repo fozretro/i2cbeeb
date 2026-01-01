@@ -415,7 +415,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	EQUB	HI(i2cquery), LO(i2cquery)
 	EQUS	"I2CTXB <addr> (<#nn>) <byte>(;)"
 	EQUB	HI(i2ctxb), LO(i2ctxb)
-	EQUS	"I2CTXD <addr> (<#nn>) <no.bytes>(;)"
+	EQUS	"I2CTXD <addr> <#nn> <bytes>"
 	EQUB	HI(i2ctxd), LO(i2ctxd)
 	EQUS	"I2CRXB <addr> (<#nn>) (A%-Z%)"
 	EQUB	HI(i2crxb), LO(i2crxb)
