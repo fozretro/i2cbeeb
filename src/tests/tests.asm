@@ -310,65 +310,69 @@
 \ Runs all registered tests and prints results
 \-------------------------------------------------------------------------------
 .runtests
-	LDX	#0				\index into test table
+	\ Set up pointer to test table (handles page boundaries)
+	LDA	#LO(testtab)
+	STA	htextl
+	LDA	#HI(testtab)
+	STA	htexth
+	LDY	#0
+	
 .testloop
-	\ Check for end of table (must be first check)
-	LDA	testtab,X
+	\ Check for end of table
+	LDA	(htextl),Y
 	CMP	#$FF
-	BEQ	testsdone
+	BNE	test_not_done
+	JMP	testsdone
+.test_not_done
 	
 	\ Print test description and count length
-	LDY	#0				\Y = description length counter
-	STY	temp1			\temp1 = description length
+	LDX	#0
 .printdesc
-	LDA	testtab,X
-	BEQ	descprinted		\null terminator found
+	LDY	#0
+	LDA	(htextl),Y
+	BEQ	descprinted
 	JSR	OSASCI
+	INC	htextl
+	BNE	desc_no_wrap
+	INC	htexth
+.desc_no_wrap
 	INX
-	INC	temp1			\increment length counter
 	BNE	printdesc
 	
 .descprinted
-	INX					\skip null terminator (X now points to LO byte)
+	\ Skip null terminator
+	INC	htextl
+	BNE	desc_skip_done
+	INC	htexth
+.desc_skip_done
 	
-	\ Get test routine address
-	LDA	testtab,X		\LO byte
+	\ Get test routine address (temp1=LO, temp2=HI)
+	LDY	#0
+	LDA	(htextl),Y
+	STA	temp1
+	INC	htextl
+	BNE	addr_lo_done
+	INC	htexth
+.addr_lo_done
+	LDA	(htextl),Y
 	STA	temp2
-	INX
-	LDA	testtab,X		\HI byte
-	STA	temp2+1
-	INX					\X now points to next entry or $FF marker
-	
-	\ Call test routine (preserve X which points to next entry/$FF)
-	TXA
-	PHA					\Save X (points after HI byte)
+	INC	htextl
+	BNE	addr_hi_done
+	INC	htexth
+.addr_hi_done
+	\ Call test routine
 	JSR	calltest
-	PLA
-	TAX					\Restore X (points to next entry or $FF)
-	
-	\ Print result (aligned)
-	\ Note: printspaces uses X, so we need to preserve X
-	TXA
-	PHA					\Save X (points to next entry or $FF)
 	BCS	testfailed
-	\ Test passed - align and print "Success"
 	JSR	printspaces
 	JSR	printsuccess
-	PLA
-	TAX					\Restore X
-	JMP	nexttest
-	
+	JMP	nexttest	
 .testfailed
-	\ Test failed - align and print "Fail"
 	JSR	printspaces
 	JSR	printfail
-	PLA
-	TAX					\Restore X
 	
 .nexttest
-	JSR	OSNEWL			\new line
-	\ X already points to next entry or $FF marker
-	\ Jump back to check for end of table
+	JSR	OSNEWL
+	LDY	#0
 	JMP	testloop
 	
 .testsdone
@@ -378,22 +382,20 @@
 \ Helper: Call test routine via indirect jump
 \-------------------------------------------------------------------------------
 .calltest
-	JMP	(temp2)			\Indirect jump to test routine
+	JMP	(temp1)
 
 \-------------------------------------------------------------------------------
-\ Helper: Print spaces to align results
+\ Helper: Print spaces to align results (aligns to column 30)
 \-------------------------------------------------------------------------------
-\ Aligns to column 30 (description is typically < 25 chars)
 .printspaces
-	LDX	#0
-.spaceloop
-	LDA	temp1			\get description length
-	CMP	#30				\if already >= 30, no spaces needed
+	CPX	#30
 	BCS	spacesdone
+.spaceloop
 	LDA	#' '
 	JSR	OSASCI
-	INC	temp1			\increment counter
-	BNE	spaceloop
+	INX
+	CPX	#30
+	BCC	spaceloop
 .spacesdone
 	RTS
 
