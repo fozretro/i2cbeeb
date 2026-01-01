@@ -2,7 +2,7 @@
 \ 			*** I2C Beeb ***			\
 \			I2C Rom Utilities			\
 \			(c) Martin Barr 2018		\
-\			!FOZ!, v3.2, Added AP6 		\
+\			!FOZ!, v3.3, Added I2CTEST	\
 \										\
 \			For the BBC Micro			\ 
 \			Acorn Electron AP5			\
@@ -33,6 +33,7 @@
 \		*I2CRXB <addr> (#<hh>) (A%-Z%)
 \		*I2CRXD <addr> (#<hh>) <no.bytes>
 \		*I2CSTOP
+\		*I2CTEST
 \		*TBRK
 \		*TIME
 \		*DATE
@@ -106,6 +107,10 @@
 \	b) Migrated to BeebAsm
 \   c) Added new target build system and support for SMJoin (AP6 Support Rom)
 \   d) Support for AP6 RTC chip via new target
+\
+\ 7. Changes introduced in v3.3 :
+\
+\	a) Added *I2CTEST command for testing I2C functionality
 \
 \-------------------------------------------------------------------------------
 
@@ -401,6 +406,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 \		 <command label>
 
 .comtab	
+	\Production build: include all commands except I2CTEST
 	EQUS	"I2C"
 	EQUB 	HI(stari2c), LO(stari2c)
 	EQUS	"I2CRESET"
@@ -417,6 +423,11 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	EQUB	HI(i2crxd), LO(i2crxd)
 	EQUS	"I2CSTOP"
 	EQUB	HI(starstp), LO(starstp)
+	IF I2CTEST_ONLY
+	\Test build: also include I2CTEST command
+	EQUS	"I2CTEST"
+	EQUB	HI(staritest), LO(staritest)
+	ENDIF
 	EQUS	"TBRK"
 	EQUB	HI(xtbrk), LO(xtbrk)
 	EQUS	"TIME"
@@ -778,6 +789,31 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	LDA	#0				\set A=0 to inform MOS command taken
 	CLI
 	RTS					\return to MOS
+
+\-------------------------------------------------------------------------------
+\*I2CTEST - test command for I2C functionality
+
+	IF I2CTEST_ONLY
+.testgo	
+	NOP					\assembler call entry point
+.staritest	
+	LDX	#0				\index for string
+.testloop	
+	LDA	testmsg,X		\get character from test message
+	BEQ	testdone		\if null terminator, done
+	JSR	OSASCI			\print character
+	INX					\next character
+	BNE	testloop		\loop
+.testdone	
+	PLA					\MOS command graceful exit
+	TAY
+	PLA
+	TAX
+	LDA	#0				\set A=0 to inform MOS command taken
+	RTS					\return to MOS
+
+.testmsg	EQUS	"Test", cr, 0		\test message string
+	ENDIF
 
 \-------------------------------------------------------------------------------
 \*I2CQUERY - find connected i2c devices
