@@ -264,3 +264,37 @@ Various reference resources, forum posts etc..
 - [Interesting base code for ROMS](https://mdfs.net/Software/BBC/SROM/Tools/MiniROM.src)
 - [Source code AP6Count useful ref](https://mdfs.net/Software/BBC/SROM/AP6Count.bas)
 - [Source code AP6 Plus 1 ROM](https://mdfs.net/Software/BBC/SROM/Plus1/)
+
+Test Framework *I2CTEST
+------------------------
+
+The I2C ROM includes a comprehensive test framework accessible via the `*I2CTEST` command.
+
+<img src="images/i2ctest.jpg" alt="I2CTEST Output" width="450" height="214">
+
+This framework provides automated testing of I2C bus functionality, low-level I2C operations, and RTC (Real-Time Clock) operations. The test framework runs a series of tests and reports results, showing "Pass" or "Fail" for each test with step numbers for detailed failure reporting. **All tests require actual hardware and cannot be run in emulation** - some tests focus on low-level I2C bus operations, while others require an RTC device (DS3231 or PCF8583) connected to the I2C bus.
+
+**Important:** The `*I2CTEST` command is only available in the test builds of the ROMs. Production ROMs exclude this command to conserve space. Test ROMs are available both as individual ROM files in `/dist` (e.g., `i2cbt.rom`, `i2cet.rom`, `i2ceap6t.rom`) and on the SSD disc image `i2c.ssd` in DFS format (e.g., `T.I2CB`, `T.I2CET`, `T.I2CEAP6`).
+
+To run the tests, simply load a test ROM and execute:
+
+    *I2CTEST
+
+The test framework will run all registered tests and display results for each one.
+
+**Test Suite:**
+
+| Test | What It Tests |
+|------|---------------|
+| 01. Bus Idle State | Verifies I2C bus is in idle state (SDA high) |
+| 02. START Condition | Verifies START condition sets SDA low |
+| 03. STOP Condition | Verifies STOP condition returns SDA to idle (high) |
+| 04. SCL Control | Verifies SCL line control (indirectly via clock pulse) |
+| 05. SDA Control | Verifies SDA line can be set high and low |
+| 06. Clock Pulse | Verifies clock pulse generation (sclhi then scllo) |
+| 07. START-STOP Sequence | Verifies complete START-STOP sequence |
+| 08. Address Transmission | Verifies 7-bit address transmission with ACK/NACK handling |
+| 09. Write and Read Byte | Verifies byte write and read operations to RTC |
+| 20. Time Set and Read | Verifies time values can be written and read from RTC |
+| 21. Date Set and Read | Verifies date values can be written and read from RTC |
+| 22. Time Passage (3 seconds) | Verifies RTC time advances correctly over time |
