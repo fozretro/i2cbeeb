@@ -94,12 +94,26 @@
 \ (START is: SDA goes low while SCL is high, then SCL goes low)
 \-------------------------------------------------------------------------------
 .test02_start
-	\ TODO: Implement START condition test
-	\ 1. Set bus to idle (both high)
-	\ 2. Call i2cstart
-	\ 3. Assert SCL is low
-	\ 4. Assert SDA is low
+	\ Set bus to idle (both high)
+	i2cidle
+	
+	\ Call i2cstart
+	i2cstart
+	
+	\ Assert SCL is low
+	readscl
+	BNE	test02_fail		\SCL should be low (zero)
+	
+	\ Assert SDA is low
+	readsda
+	BNE	test02_fail		\SDA should be low (zero)
+	
+	\ Both lines low - test passed
 	CLC
+	RTS
+	
+.test02_fail
+	SEC				\Set Carry to indicate failure
 	RTS
 
 \-------------------------------------------------------------------------------
@@ -114,7 +128,7 @@
 	\ 2. Call i2cstop
 	\ 3. Assert SCL is high
 	\ 4. Assert SDA is high
-	CLC
+	SEC				\Stub - return fail
 	RTS
 
 \-------------------------------------------------------------------------------
@@ -123,11 +137,28 @@
 \ Assert: After sclhi, SCL should be high; after scllo, SCL should be low
 \-------------------------------------------------------------------------------
 .test04_scl_control
-	\ TODO: Implement SCL control test
-	\ 1. Call scllo, assert SCL is low
-	\ 2. Call sclhi, assert SCL is high
-	\ 3. Call scllo again, assert SCL is low
+
+	\ Call scllo, assert SCL is low
+	scllo
+	readscl
+	BNE	test04_fail		\SCL should be low (zero)
+	
+	\ Call sclhi, assert SCL is high
+	sclhi
+	readscl
+	BEQ	test04_fail		\SCL should be high (non-zero)
+	
+	\ Call scllo again, assert SCL is low
+	scllo
+	readscl
+	BNE	test04_fail		\SCL should be low (zero)
+	
+	\ All assertions passed
 	CLC
+	RTS
+	
+.test04_fail
+	SEC				\Set Carry to indicate failure
 	RTS
 
 \-------------------------------------------------------------------------------
@@ -136,11 +167,27 @@
 \ Assert: After sdahi, SDA should be high; after sdalo, SDA should be low
 \-------------------------------------------------------------------------------
 .test05_sda_control
-	\ TODO: Implement SDA control test
-	\ 1. Call sdalo, assert SDA is low
-	\ 2. Call sdahi, assert SDA is high
-	\ 3. Call sdalo again, assert SDA is low
+	\ Call sdalo, assert SDA is low
+	sdalo
+	readsda
+	BNE	test05_fail		\SDA should be low (zero)
+	
+	\ Call sdahi, assert SDA is high
+	sdahi
+	readsda
+	BEQ	test05_fail		\SDA should be high (non-zero)
+	
+	\ Call sdalo again, assert SDA is low
+	sdalo
+	readsda
+	BNE	test05_fail		\SDA should be low (zero)
+	
+	\ All assertions passed
 	CLC
+	RTS
+	
+.test05_fail
+	SEC				\Set Carry to indicate failure
 	RTS
 
 \-------------------------------------------------------------------------------
@@ -150,12 +197,24 @@
 \ (Clock pulse is: sclhi followed by scllo)
 \-------------------------------------------------------------------------------
 .test06_clock_pulse
-	\ TODO: Implement clock pulse test
-	\ 1. Set initial state (e.g., scllo)
-	\ 2. Call i2clock
-	\ 3. Assert SCL is low (pulse completed)
-	\ Note: May need to check intermediate states or timing
+	\ Set initial state (scllo)
+	scllo
+	readscl
+	BNE	test06_fail		\SCL should be low initially (zero)
+	
+	\ Call i2clock (generates pulse: sclhi then scllo)
+	i2clock
+	
+	\ Assert SCL is low (pulse completed)
+	readscl
+	BNE	test06_fail		\SCL should be low after pulse (zero)
+	
+	\ Clock pulse completed correctly
 	CLC
+	RTS
+	
+.test06_fail
+	SEC				\Set Carry to indicate failure
 	RTS
 
 \-------------------------------------------------------------------------------
@@ -164,29 +223,79 @@
 \ Assert: After START-STOP, bus should be in idle state (both high)
 \-------------------------------------------------------------------------------
 .test07_start_stop
-	\ TODO: Implement START-STOP sequence test
-	\ 1. Set bus to idle
-	\ 2. Call i2cstart
-	\ 3. Assert SCL and SDA are low
-	\ 4. Call i2cstop
-	\ 5. Assert both SCL and SDA are high (idle)
+	\ Set bus to idle
+	i2cidle
+	
+	\ Verify initial state: both high
+	readscl
+	BNE	test07_ok1		\SCL should be high (non-zero)
+	JMP	test07_fail
+.test07_ok1
+	readsda
+	BNE	test07_ok2		\SDA should be high (non-zero)
+	JMP	test07_fail
+.test07_ok2
+	\ Call i2cstart
+	i2cstart
+	
+	\ Assert SCL and SDA are low after START
+	readscl
+	BEQ	test07_ok3		\SCL should be low (zero)
+	JMP	test07_fail
+.test07_ok3
+	readsda
+	BEQ	test07_ok4		\SDA should be low (zero)
+	JMP	test07_fail
+.test07_ok4
+	\ Call i2cstop
+	i2cstop
+	
+	\ Assert both SCL and SDA are high (idle state)
+	readscl
+	BNE	test07_ok5		\SCL should be high (non-zero)
+	JMP	test07_fail
+.test07_ok5
+	readsda
+	BNE	test07_done		\SDA should be high (non-zero)
+	JMP	test07_fail
+.test07_done
+	\ START-STOP sequence completed correctly
 	CLC
+	RTS
+	
+.test07_fail
+	SEC				\Set Carry to indicate failure
 	RTS
 
 \-------------------------------------------------------------------------------
 \ Test 08: Address Transmission
 \ Verifies that i2caddr correctly transmits a 7-bit address with RnW bit
-\ Assert: After transmission, bus should be ready for ACK (SCL low, SDA high)
-\ Note: This test may require a slave device or may test signal sequence only
+\ Tests address transmission sequence - i2caddr followed by i2crxack
+\ Note: Without a slave device, i2crxack will return NACK (Carry set)
+\ Address validation (device exists on bus) happens via i2crxack response
 \-------------------------------------------------------------------------------
 .test08_addr_tx
-	\ TODO: Implement address transmission test
-	\ 1. Issue START
-	\ 2. Call i2caddr with known address (e.g., $50) and RnW=0 (write)
-	\ 3. Assert SCL is low after transmission
-	\ 4. Assert SDA is high (ready for ACK)
-	\ 5. May need to verify bit sequence or use scope/logic analyzer
+	\ Test address transmission sequence - valid address ($50)
+	i2cstart
+	LDA	#$50			\7-bit address
+	CLC					\RnW=0 (write)
+	JSR	i2caddr			\Transmit address
+	JSR	i2crxack		\Check ACK - validates if device exists on bus
+	BCS	test08_fail		\Carry set (NACK) is not expected
+
+	\ Test address transmission sequence - invalid address ($80)
+	i2cstart
+	LDA	#$80			\7-bit address
+	CLC					\RnW=0 (write)
+	JSR	i2caddr			\Transmit address
+	JSR	i2crxack		\Check ACK - validates if device exists on bus
+	BCC	test08_fail		\Carry clear (ACK) is not expected
+
+	\ Test completed successfully
 	CLC
+	RTS	
+.test08_fail
+	SEC				\Set Carry to indicate failure
 	RTS
 
 \-------------------------------------------------------------------------------
@@ -202,7 +311,7 @@
 	\ 3. Assert SCL is low after transmission
 	\ 4. Assert SDA is high (ready for ACK)
 	\ 5. May need to verify bit sequence or use scope/logic analyzer
-	CLC
+	SEC				\Stub - return fail
 	RTS
 
 \-------------------------------------------------------------------------------
@@ -218,7 +327,7 @@
 	\ 3. Assert byte received in accumulator
 	\ 4. May need slave device or test signal sequence only
 	\ 5. Could test with known pattern (e.g., $AA, $55, $00, $FF)
-	CLC
+	SEC				\Stub - return fail
 	RTS
 
 \-------------------------------------------------------------------------------
@@ -235,7 +344,7 @@
 	\ 5. Set Carry, call i2ctxack (should send NACK, SDA=1)
 	\ 6. Assert SCL is low
 	\ 7. Assert SDA is high (NACK sent)
-	CLC
+	SEC				\Stub - return fail
 	RTS
 
 \-------------------------------------------------------------------------------
@@ -256,7 +365,7 @@
 	\ 5. Assert buf01 matches set minutes
 	\ 6. Assert buf00 matches set seconds
 	\ Note: Other buffer values (buf03-buf06) may change, that's OK
-	CLC
+	SEC				\Stub - return fail
 	RTS
 
 \-------------------------------------------------------------------------------
@@ -279,7 +388,7 @@
 	\ 6. Assert buf05 matches set month
 	\ 7. Assert buf06 matches set year
 	\ Note: Time values (buf00-buf02) may change, that's OK
-	CLC
+	SEC				\Stub - return fail
 	RTS
 
 \-------------------------------------------------------------------------------
@@ -301,7 +410,7 @@
 	\ 6. Assert seconds (buf00) has advanced by N (accounting for BCD)
 	\ 7. If seconds wrapped (e.g., 59->00), verify minutes (buf01) advanced
 	\ Note: Handle BCD arithmetic correctly (e.g., $59 + 1 = $60, not $5A)
-	CLC
+	SEC				\Stub - return fail
 	RTS
 
 \-------------------------------------------------------------------------------
