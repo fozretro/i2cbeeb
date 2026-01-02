@@ -79,7 +79,7 @@ echo "*** Building T.I2CB ROM ***"
 
 # Compile I2CTEST-only Electron target
 echo ""
-echo "*** Building T.I2CET ROM ***"
+echo "*** Building T.I2CE ROM ***"
 ./bin/beebasm -i ./src/I2CBeeb.asm -do ./src/out/teste.ssd -title I2C \
     -S INCBUS="./src/inc/bus/E.asm" \
     -S INCRTC="./src/inc/rtc/DS3231.asm" \
@@ -87,7 +87,7 @@ echo "*** Building T.I2CET ROM ***"
     -D ALTBASE=0 \
     -D PAD=1 \
     -D I2CTEST_ONLY=1 \
-    -o "T.I2CET"
+    -o "T.I2CE"
 # Extract from ssd to output folder
 ./bin/mmbutils/beeb getfile ./src/out/teste.ssd ./src/out/teste
 
@@ -119,7 +119,7 @@ rm -f ./dist/i2c.ssd
 ./bin/mmbutils/beeb putfile ./dist/i2c.ssd ./src/out/ap6/I2CEAP6 ./src/out/b/I2CB ./src/out/e/I2CE
 # Add test ROMs to ssd (add individually to ensure they're all included)
 ./bin/mmbutils/beeb putfile ./dist/i2c.ssd ./src/out/testb/T.I2CB
-./bin/mmbutils/beeb putfile ./dist/i2c.ssd ./src/out/teste/T.I2CET
+./bin/mmbutils/beeb putfile ./dist/i2c.ssd ./src/out/teste/T.I2CE
 ./bin/mmbutils/beeb putfile ./dist/i2c.ssd ./src/out/testap6/T.I2CEAP6
 ./bin/mmbutils/beeb title ./dist/i2c.ssd i2crom
 
@@ -134,7 +134,7 @@ cp ./src/out/ap6/I2CEAP6 ./dist/i2ceap6.rom
 
 # Copy test ROMs to dist folder
 cp ./src/out/testb/T.I2CB ./dist/i2cbt.rom
-cp ./src/out/teste/T.I2CET ./dist/i2cet.rom
+cp ./src/out/teste/T.I2CE ./dist/i2ce.rom
 cp ./src/out/testap6/T.I2CEAP6 ./dist/i2ceap6t.rom
 
 ################################################################################
@@ -161,7 +161,7 @@ echo ""
 echo "*** Copying Test ROMs to Dev Folder ***"
 cp ./src/out/testb/T.I2CB ./dev/eap6/
 cp ./src/out/testb/T.I2CB.inf ./dev/eap6/ 2>/dev/null || true
-cp ./src/out/teste/T.I2CET ./dev/eap6/
-cp ./src/out/teste/T.I2CET.inf ./dev/eap6/ 2>/dev/null || true
+cp ./src/out/teste/T.I2CE ./dev/eap6/
+cp ./src/out/teste/T.I2CE.inf ./dev/eap6/ 2>/dev/null || true
 cp ./src/out/testap6/T.I2CEAP6 ./dev/eap6/
 cp ./src/out/testap6/T.I2CEAP6.inf ./dev/eap6/ 2>/dev/null || true
