@@ -126,7 +126,6 @@ ENDMACRO
 
 \-------------------------------------------------------------------------------
 \readscl - reads SCL state. Returns A=0 if low, A!=0 if high.
-\Matches the pattern used in sclhi macro for reading SCL (CB2 flag).
 
 MACRO readscl
 	LDA	upifr		\read SCL state from upifr (CB2 flag)
@@ -135,7 +134,6 @@ ENDMACRO
 
 \-------------------------------------------------------------------------------
 \readsda - reads SDA state. Returns A=0 if low, A!=0 if high.
-\Matches the pattern used in i2crxack and i2crxbyte for reading SDA.
 
 MACRO readsda
 	LDA	upiob		\read SDA state from upiob
