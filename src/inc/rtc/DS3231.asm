@@ -6,6 +6,7 @@
 
 RTC			=	$68		\AP6 RTC I2C Slave Address (PCF8583 Build) 
 RTC_TEMP	=	-1		\tempurate is supported for this RTC
+RTC_TEST_REG	=	$08		\Register offset for testing byte transmission (Alarm 1 Seconds - unused by ROM, alarms disabled)
 
 \-------------------------------------------------------------------------------
 \Gets time and date parameters from RTC into buffer buf00-buf07 @ $0380

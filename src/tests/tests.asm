@@ -38,12 +38,6 @@
 	EQUS	"09. Byte Transmission"
 	EQUB	0
 	EQUB	LO(test09_byte_tx), HI(test09_byte_tx)
-	EQUS	"10. Byte Reception"
-	EQUB	0
-	EQUB	LO(test10_byte_rx), HI(test10_byte_rx)
-	EQUS	"11. ACK Transmission"
-	EQUB	0
-	EQUB	LO(test11_ack_tx), HI(test11_ack_tx)
 	EQUS	"20. Time Set and Read"
 	EQUB	0
 	EQUB	LO(test20_time_set_read), HI(test20_time_set_read)
@@ -73,6 +67,7 @@
 	RTS
 	
 .test01_fail
+	LDY	#0				\Set step number (single failure point)
 	SEC				\Set Carry to indicate failure
 	RTS
 
@@ -99,6 +94,7 @@
 	RTS
 	
 .test02_fail
+	LDY	#0				\Set step number (single failure point)
 	SEC				\Set Carry to indicate failure
 	RTS
 
@@ -110,27 +106,31 @@
 \ (STOP is: SCL goes low, SDA goes low, SCL goes high, SDA goes high)
 \-------------------------------------------------------------------------------
 .test03_stop
-	LDY	#0			\Initialize test step counter
-	
 	\ Step 1: Set bus to some state (e.g., START condition - both low)
-	INY				\Step 1
 	i2cstart		\This sets both SCL and SDA low
 	readsda
 	BEQ	test03_ok1		\SDA should be low (zero)
-	JMP	test03_fail
+	JMP	test03_fail_1		\Error occurred in step 1
 .test03_ok1
 	
 	\ Step 2: Call i2cstop and verify SDA is high (idle state)
-	INY				\Step 2
 	i2cstop
 	readsda
 	BNE	test03_done		\SDA should be high (non-zero)
-	JMP	test03_fail
+	JMP	test03_fail_2		\Error occurred in step 2
 .test03_done
 	\ STOP condition completed correctly
 	\ (SCL state cannot be read, but sequence completion indicates success)
 	CLC
 	RTS
+	
+.test03_fail_1
+	LDY	#1				\Set step number for error reporting
+	JMP	test03_fail
+	
+.test03_fail_2
+	LDY	#2				\Set step number for error reporting
+	JMP	test03_fail
 	
 .test03_fail
 	SEC				\Set Carry to indicate failure
@@ -155,6 +155,7 @@
 	RTS
 	
 .test04_fail
+	LDY	#0				\Set step number (single failure point)
 	SEC				\Set Carry to indicate failure
 	RTS
 
@@ -184,6 +185,7 @@
 	RTS
 	
 .test05_fail
+	LDY	#0				\Set step number (single failure point)
 	SEC				\Set Carry to indicate failure
 	RTS
 
@@ -206,6 +208,7 @@
 	RTS
 	
 .test06_fail
+	LDY	#0				\Set step number (single failure point)
 	SEC				\Set Carry to indicate failure
 	RTS
 
@@ -215,39 +218,46 @@
 \ Assert: After START-STOP, bus should be in idle state (both high)
 \-------------------------------------------------------------------------------
 .test07_start_stop
-	LDY	#0			\Initialize test step counter
-	
 	\ Step 1: Set bus to idle and verify initial state
-	INY				\Step 1
 	i2cidle
 	readsda
 	BNE	test07_ok1		\SDA should be high (non-zero)
-	JMP	test07_fail
+	JMP	test07_fail_1		\Error occurred in step 1
 .test07_ok1
 	
 	\ Step 2: Call i2cstart and verify SDA low
-	INY				\Step 2
 	i2cstart
 	readsda
 	BEQ	test07_ok2		\SDA should be low (zero)
-	JMP	test07_fail
+	JMP	test07_fail_2		\Error occurred in step 2
 .test07_ok2
 	
 	\ Step 3: Call i2cstop and verify SDA high (idle)
-	INY				\Step 3
 	i2cstop
 	readsda
 	BNE	test07_done		\SDA should be high (non-zero)
-	JMP	test07_fail
+	JMP	test07_fail_3		\Error occurred in step 3
 .test07_done
 	\ START-STOP sequence completed correctly
 	\ (SCL state cannot be read, but sequence completion indicates success)
 	CLC
 	RTS
 	
+.test07_fail_1
+	LDY	#1				\Set step number for error reporting
+	JMP	test07_fail
+	
+.test07_fail_2
+	LDY	#2				\Set step number for error reporting
+	JMP	test07_fail
+	
+.test07_fail_3
+	LDY	#3				\Set step number for error reporting
+	JMP	test07_fail
+	
 .test07_fail
 	SEC				\Set Carry to indicate failure
-	RTS				\Y register contains step number for printfail
+	RTS
 
 \-------------------------------------------------------------------------------
 \ Test 08: Address Transmission
@@ -257,76 +267,111 @@
 \ Address validation (device exists on bus) happens via i2crxack response
 \-------------------------------------------------------------------------------
 .test08_addr_tx
-	\ Test address transmission sequence - valid address ($50)
+	\ Step 1: Test address transmission sequence - valid address ($50)
 	i2cstart
 	LDA	#$50			\7-bit address
 	CLC					\RnW=0 (write)
 	JSR	i2caddr			\Transmit address
 	JSR	i2crxack		\Check ACK - validates if device exists on bus
-	BCS	test08_fail		\Carry set (NACK) is not expected
+	BCC	test08_ok1		\Carry clear (ACK) is expected
+	JMP	test08_fail_1		\Carry set (NACK) - error in step 1
+.test08_ok1
 
-	\ Test address transmission sequence - invalid address ($80)
+	\ Step 2: Test address transmission sequence - invalid address ($80)
 	i2cstart
 	LDA	#$80			\7-bit address
 	CLC					\RnW=0 (write)
 	JSR	i2caddr			\Transmit address
 	JSR	i2crxack		\Check ACK - validates if device exists on bus
-	BCC	test08_fail		\Carry clear (ACK) is not expected
-
+	BCS	test08_done		\Carry set (NACK) is expected
+	JMP	test08_fail_2		\Carry clear (ACK) - error in step 2
+.test08_done
 	\ Test completed successfully
 	CLC
-	RTS	
+	RTS
+	
+.test08_fail_1
+	LDY	#1				\Set step number for error reporting
+	JMP	test08_fail
+	
+.test08_fail_2
+	LDY	#2				\Set step number for error reporting
+	JMP	test08_fail
+	
 .test08_fail
 	SEC				\Set Carry to indicate failure
 	RTS
 
 \-------------------------------------------------------------------------------
 \ Test 09: Byte Transmission
-\ Verifies that i2ctxbyte correctly transmits an 8-bit byte
-\ Assert: After transmission, bus should be ready for ACK (SCL low, SDA high)
-\ Note: This test may require a slave device or may test signal sequence only
+\ Verifies that i2ctxbyte correctly transmits an 8-bit byte to RTC
+\ Tests: Write byte to RTC_TEST_REG, read it back, verify it matches
+\ Requires: Actual RTC device (DS3231 or PCF8583) on I2C bus
+\ Assert: Written byte matches read byte
 \-------------------------------------------------------------------------------
 .test09_byte_tx
-	\ TODO: Implement byte transmission test
-	\ 1. Issue START and address (or set up bus state)
-	\ 2. Call i2ctxbyte with known byte (e.g., $AA or $55 for bit pattern)
-	\ 3. Assert SCL is low after transmission
-	\ 4. Assert SDA is high (ready for ACK)
-	\ 5. May need to verify bit sequence or use scope/logic analyzer
-	SEC				\Stub - return fail
+	\ Step 1: Write test byte using cmd3 (I2CTXB)
+	SEI					\Disable interrupts (cmd3 expects this)
+	LDA	#0				\Clear status
+	STA	i2cstat
+	LDA	#RTC			\RTC device address
+	STA	i2cdev			\$68
+	LDA	#RTC_TEST_REG		\Register offset for testing
+	STA	i2creg			\$69
+	LDA	#$AA			\Test byte (bit pattern 10101010)
+	STA	i2cbyte			\$6A
+	LDA	#$FF			\$FF = register specified
+	STA	temp2			\$6C
+	LDA	#0				\Stop after write
+	STA	htextl			\$6D
+	JSR	txbgo			\Write byte (entry point, skips parsing)
+	LDA	i2cstat			\Check for errors
+	BEQ	test09_ok1		\No error, continue
+	JMP	test09_fail_1		\Error occurred in step 1
+.test09_ok1
+	CLI					\Re-enable interrupts
+	
+	\ Step 2: Read back the test byte using cmd5 (I2CRXB)
+	SEI					\Disable interrupts (cmd5 expects this)
+	LDA	#0				\Clear status
+	STA	i2cstat
+	LDA	#RTC			\RTC device address
+	STA	i2cdev			\$68
+	LDA	#RTC_TEST_REG		\Register offset for testing
+	STA	i2creg			\$69
+	LDA	#$FF			\$FF = register specified
+	STA	temp2			\$6C
+	LDA	#0				\Not storing in % var
+	STA	htexth			\$6E
+	LDX	#LO(i2cbuf)		\Set buffer location
+	STX	bufloc			\$CE
+	LDX	#HI(i2cbuf)
+	STX	bufloc+1		\$CF
+	JSR	rxbgo			\Read byte (entry point, skips parsing)
+	LDA	i2cstat			\Check for errors
+	BEQ	test09_ok2		\No error, continue
+	JMP	test09_fail_2		\Error occurred in step 2
+.test09_ok2
+	LDA	i2cbuf			\Get read byte from buffer
+	CMP	#$AA			\Compare with written value
+	BEQ	test09_done		\Matches, test passed
+	JMP	test09_fail_2		\Byte mismatch in step 2
+.test09_done
+	CLI					\Re-enable interrupts
+	CLC					\Test completed successfully
 	RTS
-
-\-------------------------------------------------------------------------------
-\ Test 10: Byte Reception
-\ Verifies that i2crxbyte correctly receives an 8-bit byte
-\ Assert: Received byte should match expected value (if slave present)
-\ Note: This test requires a slave device or may test signal sequence only
-\-------------------------------------------------------------------------------
-.test10_byte_rx
-	\ TODO: Implement byte reception test
-	\ 1. Issue START and address with RnW=1 (read)
-	\ 2. Call i2crxbyte
-	\ 3. Assert byte received in accumulator
-	\ 4. May need slave device or test signal sequence only
-	\ 5. Could test with known pattern (e.g., $AA, $55, $00, $FF)
-	SEC				\Stub - return fail
-	RTS
-
-\-------------------------------------------------------------------------------
-\ Test 11: ACK Transmission
-\ Verifies that i2ctxack correctly transmits ACK (SDA=0) or NACK (SDA=1)
-\ Assert: After ACK transmission, SCL should be low
-\-------------------------------------------------------------------------------
-.test11_ack_tx
-	\ TODO: Implement ACK transmission test
-	\ 1. Set up bus state (e.g., after receiving byte)
-	\ 2. Clear Carry, call i2ctxack (should send ACK, SDA=0)
-	\ 3. Assert SCL is low
-	\ 4. Assert SDA is low (ACK sent)
-	\ 5. Set Carry, call i2ctxack (should send NACK, SDA=1)
-	\ 6. Assert SCL is low
-	\ 7. Assert SDA is high (NACK sent)
-	SEC				\Stub - return fail
+	
+.test09_fail_1
+	LDY	#1				\Set step number for error reporting
+	JMP	test09_fail
+	
+.test09_fail_2
+	LDY	#2				\Set step number for error reporting
+	JMP	test09_fail
+	
+.test09_fail
+	CLI					\Re-enable interrupts
+	SEC					\Set Carry to indicate failure
 	RTS
 
 \-------------------------------------------------------------------------------
@@ -401,15 +446,16 @@
 \-------------------------------------------------------------------------------
 .runtests
 	\ Set up pointer to test table (handles page boundaries)
+	\ Use eeplo/eephi instead of htextl/htexth to avoid conflicts with test code
 	LDA	#LO(testtab)
-	STA	htextl
+	STA	eeplo
 	LDA	#HI(testtab)
-	STA	htexth
+	STA	eephi
 	LDY	#0
 	
 .testloop
 	\ Check for end of table
-	LDA	(htextl),Y
+	LDA	(eeplo),Y
 	CMP	#$FF
 	BNE	test_not_done
 	JMP	testsdone
@@ -419,39 +465,45 @@
 	LDX	#0
 .printdesc
 	LDY	#0
-	LDA	(htextl),Y
+	LDA	(eeplo),Y
 	BEQ	descprinted
 	JSR	OSASCI
-	INC	htextl
+	INC	eeplo
 	BNE	desc_no_wrap
-	INC	htexth
+	INC	eephi
 .desc_no_wrap
 	INX
 	BNE	printdesc
 	
 .descprinted
 	\ Skip null terminator
-	INC	htextl
+	INC	eeplo
 	BNE	desc_skip_done
-	INC	htexth
+	INC	eephi
 .desc_skip_done
 	
 	\ Get test routine address (temp1=LO, temp2=HI)
 	LDY	#0
-	LDA	(htextl),Y
+	LDA	(eeplo),Y
 	STA	temp1
-	INC	htextl
+	INC	eeplo
 	BNE	addr_lo_done
-	INC	htexth
+	INC	eephi
 .addr_lo_done
-	LDA	(htextl),Y
+	LDA	(eeplo),Y
 	STA	temp2
-	INC	htextl
+	INC	eeplo
 	BNE	addr_hi_done
-	INC	htexth
+	INC	eephi
 .addr_hi_done
+	\ Save X (description length) before calling test
+	TXA
+	PHA
 	\ Call test routine
 	JSR	calltest
+	\ Restore X (description length) after test returns
+	PLA
+	TAX
 	BCS	testfailed
 	JSR	printspaces
 	JSR	printsuccess
@@ -490,7 +542,7 @@
 	RTS
 
 \-------------------------------------------------------------------------------
-\ Helper: Print "Success"
+\ Helper: Print "Pass"
 \-------------------------------------------------------------------------------
 .printsuccess
 	LDX	#0
@@ -503,7 +555,7 @@
 .successdone
 	RTS
 
-.successmsg	EQUS	"Success", 0
+.successmsg	EQUS	"Pass", 0
 
 \-------------------------------------------------------------------------------
 \ Helper: Print "Fail" followed by test step number from Y register

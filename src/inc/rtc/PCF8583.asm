@@ -6,6 +6,7 @@
 
 RTC			=	$50		\AP6 RTC I2C Slave Address (PCF8583 Build) 
 RTC_TEMP	=	0		\no tempurate support for this RTC
+RTC_TEST_REG	=	$12		\Register offset for testing byte transmission (free RAM - unused by ROM)
 
 \-------------------------------------------------------------------------------
 \ Notes
