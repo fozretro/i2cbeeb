@@ -35,7 +35,7 @@
 	EQUS	"08. Address Transmission"
 	EQUB	0
 	EQUB	LO(test08_addr_tx), HI(test08_addr_tx)
-	EQUS	"09. Byte Transmission"
+	EQUS	"09. Write and Read Byte"
 	EQUB	0
 	EQUB	LO(test09_byte_tx), HI(test09_byte_tx)
 	EQUS	"20. Time Set and Read"
@@ -44,7 +44,7 @@
 	EQUS	"21. Date Set and Read"
 	EQUB	0
 	EQUB	LO(test21_date_set_read), HI(test21_date_set_read)
-	EQUS	"22. Time Passage"
+	EQUS	"22. Time Passage (3 seconds)"
 	EQUB	0
 	EQUB	LO(test22_time_passage), HI(test22_time_passage)
 	EQUB	$FF				\end of table marker
@@ -67,7 +67,7 @@
 	RTS
 	
 .test01_fail
-	LDY	#0				\Set step number (single failure point)
+	LDY	#0				\Bus idle state check failed (SDA not high)
 	SEC				\Set Carry to indicate failure
 	RTS
 
@@ -94,7 +94,7 @@
 	RTS
 	
 .test02_fail
-	LDY	#0				\Set step number (single failure point)
+	LDY	#0				\START condition check failed (SDA not low)
 	SEC				\Set Carry to indicate failure
 	RTS
 
@@ -125,11 +125,11 @@
 	RTS
 	
 .test03_fail_1
-	LDY	#1				\Set step number for error reporting
+	LDY	#1				\START condition check failed (SDA not low)
 	JMP	test03_fail
 	
 .test03_fail_2
-	LDY	#2				\Set step number for error reporting
+	LDY	#2				\STOP condition check failed (SDA not high)
 	JMP	test03_fail
 	
 .test03_fail
@@ -155,7 +155,7 @@
 	RTS
 	
 .test04_fail
-	LDY	#0				\Set step number (single failure point)
+	LDY	#0				\SCL control check failed (clock pulse sequence error)
 	SEC				\Set Carry to indicate failure
 	RTS
 
@@ -185,7 +185,7 @@
 	RTS
 	
 .test05_fail
-	LDY	#0				\Set step number (single failure point)
+	LDY	#0				\SDA control check failed (SDA state mismatch)
 	SEC				\Set Carry to indicate failure
 	RTS
 
@@ -208,7 +208,7 @@
 	RTS
 	
 .test06_fail
-	LDY	#0				\Set step number (single failure point)
+	LDY	#0				\Clock pulse check failed (sequence completion error)
 	SEC				\Set Carry to indicate failure
 	RTS
 
@@ -244,15 +244,15 @@
 	RTS
 	
 .test07_fail_1
-	LDY	#1				\Set step number for error reporting
+	LDY	#1				\Bus idle check failed (SDA not high)
 	JMP	test07_fail
 	
 .test07_fail_2
-	LDY	#2				\Set step number for error reporting
+	LDY	#2				\START condition check failed (SDA not low)
 	JMP	test07_fail
 	
 .test07_fail_3
-	LDY	#3				\Set step number for error reporting
+	LDY	#3				\STOP condition check failed (SDA not high)
 	JMP	test07_fail
 	
 .test07_fail
@@ -291,11 +291,11 @@
 	RTS
 	
 .test08_fail_1
-	LDY	#1				\Set step number for error reporting
+	LDY	#1				\Valid address ACK check failed (expected ACK, got NACK)
 	JMP	test08_fail
 	
 .test08_fail_2
-	LDY	#2				\Set step number for error reporting
+	LDY	#2				\Invalid address NACK check failed (expected NACK, got ACK)
 	JMP	test08_fail
 	
 .test08_fail
@@ -362,11 +362,11 @@
 	RTS
 	
 .test09_fail_1
-	LDY	#1				\Set step number for error reporting
+	LDY	#1				\Write byte to RTC failed (I2C error)
 	JMP	test09_fail
 	
 .test09_fail_2
-	LDY	#2				\Set step number for error reporting
+	LDY	#2				\Read byte from RTC failed or byte mismatch
 	JMP	test09_fail
 	
 .test09_fail
@@ -381,18 +381,83 @@
 \ Assert: After setting time and reading back, buf02/buf01/buf00 match set values
 \-------------------------------------------------------------------------------
 .test20_time_set_read
-	\ TODO: Implement time set and read test
-	\ 1. Set known time values in buffer:
-	\    buf02 = hours (BCD, e.g., $12 for 12:00)
-	\    buf01 = minutes (BCD, e.g., $34 for 34 minutes)
-	\    buf00 = seconds (BCD, e.g., $56 for 56 seconds)
-	\ 2. Call writetd to write time/date to RTC
-	\ 3. Call getrtc to read time/date back from RTC
-	\ 4. Assert buf02 matches set hours
-	\ 5. Assert buf01 matches set minutes
-	\ 6. Assert buf00 matches set seconds
-	\ Note: Other buffer values (buf03-buf06) may change, that's OK
-	SEC				\Stub - return fail
+	\ Step 1: Set known time values in buffer (BCD format)
+	LDA	#$12			\Hours: 12 (BCD)
+	STA	buf02
+	LDA	#$34			\Minutes: 34 (BCD)
+	STA	buf01
+	LDA	#$56			\Seconds: 56 (BCD)
+	STA	buf00
+	
+	\ Step 2: Write time to RTC using writetd
+	SEI					\Disable interrupts (cmd4 expects this)
+	LDA	#0				\Clear status
+	STA	i2cstat
+	JSR	writetd			\Write time/date to RTC
+	LDA	i2cstat			\Check for errors
+	BEQ	test20_ok1		\No error, continue
+	JMP	test20_fail_1		\Error occurred in step 2
+.test20_ok1
+	CLI					\Re-enable interrupts
+	
+	\ Step 3: Read time back from RTC using getrtc
+	SEI					\Disable interrupts (cmd6 expects this)
+	LDA	#0				\Clear status
+	STA	i2cstat
+	JSR	getrtc			\Read time/date from RTC
+	LDA	i2cstat			\Check for errors
+	BEQ	test20_ok2		\No error, continue
+	JMP	test20_fail_2		\Error occurred in step 3
+.test20_ok2
+	CLI					\Re-enable interrupts
+	
+	\ Step 4: Assert buf02 (hours) matches set value
+	LDA	buf02
+	CMP	#$12			\Compare with set hours
+	BEQ	test20_ok3		\Matches, continue
+	JMP	test20_fail_3		\Hours mismatch in step 4
+.test20_ok3
+	
+	\ Step 5: Assert buf01 (minutes) matches set value
+	LDA	buf01
+	CMP	#$34			\Compare with set minutes
+	BEQ	test20_ok4		\Matches, continue
+	JMP	test20_fail_4		\Minutes mismatch in step 5
+.test20_ok4
+	
+	\ Step 6: Assert buf00 (seconds) matches set value
+	LDA	buf00
+	CMP	#$56			\Compare with set seconds
+	BEQ	test20_done		\Matches, test passed
+	JMP	test20_fail_5		\Seconds mismatch in step 6
+.test20_done
+	\ Test completed successfully
+	CLC
+	RTS
+	
+.test20_fail_1
+	LDY	#2				\Write time to RTC failed (I2C error)
+	JMP	test20_fail
+	
+.test20_fail_2
+	LDY	#3				\Read time from RTC failed (I2C error)
+	JMP	test20_fail
+	
+.test20_fail_3
+	LDY	#4				\Hours mismatch (read value doesn't match written)
+	JMP	test20_fail
+	
+.test20_fail_4
+	LDY	#5				\Minutes mismatch (read value doesn't match written)
+	JMP	test20_fail
+	
+.test20_fail_5
+	LDY	#6				\Seconds mismatch (read value doesn't match written)
+	JMP	test20_fail
+	
+.test20_fail
+	CLI					\Re-enable interrupts (in case we failed during I2C)
+	SEC					\Set Carry to indicate failure
 	RTS
 
 \-------------------------------------------------------------------------------
@@ -402,20 +467,96 @@
 \ Assert: After setting date and reading back, buf03/buf04/buf05/buf06 match set values
 \-------------------------------------------------------------------------------
 .test21_date_set_read
-	\ TODO: Implement date set and read test
-	\ 1. Set known date values in buffer:
-	\    buf03 = weekday (1-7, e.g., $01 for Sunday)
-	\    buf04 = date (BCD, e.g., $25 for 25th)
-	\    buf05 = month (BCD, e.g., $12 for December)
-	\    buf06 = year (BCD, e.g., $23 for 2023)
-	\ 2. Call writetd to write time/date to RTC
-	\ 3. Call getrtc to read time/date back from RTC
-	\ 4. Assert buf03 matches set weekday
-	\ 5. Assert buf04 matches set date
-	\ 6. Assert buf05 matches set month
-	\ 7. Assert buf06 matches set year
-	\ Note: Time values (buf00-buf02) may change, that's OK
-	SEC				\Stub - return fail
+	\ Step 1: Set known date values in buffer (BCD format)
+	LDA	#$01			\Weekday: 1 (Sunday, 1-7)
+	STA	buf03
+	LDA	#$25			\Date: 25 (BCD)
+	STA	buf04
+	LDA	#$12			\Month: 12 (December, BCD)
+	STA	buf05
+	LDA	#$23			\Year: 23 (2023, BCD)
+	STA	buf06
+	
+	\ Step 2: Write date to RTC using writetd
+	SEI					\Disable interrupts (cmd4 expects this)
+	LDA	#0				\Clear status
+	STA	i2cstat
+	JSR	writetd			\Write time/date to RTC
+	LDA	i2cstat			\Check for errors
+	BEQ	test21_ok1		\No error, continue
+	JMP	test21_fail_1	\Error occurred in step 2
+.test21_ok1
+	CLI					\Re-enable interrupts
+	
+	\ Step 3: Read date back from RTC using getrtc
+	SEI					\Disable interrupts (cmd6 expects this)
+	LDA	#0				\Clear status
+	STA	i2cstat
+	JSR	getrtc			\Read time/date from RTC
+	LDA	i2cstat			\Check for errors
+	BEQ	test21_ok2		\No error, continue
+	JMP	test21_fail_2	\Error occurred in step 3
+.test21_ok2
+	CLI					\Re-enable interrupts
+	
+	\ Step 4: Assert buf03 (weekday) matches set value
+	LDA	buf03
+	CMP	#$01			\Compare with set weekday
+	BEQ	test21_ok3		\Matches, continue
+	JMP	test21_fail_3	\Weekday mismatch in step 4
+.test21_ok3
+	
+	\ Step 5: Assert buf04 (date) matches set value
+	LDA	buf04
+	CMP	#$25			\Compare with set date
+	BEQ	test21_ok4		\Matches, continue
+	JMP	test21_fail_4	\Date mismatch in step 5
+.test21_ok4
+	
+	\ Step 6: Assert buf05 (month) matches set value
+	LDA	buf05
+	CMP	#$12			\Compare with set month
+	BEQ	test21_ok5		\Matches, continue
+	JMP	test21_fail_5	\Month mismatch in step 6
+.test21_ok5
+	
+	\ Step 7: Assert buf06 (year) matches set value
+	LDA	buf06
+	CMP	#$23			\Compare with set year
+	BEQ	test21_done		\Matches, test passed
+	JMP	test21_fail_6	\Year mismatch in step 7
+.test21_done
+	\ Test completed successfully
+	CLC
+	RTS
+	
+.test21_fail_1
+	LDY	#2				\Write date to RTC failed (I2C error)
+	JMP	test21_fail
+	
+.test21_fail_2
+	LDY	#3				\Read date from RTC failed (I2C error)
+	JMP	test21_fail
+	
+.test21_fail_3
+	LDY	#4				\Weekday mismatch (read value doesn't match written)
+	JMP	test21_fail
+	
+.test21_fail_4
+	LDY	#5				\Date mismatch (read value doesn't match written)
+	JMP	test21_fail
+	
+.test21_fail_5
+	LDY	#6				\Month mismatch (read value doesn't match written)
+	JMP	test21_fail
+	
+.test21_fail_6
+	LDY	#7				\Year mismatch (read value doesn't match written)
+	JMP	test21_fail
+	
+.test21_fail
+	CLI					\Re-enable interrupts (in case we failed during I2C)
+	SEC					\Set Carry to indicate failure
 	RTS
 
 \-------------------------------------------------------------------------------
@@ -425,19 +566,103 @@
 \ Assert: After setting time and waiting N seconds, time has advanced by N seconds
 \-------------------------------------------------------------------------------
 .test22_time_passage
-	\ TODO: Implement time passage test
-	\ 1. Set known time in buffer (e.g., 12:00:00)
-	\ 2. Call writetd to write time to RTC
-	\ 3. Call getrtc to read initial time, store buf00 (seconds)
-	\ 4. Wait for N seconds using OSBYTE 19 delay:
-	\    - OSBYTE 19 waits for vertical sync (50 Hz = 50 VSYNCs/sec)
-	\    - For 3 seconds: loop 150 times (3 * 50)
-	\    - LDA #19, JSR OSBYTE, DEX, BNE loop
-	\ 5. Call getrtc to read time again
-	\ 6. Assert seconds (buf00) has advanced by N (accounting for BCD)
-	\ 7. If seconds wrapped (e.g., 59->00), verify minutes (buf01) advanced
-	\ Note: Handle BCD arithmetic correctly (e.g., $59 + 1 = $60, not $5A)
-	SEC				\Stub - return fail
+	\ Step 1: Set known time in buffer (12:00:00)
+	LDA	#$12			\Hours: 12 (BCD)
+	STA	buf02
+	LDA	#$00			\Minutes: 00 (BCD)
+	STA	buf01
+	LDA	#$00			\Seconds: 00 (BCD)
+	STA	buf00
+	
+	\ Step 2: Write time to RTC using writetd
+	SEI					\Disable interrupts (cmd4 expects this)
+	LDA	#0				\Clear status
+	STA	i2cstat
+	JSR	writetd			\Write time/date to RTC
+	LDA	i2cstat			\Check for errors
+	BEQ	test22_ok1		\No error, continue
+	JMP	test22_fail_1		\Error occurred in step 2
+.test22_ok1
+	CLI					\Re-enable interrupts
+	
+	\ Step 3: Read initial time and store seconds
+	SEI					\Disable interrupts (cmd6 expects this)
+	LDA	#0				\Clear status
+	STA	i2cstat
+	JSR	getrtc			\Read time/date from RTC
+	LDA	i2cstat			\Check for errors
+	BEQ	test22_ok2		\No error, continue
+	JMP	test22_fail_2		\Error occurred in step 3
+.test22_ok2
+	CLI					\Re-enable interrupts
+	LDA	buf00			\Store initial seconds
+	STA	temp1			\Save in temp1 for later comparison
+	LDA	buf01			\Store initial minutes
+	STA	temp2			\Save in temp2 for later comparison
+	
+	\ Step 4: Wait for 3 seconds using OSBYTE 19 (50 Hz = 50 VSYNCs/sec)
+	\ For 3 seconds: loop 150 times (3 * 50)
+	LDX	#150			\150 VSYNCs = 3 seconds
+.test22_delay_loop
+	TXA					\Preserve X counter
+	PHA					\Save on stack
+	LDA	#19				\OSBYTE 19 = wait for vertical sync
+	LDY	#0				\Y parameter (not used)
+	JSR	OSBYTE			\Wait for one VSYNC (may modify X)
+	PLA					\Restore X counter
+	TAX
+	DEX					\Decrement counter
+	BNE	test22_delay_loop	\Loop until 150 VSYNCs completed
+	
+	\ Step 5: Read time again from RTC
+	SEI					\Disable interrupts (cmd6 expects this)
+	LDA	#0				\Clear status
+	STA	i2cstat
+	JSR	getrtc			\Read time/date from RTC
+	LDA	i2cstat			\Check for errors
+	BEQ	test22_ok3		\No error, continue
+	JMP	test22_fail_3		\Error occurred in step 5
+.test22_ok3
+	CLI					\Re-enable interrupts
+	
+	\ Step 6: Calculate expected seconds (initial + 3) using BCD arithmetic
+	LDA	temp1			\Get initial seconds
+	SED					\Set decimal mode for BCD arithmetic
+	CLC
+	ADC	#3				\Add 3 seconds
+	STA	temp1+1			\Store expected seconds in temp1+1
+	CLD					\Clear decimal mode
+	
+	\ Step 7: Compare actual seconds with expected
+	LDA	buf00			\Get actual seconds
+	CMP	temp1+1			\Compare with expected seconds
+	BEQ	test22_done		\Matches exactly, test passed
+	JMP	test22_fail_4		\Seconds mismatch
+	
+.test22_done
+	\ Test completed successfully
+	CLC
+	RTS
+	
+.test22_fail_1
+	LDY	#2				\Write time to RTC failed (I2C error)
+	JMP	test22_fail
+	
+.test22_fail_2
+	LDY	#3				\Read initial time from RTC failed (I2C error)
+	JMP	test22_fail
+	
+.test22_fail_3
+	LDY	#5				\Read time after delay from RTC failed (I2C error)
+	JMP	test22_fail
+	
+.test22_fail_4
+	LDY	#6				\Seconds mismatch (time didn't advance correctly)
+	JMP	test22_fail
+	
+.test22_fail
+	CLI					\Re-enable interrupts (in case we failed during I2C)
+	SEC					\Set Carry to indicate failure
 	RTS
 
 \-------------------------------------------------------------------------------
