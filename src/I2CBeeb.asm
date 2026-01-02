@@ -22,7 +22,7 @@
 \
 \ 1. ROM can be built to support BBC Micro, Electron+AP5 or Electron+AP6
 \
-\	a) Compile wit /bin/buildi2c.sh
+\	a) Compile wit /bin/build.sh
 \
 \ 2. Commands :	
 \		*I2C
@@ -1542,8 +1542,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 .i2crxack	
 	sclhi
 	sdahi
-	LDA	upiob			\get response
-	AND	#getsda
+	readsda				\get response
 	CLC					\Carry mirrors RxACK
 	BEQ	rxax
 	SEC
@@ -1573,8 +1572,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	LDX	#0				\build rx byte in X
 	LDY	#8				\8 bits to receive
 .rxloop	sclhi			\clock hi
-	LDA	upiob			\read a data bit (sent MS to LS)
-	AND	#getsda
+	readsda				\read a data bit (sent MS to LS)
 	CLC
 	BEQ	rxby1
 	SEC

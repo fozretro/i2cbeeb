@@ -126,5 +126,14 @@ MACRO readscl
 ENDMACRO
 
 \-------------------------------------------------------------------------------
+\readsda - reads SDA state. Returns A=0 if low, A!=0 if high.
+\Matches the pattern used in i2crxack and i2crxbyte for reading SDA.
+
+MACRO readsda
+	LDA	upiob		\read SDA state from upiob
+	AND	#getsda
+ENDMACRO
+
+\-------------------------------------------------------------------------------
 \*** End of Macro definitions ***
 \-------------------------------------------------------------------------------

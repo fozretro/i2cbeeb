@@ -76,8 +76,7 @@
 	BEQ	test01_fail		\SCL should be high (non-zero)
 	
 	\ Check SDA is high (same pattern as i2crxack and i2crxbyte)
-	LDA	upiob
-	AND	#getsda
+	readsda
 	BEQ	test01_fail		\SDA should be high (non-zero)
 	
 	\ Both lines high - test passed
