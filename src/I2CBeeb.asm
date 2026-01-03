@@ -1632,6 +1632,12 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 
 	INCLUDE 	INCRTC
 
+\-------------------------------------------------------------------------------
+\ Time-Config integration - Configuration and ROM management commands
+\-------------------------------------------------------------------------------
+
+	INCLUDE		INCCONFIG
+
 .xi2crtc	
 	LDA	#LO(i2cbuf)		\set up OSW_X and OSW_Y to &0A00
 	STA	OSW_X

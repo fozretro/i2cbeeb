@@ -1,6 +1,43 @@
 #!/bin/bash
 set -e # Exit immediately if a command exits with a non-zero status.
 
+############################################################
+# Clone Time-Config repository and copy source files
+############################################################
+
+TIMECONFIG_REPO="https://codeberg.org/Barneyntd/Time-Config..git"
+TIMECONFIG_DIR="./refs/Time-Config"
+CONFIGURE_DIR="./src/configure"
+
+# Clone Time-Config repo if it doesn't exist
+if [ ! -d "$TIMECONFIG_DIR/.git" ]; then
+    echo ""
+    echo "*** Cloning Time-Config repository ***"
+    git clone "$TIMECONFIG_REPO" "$TIMECONFIG_DIR" || {
+        echo "Error: Failed to clone Time-Config repository"
+        echo "Please ensure you have network access and git is installed"
+        exit 1
+    }
+fi
+
+# Copy original Time-Config source files (untouched)
+echo ""
+echo "*** Copying Time-Config source files ***"
+mkdir -p "$CONFIGURE_DIR"
+cp "$TIMECONFIG_DIR/ROM/Settings.asm" "$CONFIGURE_DIR/"
+cp "$TIMECONFIG_DIR/ROM/Strings.asm" "$CONFIGURE_DIR/"
+cp "$TIMECONFIG_DIR/ROM/Commands.asm" "$CONFIGURE_DIR/"
+cp "$TIMECONFIG_DIR/ROM/Configure.asm" "$CONFIGURE_DIR/"
+cp "$TIMECONFIG_DIR/ROM/Roms.asm" "$CONFIGURE_DIR/"
+
+# Note: Header.asm and VIA.asm are NOT copied as they are replaced by:
+# - Header.asm: Service calls integrated into I2CBeeb.asm
+# - VIA.asm: Replaced by src/configure/inc/NVRAM.asm (I2C EEPROM abstraction)
+
+############################################################
+# Build ROMs
+############################################################
+
 # Clear output folder
 rm -rf ./src/out
 mkdir ./src/out
@@ -16,6 +53,7 @@ echo "*** Building I2CB ROM ***"
     -S INCBUS="./src/inc/bus/B.asm" \
     -S INCRTC="./src/inc/rtc/DS3231.asm" \
     -S INCTARGET="./src/inc/targets/B.asm" \
+    -S INCCONFIG="./src/configure/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=1 \
     -D I2CTEST_ONLY=0 \
@@ -34,6 +72,7 @@ echo "*** Building I2CE ROM ***"
     -S INCBUS="./src/inc/bus/E.asm" \
     -S INCRTC="./src/inc/rtc/DS3231.asm" \
     -S INCTARGET="./src/inc/targets/E.asm" \
+    -S INCCONFIG="./src/configure/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=1 \
     -D I2CTEST_ONLY=0 \
@@ -52,6 +91,7 @@ echo "*** Building I2EAP6 ROM ***"
     -S INCBUS="./src/inc/bus/EAP6.asm" \
     -S INCRTC="./src/inc/rtc/PCF8583.asm" \
     -S INCTARGET="./src/inc/targets/EAP6.asm" \
+    -S INCCONFIG="./src/configure/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=0 \
     -D I2CTEST_ONLY=0 \
@@ -70,6 +110,7 @@ echo "*** Building T.I2CB ROM ***"
     -S INCBUS="./src/inc/bus/B.asm" \
     -S INCRTC="./src/inc/rtc/DS3231.asm" \
     -S INCTARGET="./src/inc/targets/B.asm" \
+    -S INCCONFIG="./src/configure/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=1 \
     -D I2CTEST_ONLY=1 \
@@ -84,6 +125,7 @@ echo "*** Building T.I2CE ROM ***"
     -S INCBUS="./src/inc/bus/E.asm" \
     -S INCRTC="./src/inc/rtc/DS3231.asm" \
     -S INCTARGET="./src/inc/targets/E.asm" \
+    -S INCCONFIG="./src/configure/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=1 \
     -D I2CTEST_ONLY=1 \
@@ -98,6 +140,7 @@ echo "*** Building T.I2CEAP6 ROM ***"
     -S INCBUS="./src/inc/bus/EAP6.asm" \
     -S INCRTC="./src/inc/rtc/PCF8583.asm" \
     -S INCTARGET="./src/inc/targets/EAP6.asm" \
+    -S INCCONFIG="./src/configure/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=0 \
     -D I2CTEST_ONLY=1 \

@@ -27,3 +27,6 @@ src/out/
 out.ssd
 *.ssd
 !dist/i2c.ssd
+
+# Reference repositories
+/refs
