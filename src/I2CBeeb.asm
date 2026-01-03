@@ -1682,24 +1682,16 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	LDY	comdata			\restore Y to correct CLI value (after command name)
 	\ CON_Configure uses GSINIT which expects cli (TextPointer) to be set up
 	\ cli is already set up by I2CBeeb's command handler
-	\ CON_Configure returns A=0 if handled, A=&28 if should pass to other ROMs
+	\ CON_Configure returns A=0 if handled, A=&28 if printed help (also handled)
 	JSR	CON_Configure	\call Time-Config configure handler
-	CMP	#&28			\should we pass to other ROMs?
-	BEQ	xconfigure_pass	\yes, pass command on
-	PLA					\else we handled it, MOS command graceful exit
+	\ CON_Configure always handles the command (either processes it or prints help)
+	\ so we always return A=0 to claim the command
+	PLA					\MOS command graceful exit
 	TAY
 	PLA
 	TAX
 	LDA	#0				\set A=0 to inform MOS command taken
 	RTS					\return to MOS
-.xconfigure_pass
-	PLA					\pass command to other ROMs
-	TAY
-	INY					\restore Y to its MOS value
-	PLA					\restore X
-	TAX
-	LDA	#4				\restore action code (unknown command)
-	RTS					\and pass command on for other Roms
 
 	ENDIF
 
