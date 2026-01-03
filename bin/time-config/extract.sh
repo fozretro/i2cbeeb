@@ -50,6 +50,13 @@ cd - > /dev/null || exit 1
 # Create configure directory
 mkdir -p "$CONFIGURE_DIR"
 
+# Make existing files writable if they exist (they're read-only)
+chmod 644 "$CONFIGURE_DIR/Settings.asm" 2>/dev/null || true
+chmod 644 "$CONFIGURE_DIR/Strings.asm" 2>/dev/null || true
+chmod 644 "$CONFIGURE_DIR/Roms.asm" 2>/dev/null || true
+chmod 644 "$CONFIGURE_DIR/Commands.asm" 2>/dev/null || true
+chmod 644 "$CONFIGURE_DIR/Configure.asm" 2>/dev/null || true
+
 # Copy original Time-Config source files (untouched)
 echo ""
 echo "*** Copying Time-Config source files ***"
@@ -139,6 +146,14 @@ awk '
     # Print all other lines
     { print }
 ' "$TIMECONFIG_DIR/ROM/Configure.asm" > "$CONFIGURE_DIR/Configure.asm"
+
+# Make extracted files read-only to prevent accidental modifications
+echo "*** Making extracted files read-only ***"
+chmod 444 "$CONFIGURE_DIR/Settings.asm"
+chmod 444 "$CONFIGURE_DIR/Strings.asm"
+chmod 444 "$CONFIGURE_DIR/Commands.asm"
+chmod 444 "$CONFIGURE_DIR/Configure.asm"
+chmod 444 "$CONFIGURE_DIR/Roms.asm"
 
 echo "*** Time-Config extraction complete ***"
 

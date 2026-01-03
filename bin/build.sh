@@ -27,7 +27,7 @@ echo "*** Building I2CB ROM ***"
     -S INCBUS="./src/inc/bus/B.asm" \
     -S INCRTC="./src/inc/rtc/DS3231.asm" \
     -S INCTARGET="./src/inc/targets/B.asm" \
-    -S INCCONFIG="./src/configure/Configure.inc" \
+    -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=1 \
     -D I2CTEST_ONLY=0 \
@@ -46,7 +46,7 @@ echo "*** Building I2CE ROM ***"
     -S INCBUS="./src/inc/bus/E.asm" \
     -S INCRTC="./src/inc/rtc/DS3231.asm" \
     -S INCTARGET="./src/inc/targets/E.asm" \
-    -S INCCONFIG="./src/configure/Configure.inc" \
+    -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=1 \
     -D I2CTEST_ONLY=0 \
@@ -65,7 +65,7 @@ echo "*** Building I2EAP6 ROM ***"
     -S INCBUS="./src/inc/bus/EAP6.asm" \
     -S INCRTC="./src/inc/rtc/PCF8583.asm" \
     -S INCTARGET="./src/inc/targets/EAP6.asm" \
-    -S INCCONFIG="./src/configure/Configure.inc" \
+    -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=0 \
     -D I2CTEST_ONLY=0 \
@@ -84,7 +84,7 @@ echo "*** Building T.I2CB ROM ***"
     -S INCBUS="./src/inc/bus/B.asm" \
     -S INCRTC="./src/inc/rtc/DS3231.asm" \
     -S INCTARGET="./src/inc/targets/B.asm" \
-    -S INCCONFIG="./src/configure/Configure.inc" \
+    -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=1 \
     -D I2CTEST_ONLY=1 \
@@ -99,7 +99,7 @@ echo "*** Building T.I2CE ROM ***"
     -S INCBUS="./src/inc/bus/E.asm" \
     -S INCRTC="./src/inc/rtc/DS3231.asm" \
     -S INCTARGET="./src/inc/targets/E.asm" \
-    -S INCCONFIG="./src/configure/Configure.inc" \
+    -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=1 \
     -D I2CTEST_ONLY=1 \
@@ -114,7 +114,7 @@ echo "*** Building T.I2CEAP6 ROM ***"
     -S INCBUS="./src/inc/bus/EAP6.asm" \
     -S INCRTC="./src/inc/rtc/PCF8583.asm" \
     -S INCTARGET="./src/inc/targets/EAP6.asm" \
-    -S INCCONFIG="./src/configure/Configure.inc" \
+    -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=0 \
     -D I2CTEST_ONLY=1 \
