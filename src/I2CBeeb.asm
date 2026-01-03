@@ -1680,12 +1680,16 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	NOP					\assembler call entry point
 .xconfigure_go
 	LDY	comdata			\restore Y to correct CLI value (after command name)
-	\ CON_Configure uses GSINIT which expects cli (TextPointer) to be set up
-	\ cli is already set up by I2CBeeb's command handler
-	\ CON_Configure returns A=0 if handled, A=&28 if printed help (also handled)
+	\ CON_Configure uses GSINIT internally, which requires cli (TextPointer) to
+	\ point to the command line. MOS sets this up when calling our command handler,
+	\ so no additional setup needed here.
+	\ CON_Configure returns A=0 if it processed a config term, or A=&28 if it
+	\ printed help. However, CON_Configure is designed for service call &28 where
+	\ returning &28 means "pass to other ROMs". Since we're called via service
+	\ call 4, we always return A=0 (command handled) regardless of CON_Configure's
+	\ return value, because it always does something useful (processes config or
+	\ prints help).
 	JSR	CON_Configure	\call Time-Config configure handler
-	\ CON_Configure always handles the command (either processes it or prints help)
-	\ so we always return A=0 to claim the command
 	PLA					\MOS command graceful exit
 	TAY
 	PLA
