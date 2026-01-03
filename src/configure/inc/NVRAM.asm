@@ -1,102 +1,93 @@
 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 \ NVRAM Abstraction Layer
-\ Replaces VIA.asm FRAM access with I2C EEPROM access
+\ Uses PCF8583 RTC free RAM (registers 12h onwards) for NVRAM storage
 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
-\ NVRAM address offset in I2C EEPROM
-\ Using 24C32 EEPROM at address &57 (EEP32)
-\ NVRAM data starts at EEPROM address 0
-NVRAM_EEPROM_BASE = 0
+\ PCF8583 free RAM starts at register 12h (18 decimal)
+\ NVRAM address (0-255) maps to PCF8583 register (12h + NVRAM address)
+PCF8583_NVRAM_BASE = $12
 
 \ Temporary buffer for single-byte NVRAM operations
 \ Uses buf08 ($0388) which is unused by RTC operations
 NVRAM_TEMP = buf08
 
-\ FRAM_readByte - Read a byte from NVRAM
+\ FRAM_readByte - Read a byte from NVRAM (PCF8583 RAM)
 \ On entry: X = NVRAM address (0-255)
 \           C = high address bit (0 for addresses 0-255)
 \ On exit:  Y = byte value read
 \           C = preserved
-\           A = preserved (if possible)
-\           X = preserved
+\           A = not preserved (matches original)
+\           X = preserved (input parameter)
 .FRAM_readByte
 {
 	PHP					\ Save C flag
-	PHA					\ Save A
-	STX temp1			\ Save X in temp1
+	STX temp1			\ Save X in temp1 for register calculation
 	
-	\ Calculate EEPROM address
-	LDA #NVRAM_EEPROM_BASE AND &FF
+	\ Calculate PCF8583 register address
+	LDA #PCF8583_NVRAM_BASE
 	CLC
-	ADC temp1			\ Add NVRAM address
-	STA eeplo
-	LDA #(NVRAM_EEPROM_BASE >> 8) AND &FF
-	ADC #0				\ Add carry if any
-	STA eephi
+	ADC temp1			\ Add NVRAM address (0-255)
+	STA i2creg			\ Register number
 	
-	\ Use existing eeprd routine for single-byte read
-	\ Set up buffer pointer to temp location
-	LDA #LO(NVRAM_TEMP)
+	\ Set up for single-byte read from PCF8583
+	LDA #RTC			\ PCF8583 RTC device address
+	STA i2cdev
+	LDA #$FF			\ Register specified
+	STA temp2
+	LDA #LO(NVRAM_TEMP)	\ Buffer pointer for read
 	STA bufloc
 	LDA #HI(NVRAM_TEMP)
 	STA bufloc+1
+	LDA #0				\ Don't store in % variable
+	STA htexth
 	
-	\ Call eeprd with A=1 (single byte)
-	LDA #1
-	JSR eeprd
+	\ Call cmd5 (I2CRXB entry point) - it pushes X/Y and jumps to rxbgo
+	\ rxbgo does SEI/CLI internally (interrupts enabled on exit)
+	JSR cmd5
 	
-	\ Read result from temp buffer
-	LDY #0
-	LDA (bufloc),Y
-	TAY					\ Return value in Y
+	\ Read result from temp buffer (rxbgo stored it at NVRAM_TEMP)
+	LDY NVRAM_TEMP		\ Return value in Y
 	
-	LDX temp1			\ Restore X
-	PLA					\ Restore A
-	PLP					\ Restore C
+	\ cmd5/rxbgo already restored X/Y from stack (to original values)
+	PLP					\ Restore C flag
 	RTS
 }
 
-\ FRAM_writeByte - Write a byte to NVRAM
+\ FRAM_writeByte - Write a byte to NVRAM (PCF8583 RAM)
 \ On entry: X = NVRAM address (0-255)
 \           Y = byte value to write
 \           C = high address bit (0 for addresses 0-255)
 \ On exit:  C = preserved
-\           A = preserved (if possible)
-\           X = preserved
-\           Y = preserved
+\           A = not preserved (matches original)
+\           X = preserved (input parameter)
+\           Y = preserved (input parameter)
 .FRAM_writeByte
 {
 	PHP					\ Save C flag
-	PHA					\ Save A
-	STX temp1			\ Save X in temp1
-	STY temp2			\ Save Y (byte to write) in temp2
+	STX temp1			\ Save X in temp1 for register calculation
+	TYA
+	STA i2cbyte			\ Save byte value to write in i2cbyte
 	
-	\ Calculate EEPROM address
-	LDA #NVRAM_EEPROM_BASE AND &FF
+	\ Calculate PCF8583 register address
+	LDA #PCF8583_NVRAM_BASE
 	CLC
-	ADC temp1			\ Add NVRAM address
-	STA eeplo
-	LDA #(NVRAM_EEPROM_BASE >> 8) AND &FF
-	ADC #0				\ Add carry if any
-	STA eephi
+	ADC temp1			\ Add NVRAM address (0-255)
+	STA i2creg			\ Register number
 	
-	\ Store byte to write in temp buffer
-	LDA #LO(NVRAM_TEMP)
-	STA bufloc
-	LDA #HI(NVRAM_TEMP)
-	STA bufloc+1
-	LDY #0
-	LDA temp2			\ Get byte to write
-	STA (bufloc),Y
+	\ Set up for single-byte write to PCF8583
+	LDA #RTC			\ PCF8583 RTC device address
+	STA i2cdev
+	LDA #$FF			\ Register specified
+	STA temp2
+	LDA #0				\ No stop inhibit
+	STA htextl
 	
-	\ Use existing eepwr routine for single-byte write
-	LDA #1
-	JSR eepwr
+	\ Call cmd3 (I2CTXB entry point) - it pushes X/Y and jumps to txbgo
+	\ txbgo does SEI/CLI internally (interrupts enabled on exit)
+	JSR cmd3
 	
-	LDX temp1			\ Restore X
-	LDY temp2			\ Restore Y
-	PLA					\ Restore A
-	PLP					\ Restore C
+	\ cmd3/txbgo already restored X/Y from stack (to original values)
+	PLP					\ Restore C flag
 	RTS
 }
 

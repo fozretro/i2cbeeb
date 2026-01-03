@@ -45,13 +45,20 @@ RTC_TEST_REG	=	$12		\Register offset for testing byte transmission (free RAM - u
 
 .writetd				
 	JSR toPCF8583		\copy t&d data (bufXX) to I2C buffer ($A00)
+	\ Ensure control register (0x00) is initialized for normal clock operation
+	\ Set to 0x00: bit 7=0 (clock running), bits 5-4=00 (clock mode), bit 1=0 (clear alarm flag)
+	LDA	#0
+	STA	&A00			\control register: 0x00 = normal clock mode, clock running
+	\ Register 0x01 (hundredths) is not used, set to 0
+	STA	&A01			\hundredths register: 0
+	\ Now write all 18 bytes (00h-11h) including initialized control register
 	LDA	#RTC			\set up txd call
 	STA	$68				\slave address
 	LDA	#0				\start from 0h reg in PCF8583
 	STA	$69				\start register
 	STA	$6D				\no stop inhibit
 	LDA	#18
-	STA	$6A				\17 bytes to tx (from 00h>11h)
+	STA	$6A				\18 bytes to tx (from 00h>11h)
 	STA	$6C				\non-zero = $69 register valid
 	JSR	cmd4			\perform the write via txd(go)
 	RTS					\and return
