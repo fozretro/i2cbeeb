@@ -474,6 +474,8 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	IF INC_CONFIG
 	EQUS	"CONFIGURE"
 	EQUB	HI(xconfigure), LO(xconfigure)
+	EQUS	"STATUS"
+	EQUB	HI(xstatus), LO(xstatus)
 	ENDIF
 	EQUB	$FF		\end of table marker
 
@@ -491,6 +493,9 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	PHA
 	TXA
 	PHA
+	IF INC_CONFIG
+	JSR	SET_Startup	\call Time-Config startup handler to apply saved settings
+	ENDIF
 	JSR	getrtc		\fetch rtc data block
 	LDA	buf12		\get 'Alarm 2 Hour' (=ToB)
 	AND	#$0F		\isolate bits 3-0
@@ -1690,6 +1695,33 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	\ return value, because it always does something useful (processes config or
 	\ prints help).
 	JSR	CON_Configure	\call Time-Config configure handler
+	PLA					\MOS command graceful exit
+	TAY
+	PLA
+	TAX
+	LDA	#0				\set A=0 to inform MOS command taken
+	RTS					\return to MOS
+
+\------------------------------------------------------------------------------
+\*STATUS
+\Wrapper for Time-Config CON_Status command handler
+\When called without parameters, lists all config terms and their current values
+\Calls CON_Status directly - it uses GSINIT internally to parse command line
+
+.xstatus
+	NOP					\assembler call entry point
+.xstatus_go
+	LDY	comdata			\restore Y to correct CLI value (after command name)
+	\ CON_Status uses GSINIT internally, which requires cli (TextPointer) to
+	\ point to the command line. MOS sets this up when calling our command handler,
+	\ so no additional setup needed here.
+	\ CON_Status returns A=0 if it processed a status term, or A=&29 if it
+	\ printed all status or unrecognised term. However, CON_Status is designed for
+	\ service call &29 where returning &29 means "pass to other ROMs". Since we're
+	\ called via service call 4, we always return A=0 (command handled) regardless
+	\ of CON_Status's return value, because it always does something useful
+	\ (displays status or prints help).
+	JSR	CON_Status		\call Time-Config status handler
 	PLA					\MOS command graceful exit
 	TAY
 	PLA
