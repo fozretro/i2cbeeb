@@ -2,37 +2,11 @@
 set -e # Exit immediately if a command exits with a non-zero status.
 
 ############################################################
-# Clone Time-Config repository and copy source files
+# Extract Time-Config source files
 ############################################################
 
-TIMECONFIG_REPO="https://codeberg.org/Barneyntd/Time-Config..git"
-TIMECONFIG_DIR="./refs/Time-Config"
-CONFIGURE_DIR="./src/configure"
-
-# Clone Time-Config repo if it doesn't exist
-if [ ! -d "$TIMECONFIG_DIR/.git" ]; then
-    echo ""
-    echo "*** Cloning Time-Config repository ***"
-    git clone "$TIMECONFIG_REPO" "$TIMECONFIG_DIR" || {
-        echo "Error: Failed to clone Time-Config repository"
-        echo "Please ensure you have network access and git is installed"
-        exit 1
-    }
-fi
-
-# Copy original Time-Config source files (untouched)
-echo ""
-echo "*** Copying Time-Config source files ***"
-mkdir -p "$CONFIGURE_DIR"
-cp "$TIMECONFIG_DIR/ROM/Settings.asm" "$CONFIGURE_DIR/"
-cp "$TIMECONFIG_DIR/ROM/Strings.asm" "$CONFIGURE_DIR/"
-cp "$TIMECONFIG_DIR/ROM/Commands.asm" "$CONFIGURE_DIR/"
-cp "$TIMECONFIG_DIR/ROM/Configure.asm" "$CONFIGURE_DIR/"
-cp "$TIMECONFIG_DIR/ROM/Roms.asm" "$CONFIGURE_DIR/"
-
-# Note: Header.asm and VIA.asm are NOT copied as they are replaced by:
-# - Header.asm: Service calls integrated into I2CBeeb.asm
-# - VIA.asm: Replaced by src/configure/inc/NVRAM.asm (I2C EEPROM abstraction)
+# Run extraction script to clone repo and copy files with selective removal
+./bin/time-config/extract.sh
 
 ############################################################
 # Build ROMs
