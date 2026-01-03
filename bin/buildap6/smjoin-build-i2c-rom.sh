@@ -15,8 +15,11 @@ mkdir -p ./bin/buildap6/tmp
     -S INCBUS="./src/inc/bus/EAP6.asm" \
     -S INCRTC="./src/inc/rtc/PCF8583.asm" \
     -S INCTARGET="./src/inc/targets/EAP6.asm" \
+    -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=0 \
+    -D I2CTEST_ONLY=0 \
+    -D INC_CONFIG=1 \
     -o "I2CEAP6"
 # Extract from ssd to output folder
 ./bin/mmbutils/beeb getfile ./bin/buildap6/tmp/out.ssd ./bin/buildap6/tmp/8000
@@ -26,8 +29,11 @@ mkdir -p ./bin/buildap6/tmp
     -S INCBUS="./src/inc/bus/EAP6.asm" \
     -S INCRTC="./src/inc/rtc/PCF8583.asm" \
     -S INCTARGET="./src/inc/targets/EAP6.asm" \
+    -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=1 \
     -D PAD=0 \
+    -D I2CTEST_ONLY=0 \
+    -D INC_CONFIG=1 \
     -o "I2CEAP6"    
 # Extract from ssd to output folder
 ./bin/mmbutils/beeb getfile ./bin/buildap6/tmp/out.ssd ./bin/buildap6/tmp/8100
