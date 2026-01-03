@@ -342,13 +342,22 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 .command	
 	TXA					\save X
 	PHA
-	LDX	#$FF			\X will index through command table
-	DEY					\X & Y will immediately be incremented
+	DEY					\Y will immediately be incremented
 	TYA					\save Y on the stack for restoration..
 	PHA					\..(re-increment if passing on)
-.comm_a1	INY			\incr pointers
-	INX
-	LDA	comtab,X		\test for end of table = $FF
+	\Initialize command table pointer to comtab-1 (will be incremented first)
+	LDA	#LO(comtab-1)	\initialise command table pointer
+	STA	htextl
+	LDA	#HI(comtab-1)
+	STA	htexth
+	LDX	#0				\X stays at 0 for indirect addressing
+.comm_a1	INY			\increment CLI pointer
+	\Increment command table pointer (handle page boundary)
+	INC	htextl
+	BNE	comm_a1_cont	\no page wrap
+	INC	htexth			\handle page boundary
+.comm_a1_cont
+	LDA	(htextl,X)		\test for end of table = $FF (X=0)
 	CMP	#$FF
 	BEQ	comm_a4			\hit table end, not for us, jump to exit
 	LDA	(cli),Y			\get next chr of the user *command
@@ -359,34 +368,52 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	BEQ	comm_a5			\<cr> - end of user command
 	CMP	#spc
 	BEQ	comm_a5			\<spc> - end of user command
-	CMP	comtab,X		\compare with chr from command table
+	CMP	(htextl,X)		\compare with chr from command table (X=0)
 	BNE	comm_a2			\no match, skip this command
 	JMP	comm_a1			\else repeat for next chr
 .comm_a5	
-	LDA	comtab,X		\get equivalent comtab command chr
+	LDA	(htextl,X)		\get equivalent comtab command chr (X=0)
 	BMI	comm_a3			\$8x, this is a command match so..
 						\..goto get exe address
 	CMP	#spc
 	BNE	comm_a2			\not <space> or $8x so skip
-.comm_a0	INX			\matched a command with parameters
-	LDA	comtab,X		\so move along to exe address
+.comm_a0	\Matched a command with parameters - skip to execution address
+	INC	htextl			\increment pointer
+	BNE	comm_a0_cont	\no page wrap
+	INC	htexth			\handle page boundary
+.comm_a0_cont
+	LDA	(htextl,X)		\so move along to exe address (X=0)
 	BPL	comm_a0
 	BNE	comm_a3			\and goto get exe address
-.comm_a2	DEX			\back one chr so we don't miss the $8x
-.comm_a7	INX			\increment pointer
-	LDA	comtab,X		\get next chr of failed comtab command
+.comm_a2	\No match - back up pointer one byte
+	LDA	htextl
+	BNE	comm_a2_cont	\no page wrap
+	DEC	htexth			\handle page boundary
+.comm_a2_cont
+	DEC	htextl
+.comm_a7	INC	htextl		\increment pointer
+	BNE	comm_a7_cont	\no page wrap
+	INC	htexth			\handle page boundary
+.comm_a7_cont
+	LDA	(htextl,X)		\get next chr of failed comtab command (X=0)
 	BPL	comm_a7			\repeat till we hit the -ve exe address
-	INX					\then skip the second address byte
+	INC	htextl			\then skip the second address byte
+	BNE	comm_a7_skip	\no page wrap
+	INC	htexth			\handle page boundary
+.comm_a7_skip
 	PLA					\restore original Y ((MOS value of Y)-1)
 	PHA					\save again
 	TAY
 	JMP	comm_a1			\and do it all again
 .comm_a3	
 	STY	comdata			\save Y which points to any user data
-	LDA	comtab,X		\get command exeHi from comtab..
+	LDA	(htextl,X)		\get command exeHi from comtab.. (X=0)
 	STA	COMVEC+1		\..and place in vector
-	INX					\point X at next addres byte
-	LDA	comtab,X		\get command exeLo from comtab..
+	INC	htextl			\point pointer at next address byte
+	BNE	comm_a3_cont	\no page wrap
+	INC	htexth			\handle page boundary
+.comm_a3_cont
+	LDA	(htextl,X)		\get command exeLo from comtab.. (X=0)
 	STA	COMVEC			\..and place in vector
 	PLA					\restore original MOS value of Y
 	TAY					\which was decremented on entry
