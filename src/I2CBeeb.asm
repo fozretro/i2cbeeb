@@ -444,6 +444,10 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	EQUB	HI(xtset), LO(xtset)
 	EQUS	"DSET <day> <dd-mm-yy>"
 	EQUB	HI(xdset), LO(xdset)
+	IF INC_CONFIG
+	EQUS	"CONFIGURE"
+	EQUB	HI(xconfigure), LO(xconfigure)
+	ENDIF
 	EQUB	$FF		\end of table marker
 
 \-------------------------------------------------------------------------------
@@ -1638,6 +1642,38 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 
 	IF INC_CONFIG
 	INCLUDE		INCCONFIG
+
+\------------------------------------------------------------------------------
+\*CONFIGURE
+\Wrapper for Time-Config CON_Configure command handler
+\When called without parameters, lists available config terms (no NVRAM read)
+\Calls CON_Configure directly - it uses GSINIT internally to parse command line
+
+.xconfigure
+	NOP					\assembler call entry point
+.xconfigure_go
+	LDY	comdata			\restore Y to correct CLI value (after command name)
+	\ CON_Configure uses GSINIT which expects cli (TextPointer) to be set up
+	\ cli is already set up by I2CBeeb's command handler
+	\ CON_Configure returns A=0 if handled, A=&28 if should pass to other ROMs
+	JSR	CON_Configure	\call Time-Config configure handler
+	CMP	#&28			\should we pass to other ROMs?
+	BEQ	xconfigure_pass	\yes, pass command on
+	PLA					\else we handled it, MOS command graceful exit
+	TAY
+	PLA
+	TAX
+	LDA	#0				\set A=0 to inform MOS command taken
+	RTS					\return to MOS
+.xconfigure_pass
+	PLA					\pass command to other ROMs
+	TAY
+	INY					\restore Y to its MOS value
+	PLA					\restore X
+	TAX
+	LDA	#4				\restore action code (unknown command)
+	RTS					\and pass command on for other Roms
+
 	ENDIF
 
 .xi2crtc	

@@ -134,6 +134,8 @@ awk '
 # Copy Configure.asm with selective removal of TIMEZONE and SUMMERTIME jump table entries
 echo "*** Extracting Configure.asm (removing TIMEZONE/SUMMERTIME) ***"
 awk '
+    BEGIN { in_con_configure = 0; con_configure_line = 0 }
+    
     # Remove CON_Timezone-1 and CON_DST-1 from jump table (lines 26-27)
     # These are on lines like: EQUB 0: EQUW CON_Timezone-1 \ TIMEZONE
     /EQUW.*CON_Timezone-1/ {
@@ -141,6 +143,45 @@ awk '
     }
     /EQUW.*CON_DST-1/ {
         next
+    }
+    
+    # Make CON_Configure a global label using .* prefix (BeebAsm requires labels to start with .)
+    # Match lines starting with .CON_Configure (brace may be on same or next line)
+    /^[[:space:]]*\.CON_Configure[[:space:]]*\{/ {
+        getline next_line
+        gsub(/^[[:space:]]*/, "", next_line)
+        print ".*CON_Configure"
+        print "\t" next_line
+        in_con_configure = 1
+        con_configure_line = NR
+        next
+    }
+    /^[[:space:]]*\.CON_Configure[[:space:]]*$/ {
+        getline next_line
+        if (next_line ~ /^[[:space:]]*\{/) {
+            getline next_line
+        }
+        gsub(/^[[:space:]]*/, "", next_line)
+        print ".*CON_Configure"
+        print "\t" next_line
+        in_con_configure = 1
+        con_configure_line = NR
+        next
+    }
+    
+    # Skip opening brace on next line if we just processed CON_Configure
+    /^[[:space:]]*\{[[:space:]]*$/ {
+        if (in_con_configure && (NR == con_configure_line + 1)) {
+            next
+        }
+    }
+    
+    # Remove closing brace for CON_Configure code block (line 126)
+    /^[[:space:]]*\}[[:space:]]*$/ {
+        if (in_con_configure && (NR - con_configure_line) < 100) {
+            in_con_configure = 0
+            next
+        }
     }
     
     # Print all other lines
@@ -160,4 +201,3 @@ echo "*** Time-Config extraction complete ***"
 # Note: Header.asm and VIA.asm are NOT copied as they are replaced by:
 # - Header.asm: Service calls integrated into I2CBeeb.asm
 # - VIA.asm: Replaced by src/configure/inc/NVRAM.asm (I2C EEPROM abstraction)
-
