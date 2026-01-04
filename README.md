@@ -3,22 +3,24 @@ I2CBeeb ROM for BBC, Electron, Electron AP6
 
 This project got started as a means to explore and implement RTC commands and others that make use of the RTC (a `PCF8583`) within the Electron **AP6** by Dave Hitchens. StarDot forum discussion [here](https://www.stardot.org.uk/forums/viewtopic.php?t=28720). It has now become a means to build the I2C Rom by MartinB (of StarDot) using the BeebAsm assembler for three targets, **BBC Micro**, **Electron** and **Electron Plus with AP6** (`/bin/build.sh`). Additionally tools in this project will also rebuild the AP6 Support ROM to include the I2C AP6 ROM (`/bin/buildap6/build.sh`) all be it without TreeROM due to size restrictions. All compiled output is in `/dist`.
 
-This repository has partnered with Barney Hilken, the author of the [Time & Config. ROM](https://codeberg.org/Barneyntd/Time-Config.), to reuse their configuration feature implementation. Many thanks to Barney for making this integration possible. The build scripts dynamically pull source code from the Time & Config repository during the build process—the code is not duplicated in this repository. The extraction process is handled by [`/bin/time-config/extract.sh`](bin/time-config/extract.sh), which clones the Time & Config repository, extracts the necessary source files, and applies selective modifications during extraction to support integration (such as removing unsupported features like timezone and summertime configuration). This integration enables `*CONFIGURE` and `*STATUS` commands for machine configuration, as well as `*INSERT` and `*UNPLUG` commands for ROM management, supporting these features across the platforms and RTC chip types listed below. For the full Time & Config ROM with all features, readers should refer to the [Time & Config. repository](https://codeberg.org/Barneyntd/Time-Config.) directly.
+This repository has partnered with Barney Hilken, the author of the [Time & Config. ROM](https://codeberg.org/Barneyntd/Time-Config.), to reuse its configuration feature implementation. Many thanks to Barney for making this integration possible. The build scripts dynamically pull source code from the Time & Config repository during the build process—the code is not duplicated in this repository. The extraction process is handled by [`/bin/time-config/extract.sh`](bin/time-config/extract.sh), which clones the Time & Config repository, extracts the necessary source files, and applies selective modifications during extraction to support integration (such as removing unsupported features like timezone and summertime configuration). This integration enables `*CONFIGURE` and `*STATUS` commands for machine configuration, as well as `*INSERT` and `*UNPLUG` commands for ROM management. For more information and documentation on Time & Config ROM features, readers should refer to the [Time & Config. repository](https://codeberg.org/Barneyntd/Time-Config.) directly.
 
 The project builds multiple ROM variants for each target platform:
 
 | Filename (/dist) | Filename (.ssd) | Platform | RTC Type | I2C Core | Plus *CONFIGURE | Plus Test |
 |------------------|-----------------|----------|----------|----------|------------------|-----------|
 | `i2cb.rom` | `I2CB` | BBC Micro | DS3231 | ✓ | | |
-| `i2cbc.rom` | `C.I2CB` | BBC Micro | DS3231 | ✓ | ✓ | |
-| `i2cbt.rom` | `T.I2CB` | BBC Micro | DS3231 | ✓ | ✓ | ✓ |
+| `i2cbc.rom` | `C.I2CB` | BBC Micro | DS3231 | ✓ | | |
+| `i2cbt.rom` | `T.I2CB` | BBC Micro | DS3231 | ✓ | | ✓ |
 | `i2ce.rom` | `I2CE` | Electron | DS3231 | ✓ | | |
-| `i2cec.rom` | `C.I2CE` | Electron | DS3231 | ✓ | ✓ | |
-| `i2cet.rom` | `T.I2CE` | Electron | DS3231 | ✓ | ✓ | ✓ |
-| `i2ceap6.rom` | `I2CEAP6` | Electron AP6 | PCF8583 | ✓ | | |
+| `i2cec.rom` | `C.I2CE` | Electron | DS3231 | ✓ | | |
+| `i2cet.rom` | `T.I2CE` | Electron | DS3231 | ✓ | | ✓ |
+| `i2ceap6.rom` | `I2CEAP6` | Electron AP6 | PCF8583 | ✓ | ✓ | |
 | `i2ceap6c.rom` | `C.I2CEAP6` | Electron AP6 | PCF8583 | ✓ | ✓ | |
 | `i2ceap6t.rom` | `T.I2CEAP6` | Electron AP6 | PCF8583 | ✓ | ✓ | ✓ |
 | `ap6.rom` | `AP6` | Electron AP6 Support ROM | PCF8583 | ✓ | ✓ | |
+
+**Note:** The configuration commands are only available in Electron AP6 builds (see table above). This limitation exists because the Time & Config feature requires NVRAM (Non-Volatile RAM) to store configuration settings, and the PCF8583 RTC chip used in Electron AP6 builds has sufficient free RAM for this purpose, while the DS3231 RTC chip used in BBC Micro and basic Electron builds has no user-accessible RAM. In the future, if EEPROM I2C devices are detected on the bus, they could be dynamically used to provide NVRAM storage, enabling these features on all platforms.
 
 This project also includes support for building the AP6 Support ROM (`ap6.rom`) which combines the I2C ROM with other AP6 ROMs (AP1Plus, ROMManager, TUBEelk, AP6Count) into a single 16KB ROM image. The build process is handled by [`/bin/buildap6/build.sh`](bin/buildap6/build.sh) and uses SMJoin compatibility to enable ROM relocation and chaining. For detailed technical information about the AP6 Support ROM build process, see the [SMJoin Compatibility Implementation](#smjoin-compatibility-implementation-sept-2025) section below.
 
@@ -26,7 +28,12 @@ This project also includes support for building the AP6 Support ROM (`ap6.rom`) 
 
 This repository `/dist` folder contains version **v3.2** and above of the **I2CBeeb** ROM. If you need the official I2CBeeb ROMs **v3.1**, see [thread](https://stardot.org.uk/forums/viewtopic.php?t=10966) for other variants. Looking forward, since this repo supports building all variants of the ROM, one option is this repository may become the main I2CBeeb repository in the future, or it may reside some other place. Currently the source code is only shared by Martin as attachments on StarDot and in this repository per his kind permission.
 
-The Time & Config integration code is dynamically pulled from the [Time & Config. ROM repository](https://codeberg.org/Barneyntd/Time-Config.) during the build process and is not duplicated in this repository. Many thanks to Barney Hilken, the author of the Time & Config. ROM, for making this integration possible. The build scripts (`/bin/time-config/extract.sh`) clone the Time & Config repository, extract the necessary source files, and apply selective modifications (such as removing unsupported features) before inclusion in the ROM builds. For the full Time & Config ROM with all features, readers should refer to the [Time & Config. repository](https://codeberg.org/Barneyntd/Time-Config.) directly. 
+The Time & Config integration code is dynamically pulled from the [Time & Config. ROM repository](https://codeberg.org/Barneyntd/Time-Config.) during the build process and is not duplicated in this repository. Many thanks to Barney Hilken, the author of the Time & Config. ROM, for making this integration possible. The build scripts (`/bin/time-config/extract.sh`) clone the Time & Config repository, extract the necessary source files, and apply selective modifications (such as removing unsupported features) before inclusion in the ROM builds. For more information and documentation on Time & Config ROM features, readers should refer to the [Time & Config. repository](https://codeberg.org/Barneyntd/Time-Config.) directly. 
+
+Status - Release v3.3 In Progress - Test Framework and Configure Support (Jan 2026)
+----------------------------------------------------------------------------------
+
+This release introduces significant enhancements including integration with the Time & Config ROM for configuration management and ROM control features. The `*CONFIGURE` and `*STATUS` commands enable system configuration settings to be stored in NVRAM and applied on boot, while `*INSERT` and `*UNPLUG` commands provide ROM management capabilities. These features are currently available only in Electron AP6 builds due to NVRAM requirements—the PCF8583 RTC chip provides sufficient free RAM for configuration storage, while the DS3231 RTC chip used in BBC Micro and basic Electron builds has no user-accessible RAM. The build system has been updated to disable configure features for BBC and Electron builds, keeping them enabled only for Electron AP6 builds. Additionally, the `*I2CTEST` command has been implemented to provide comprehensive automated testing of I2C functionality across all target platforms. For more information on the test framework, see the [Test Framework *I2CTEST](#test-framework-i2ctest) section below.
 
 Status - BeebAsm Migration Complete (Sep 2025)
 ----------------------------------------------

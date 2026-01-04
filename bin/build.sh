@@ -71,7 +71,7 @@ echo "*** Building I2EAP6 ROM ***"
     -D ALTBASE=0 \
     -D PAD=0 \
     -D I2CTEST_ONLY=0 \
-    -D INC_CONFIG=0 \
+    -D INC_CONFIG=1 \
     -o "I2CEAP6"
 # Extract from ssd to output folder
 ./bin/mmbutils/beeb getfile ./src/out/out.ssd ./src/out/ap6
@@ -91,7 +91,7 @@ echo "*** Building T.I2CB ROM ***"
     -D ALTBASE=0 \
     -D PAD=1 \
     -D I2CTEST_ONLY=1 \
-    -D INC_CONFIG=1 \
+    -D INC_CONFIG=0 \
     -o "T.I2CB"
 # Extract from ssd to output folder
 ./bin/mmbutils/beeb getfile ./src/out/testb.ssd ./src/out/testb
@@ -107,7 +107,7 @@ echo "*** Building T.I2CE ROM ***"
     -D ALTBASE=0 \
     -D PAD=1 \
     -D I2CTEST_ONLY=1 \
-    -D INC_CONFIG=1 \
+    -D INC_CONFIG=0 \
     -o "T.I2CE"
 # Extract from ssd to output folder
 ./bin/mmbutils/beeb getfile ./src/out/teste.ssd ./src/out/teste
@@ -143,7 +143,7 @@ echo "*** Building C.I2CB ROM ***"
     -D ALTBASE=0 \
     -D PAD=1 \
     -D I2CTEST_ONLY=0 \
-    -D INC_CONFIG=1 \
+    -D INC_CONFIG=0 \
     -o "C.I2CB"
 # Extract from ssd to output folder
 ./bin/mmbutils/beeb getfile ./src/out/configb.ssd ./src/out/configb
@@ -159,7 +159,7 @@ echo "*** Building C.I2CE ROM ***"
     -D ALTBASE=0 \
     -D PAD=1 \
     -D I2CTEST_ONLY=0 \
-    -D INC_CONFIG=1 \
+    -D INC_CONFIG=0 \
     -o "C.I2CE"
 # Extract from ssd to output folder
 ./bin/mmbutils/beeb getfile ./src/out/confige.ssd ./src/out/confige
