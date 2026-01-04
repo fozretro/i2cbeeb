@@ -111,6 +111,8 @@
 \ 7. Changes introduced in v3.3 :
 \
 \	a) Added *I2CTEST command for testing I2C functionality
+\	b) Integrated Time & Config ROM features: *CONFIGURE, *STATUS, *INSERT, *UNPLUG
+\	c) Configuration features available only in Electron AP6 builds (PCF8583 RTC required)
 \
 \-------------------------------------------------------------------------------
 
