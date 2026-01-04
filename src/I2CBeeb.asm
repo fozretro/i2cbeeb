@@ -450,8 +450,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	EQUB	HI(i2crxd), LO(i2crxd)
 	EQUS	"I2CSTOP"
 	EQUB	HI(starstp), LO(starstp)
-	IF I2CTEST_ONLY
-	\Test build: also include I2CTEST command
+	IF INC_TESTS
 	EQUS	"I2CTEST"
 	EQUB	HI(staritest), LO(staritest)
 	ENDIF
@@ -833,7 +832,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 \-------------------------------------------------------------------------------
 \*I2CTEST - test command for I2C functionality
 
-	IF I2CTEST_ONLY
+	IF INC_TESTS
 .testgo	
 	NOP					\assembler call entry point
 .staritest	

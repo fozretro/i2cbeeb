@@ -30,7 +30,7 @@ echo "*** Building I2CB ROM ***"
     -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=1 \
-    -D I2CTEST_ONLY=0 \
+    -D INC_TESTS=0 \
     -D INC_CONFIG=0 \
     -o "I2CB"
 # Extract from ssd to output folder
@@ -50,7 +50,7 @@ echo "*** Building I2CE ROM ***"
     -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=1 \
-    -D I2CTEST_ONLY=0 \
+    -D INC_TESTS=0 \
     -D INC_CONFIG=0 \
     -o "I2CE"
 # Extract from ssd to output folder
@@ -70,7 +70,7 @@ echo "*** Building I2EAP6 ROM ***"
     -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=0 \
-    -D I2CTEST_ONLY=0 \
+    -D INC_TESTS=0 \
     -D INC_CONFIG=1 \
     -o "I2CEAP6"
 # Extract from ssd to output folder
@@ -90,7 +90,7 @@ echo "*** Building T.I2CB ROM ***"
     -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=1 \
-    -D I2CTEST_ONLY=1 \
+    -D INC_TESTS=1 \
     -D INC_CONFIG=0 \
     -o "T.I2CB"
 # Extract from ssd to output folder
@@ -106,7 +106,7 @@ echo "*** Building T.I2CE ROM ***"
     -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=1 \
-    -D I2CTEST_ONLY=1 \
+    -D INC_TESTS=1 \
     -D INC_CONFIG=0 \
     -o "T.I2CE"
 # Extract from ssd to output folder
@@ -122,7 +122,7 @@ echo "*** Building T.I2CEAP6 ROM ***"
     -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=0 \
-    -D I2CTEST_ONLY=1 \
+    -D INC_TESTS=1 \
     -D INC_CONFIG=1 \
     -o "T.I2CEAP6"
 # Extract from ssd to output folder
@@ -142,7 +142,7 @@ echo "*** Building C.I2CB ROM ***"
     -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=1 \
-    -D I2CTEST_ONLY=0 \
+    -D INC_TESTS=0 \
     -D INC_CONFIG=0 \
     -o "C.I2CB"
 # Extract from ssd to output folder
@@ -158,7 +158,7 @@ echo "*** Building C.I2CE ROM ***"
     -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=1 \
-    -D I2CTEST_ONLY=0 \
+    -D INC_TESTS=0 \
     -D INC_CONFIG=0 \
     -o "C.I2CE"
 # Extract from ssd to output folder
@@ -175,7 +175,7 @@ echo "*** Building C.I2CEAP6 ROM ***"
     -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=0 \
-    -D I2CTEST_ONLY=0 \
+    -D INC_TESTS=0 \
     -D INC_CONFIG=1 \
     -o "C.I2CEAP6"
 # Extract from ssd to output folder

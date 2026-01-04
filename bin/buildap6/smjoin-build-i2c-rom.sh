@@ -18,7 +18,7 @@ mkdir -p ./bin/buildap6/tmp
     -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=0 \
     -D PAD=0 \
-    -D I2CTEST_ONLY=0 \
+    -D INC_TESTS=0 \
     -D INC_CONFIG=1 \
     -o "I2CEAP6"
 # Extract from ssd to output folder
@@ -32,7 +32,7 @@ mkdir -p ./bin/buildap6/tmp
     -S INCCONFIG="./src/configure/inc/Configure.inc" \
     -D ALTBASE=1 \
     -D PAD=0 \
-    -D I2CTEST_ONLY=0 \
+    -D INC_TESTS=0 \
     -D INC_CONFIG=1 \
     -o "I2CEAP6"    
 # Extract from ssd to output folder
