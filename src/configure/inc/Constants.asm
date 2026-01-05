@@ -12,9 +12,8 @@
 \ Aliases for OSWORD parameters (I2CBeeb uses OSW_X/OSW_Y, Time-Config uses OSBYTEX/OSBYTEY)
 OSWORDPtr	= &F0
 OSWORDNum	= &EF
-OSBYTEA		= &EF
-OSBYTEX		= OSW_X		\ Alias to existing OSW_X
-OSBYTEY		= OSW_Y		\ Alias to existing OSW_Y
+\ Note: OSBYTEA, OSBYTEX, OSBYTEY are defined in I2CBeeb.asm when INC_CONFIG is enabled
+\ They are aliases: OSBYTEA=OSW_A, OSBYTEX=OSW_X, OSBYTEY=OSW_Y
 TextPointer	= cli		\ Alias to existing cli
 ReadRomPtr	= &F6
 ErrorPtr	= &FD
