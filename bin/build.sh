@@ -251,6 +251,12 @@ cp ./src/out/teste/T.I2CE.inf ./dev/eap6/ 2>/dev/null || true
 cp ./src/out/testap6/T.I2CEAP6 ./dev/eap6/
 cp ./src/out/testap6/T.I2CEAP6.inf ./dev/eap6/ 2>/dev/null || true
 
+# Copy I2CTEST BASIC file to dev/eap6 for hardware testing
+echo ""
+echo "*** Copying I2CTEST BASIC File to Dev Folder ***"
+cp ./src/out/testap6/I2CTEST ./dev/eap6/ 2>/dev/null || true
+cp ./src/out/testap6/I2CTEST.inf ./dev/eap6/ 2>/dev/null || true
+
 # Copy configure-less ROMs to dev/eap6 for hardware testing
 echo ""
 echo "*** Copying Configure-less ROMs to Dev Folder ***"
