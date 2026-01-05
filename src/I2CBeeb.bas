@@ -58,9 +58,37 @@ REM Test 06 : OSBYTE NVRAM Read
 REM **************************
 PRINT "Test 06 : ";
 TESTADDR%=200
+TESTVAL%=150
+REM Ensure value is written first
+A%=&A2:X%=TESTADDR%:Y%=TESTVAL%:CALL &FFF4
+REM Read via OSBYTE using USR to decode return values
+A%=&A1:X%=TESTADDR%:Y%=0
+U%=USR(&FFF4)
+Y%=(U% AND &FF0000) DIV &10000
+IF Y%=TESTVAL% THEN PRINT "Pass" ELSE PRINT "Fail: Exp ";TESTVAL%;" Got ";Y%
+
+REM **************************
+REM Test 07 : OSBYTE NVRAM Read (Assembler)
+REM **************************
+PRINT "Test 07 : ";
+TESTADDR%=200
 TESTVAL%=170
 REM Ensure value is written first
 A%=&A2:X%=TESTADDR%:Y%=TESTVAL%:CALL &FFF4
-REM Read via OSBYTE
-A%=&A1:X%=TESTADDR%:Y%=0:CALL &FFF4
-IF Y%=TESTVAL% THEN PRINT "Pass" ELSE PRINT "Fail: Expected ";TESTVAL%;" Got ";Y%
+REM Reserve memory for assembler code
+DIM asmcode 20
+REM Set program counter to start of code
+P%=asmcode
+REM Assemble machine code
+[ OPT 0
+LDA #&A1
+LDX #&C8
+LDY #0
+JSR &FFF4
+STY &70
+RTS
+]
+REM Call the assembled code
+CALL asmcode
+REM Print value from &70
+IF ?&70=TESTVAL% THEN PRINT "Pass" ELSE PRINT "Fail: Exp ";TESTVAL%;" Got ";?&70
