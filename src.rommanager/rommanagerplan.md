@@ -354,14 +354,14 @@ Consider:
 2. ✅ Create this plan document
 3. ✅ Document compatibility issues (Archimedes BASIC V code removal)
 4. ✅ Document two-phase approach (reproduce ROM, then NVRAM integration)
-5. ⏳ Create `bin/buildrommanager/` directory structure
-6. ⏳ Create `!BOOT` file
-7. ⏳ Create `build.sh` script with Archimedes code removal
-8. ⏳ Test with Electron target (default TARGET%=0)
-9. ⏳ Verify BBC Master emulation works (with Tube mode if needed)
-10. ⏳ Build ROM and compare with `roms/ROMManager-v1.34.rom`
-11. ⏳ Verify binary match (or identify and fix differences)
-12. ⏳ Add binary comparison step to build script
+5. ✅ Create `bin/buildrommanager/` directory structure
+6. ✅ Create `!BOOT` file
+7. ✅ Create `build.sh` script with Archimedes code removal
+8. ⏳ Configure b-em emulator (Model, VDFS, Tube mode)
+9. ⏳ Test with Electron target (default TARGET%=0)
+10. ⏳ Verify BBC Master emulation works (with Tube mode if needed)
+11. ⏳ Build ROM and compare with `roms/ROMManager-v1.34.rom`
+12. ⏳ Verify binary match (or identify and fix differences)
 
 ## Future Steps - Phase 2: NVRAM Integration
 
