@@ -145,7 +145,7 @@ fi
 echo ""
 
 # Run emulator (BBC Model B with ARM CoPro for more RAM)
-# -autoboot: Auto-execute !BOOT file
+# -autoboot: Tell emulator to attempt to boot from disc (OPT setting controls !BOOT execution)
 "$BEM_PATH" -autoboot
 
 # Determine expected output filename based on target
