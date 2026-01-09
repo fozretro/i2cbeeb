@@ -1,20 +1,54 @@
 #!/bin/bash
 set -e
 
-# Configuration
-BEM_PATH="./bin/b-em/b-em"
-VDFS_DIR="./dev/rommanager"
-SOURCE_FILE="./src.rommanager/rommanager.bas"
-OUTPUT_DIR="./src.rommanager/out"
-REFERENCE_ROM="./roms/ROMManager-v1.34.rom"
-BUILD_DIR="./bin/buildrommanager"
-TMP_DIR="$BUILD_DIR/tmp"
+# Source functions
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/inc/buildfunctions.sh"
 
-# Default target (0 = Electron)
-TARGET=${1:-0}
+# Set up absolute paths first
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# Configuration
+BEM_PATH="$PROJECT_ROOT/bin/b-em/b-em"
+VDFS_DIR="$PROJECT_ROOT/dev/rommanager"
+SOURCE_FILE="$PROJECT_ROOT/src.rommanager/rommanager.bas"
+OUTPUT_DIR="$PROJECT_ROOT/src.rommanager/out"
+REFERENCE_ROM="$PROJECT_ROOT/roms/ROMManager-v1.34.rom"
+BUILD_DIR="$PROJECT_ROOT/bin/buildrommanager"
+TMP_DIR="$BUILD_DIR/tmp"
+BIN_DIR="$BUILD_DIR/bin"
+
+# Parse command line arguments
+TARGET=0
+DEBUG=0
+for arg in "$@"; do
+    case "$arg" in
+        --debug)
+            DEBUG=1
+            ;;
+        [0-9]|[1-9][0-9]*)
+            TARGET="$arg"
+            ;;
+        *)
+            echo "Unknown argument: $arg"
+            echo "Usage: $0 [target] [--debug]"
+            echo "  target: 0=Electron, 1=BBC B/B+, 3=Master, 5=Compact (default: 0)"
+            echo "  --debug: Use OPT=00 (no auto-boot, emulator stays open)"
+            exit 1
+            ;;
+    esac
+done
+
+# Set boot option based on debug flag
+if [ "$DEBUG" -eq 1 ]; then
+    BOOT_OPT="00"
+else
+    BOOT_OPT="03"
+fi
 
 echo "*** Building ROM Manager (Phase 1: Reproduce Existing ROM) ***"
 echo "Target: $TARGET (0=Electron, 1=BBC B/B+, 3=Master, 5=Compact)"
+echo "Boot option: OPT=$BOOT_OPT ($([ "$DEBUG" -eq 1 ] && echo "debug mode - emulator stays open" || echo "auto-boot enabled"))"
 echo ""
 
 # Create directories
@@ -32,27 +66,14 @@ TEMP_BASIC="$TMP_DIR/rommanager.bas"
 cp "$SOURCE_FILE" "$TEMP_BASIC"
 
 # Create !BOOT file with correct line endings (\r for BBC Micro)
-# REM out *QUIT so emulator stays open to see errors
-# Use LOAD instead of CHAIN to load the program
 echo "Creating !BOOT file..."
-printf '*BASIC\rLOAD "rommgr"\rREM *QUIT\r' > "$TMP_DIR/!BOOT"
+printf 'AB\rLOAD "rommgr"\r*QUIT\r' > "$TMP_DIR/!BOOT"
 
 # Generate build.asm dynamically from binaries in bin directory
 echo "Generating build.asm from binaries in bin directory..."
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-BIN_DIR="$BUILD_DIR/bin"
 
-# Start build.asm with header and !BOOT/rommgr entries
+# Generate build.asm with !BOOT and rommgr entries
 cat > "$TMP_DIR/build.asm" << 'EOF'
-\ Build SSD with tokenized BASIC file and !BOOT
-\ Usage: beebasm -i build.asm -do output.ssd -title ROM
-\ Files are in tmp directory (current directory when beebasm runs)
-\ Use "rommgr" (7 chars max for DFS) as the filename
-\ PUTTEXT syntax: PUTTEXT <host filename>, <beeb filename>, <start addr>
-\ PUTFILE syntax: PUTFILE <host filename>, [<beeb filename>,] <start addr> [,<exec addr>]
-\ Load address &1900 is standard for text files on BBC Micro
-
 PUTTEXT "!BOOT", "!BOOT", &1900
 PUTBASIC "rommanager.bas", "rommgr"
 EOF
@@ -68,30 +89,7 @@ if [ -d "$BIN_DIR" ]; then
         infile="$binfile.inf"
         
         if [ -f "$infile" ]; then
-            # Parse .inf file: format is "$.FILENAME    LOAD   EXEC CRC=XXXX"
-            # Extract load and exec addresses (hex, no 0x prefix)
-            # Use awk to split by whitespace and get fields 2 (load) and 3 (exec)
-            load_addr=$(awk '{print $2}' "$infile" | tr '[:lower:]' '[:upper:]')
-            exec_addr=$(awk '{print $3}' "$infile" | tr '[:lower:]' '[:upper:]')
-            
-            # Validate addresses are hex
-            if [[ "$load_addr" =~ ^[0-9A-F]+$ ]] && [[ "$exec_addr" =~ ^[0-9A-F]+$ ]]; then
-                # Convert to beebasm format (& prefix for hex)
-                load_hex="&$load_addr"
-                exec_hex="&$exec_addr"
-                
-                # Add PUTFILE command to build.asm
-                if [ "$load_addr" = "$exec_addr" ]; then
-                    # Same load and exec address - only need one parameter
-                    echo "PUTFILE \"../bin/$binname\", \"$binname\", $load_hex" >> "$TMP_DIR/build.asm"
-                else
-                    # Different exec address - include both
-                    echo "PUTFILE \"../bin/$binname\", \"$binname\", $load_hex, $exec_hex" >> "$TMP_DIR/build.asm"
-                fi
-                echo "  Added $binname (load=$load_hex, exec=$exec_hex)"
-            else
-                echo "  Warning: Could not parse addresses from $infile (load=$load_addr, exec=$exec_addr), skipping $binname"
-            fi
+            parse_inf_file "$infile" "$binname"
         else
             echo "  Warning: No .inf file found for $binname, skipping"
         fi
@@ -104,9 +102,6 @@ fi
 echo "Building SSD with beebasm..."
 cd "$TMP_DIR"
 
-# Clean up any previous build
-rm -f build.ssd
-
 "$PROJECT_ROOT/bin/beebasm" -i "build.asm" -do build.ssd -title ROM 2>&1
 if [ $? -ne 0 ]; then
     echo "Error: Failed to build SSD"
@@ -114,112 +109,24 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Note: All files are added to SSD via beebasm (build.asm) - no need for mmbutils putfile
-# build.asm is the control file for what goes in the SSD
-
 # Extract all files from SSD to VDFS directory (emulator sees this)
+# All files are added to SSD via beebasm (build.asm)
 echo "Extracting files from SSD to VDFS directory..."
-cd "$PROJECT_ROOT"
 
-# Clean VDFS directory (only keep what emulator needs)
+# Clean VDFS directory
 rm -rf "$VDFS_DIR"/*
 mkdir -p "$VDFS_DIR"
 
-# Clean up any previous extractions from project root (mmbutils extracts to current dir)
-# Build list of files to clean up dynamically
-CLEANUP_FILES="$PROJECT_ROOT/!BOOT $PROJECT_ROOT/rommgr $PROJECT_ROOT/!BOOT.inf $PROJECT_ROOT/rommgr.inf"
-
-# Add binary files from bin directory to cleanup list
-if [ -d "$BIN_DIR" ]; then
-    for binfile in "$BIN_DIR"/*; do
-        [ ! -f "$binfile" ] && continue
-        [[ "$(basename "$binfile")" == *.inf ]] && continue
-        binname=$(basename "$binfile")
-        CLEANUP_FILES="$CLEANUP_FILES $PROJECT_ROOT/$binname $PROJECT_ROOT/$binname.inf"
-    done
-fi
-
-rm -rf $CLEANUP_FILES 2>/dev/null || true
-
-# Extract !BOOT from SSD (extracts to current directory)
-"$PROJECT_ROOT/bin/mmbutils/beeb" getfile "$TMP_DIR/build.ssd" !BOOT > /dev/null 2>&1
-if [ $? -eq 0 ]; then
-    # mmbutils creates a directory, handle both cases
-    if [ -d "!BOOT" ]; then
-        mv !BOOT/!BOOT "$VDFS_DIR/!BOOT" 2>/dev/null || true
-        if [ -f "!BOOT/!BOOT.inf" ]; then
-            mv !BOOT/!BOOT.inf "$VDFS_DIR/!BOOT.inf" 2>/dev/null || true
-        fi
-        rmdir !BOOT 2>/dev/null || true
-    elif [ -f "!BOOT" ]; then
-        mv !BOOT "$VDFS_DIR/!BOOT" 2>/dev/null || true
-        if [ -f "!BOOT.inf" ]; then
-            mv !BOOT.inf "$VDFS_DIR/!BOOT.inf" 2>/dev/null || true
-        fi
-    fi
-else
-    # If !BOOT not in SSD, copy from tmp directory
-    cp "$TMP_DIR/!BOOT" "$VDFS_DIR/!BOOT" 2>/dev/null || true
-fi
-
-# Extract tokenized BASIC file from SSD (now named "rommgr" directly)
-"$PROJECT_ROOT/bin/mmbutils/beeb" getfile "$TMP_DIR/build.ssd" rommgr > /dev/null 2>&1
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to extract tokenized BASIC file from SSD"
-    exit 1
-fi
-
-# mmbutils creates a directory structure, move file to correct location
-if [ -d "rommgr" ]; then
-    mv rommgr/rommgr "$VDFS_DIR/rommgr" 2>/dev/null || true
-    if [ -f "rommgr/rommgr.inf" ]; then
-        mv rommgr/rommgr.inf "$VDFS_DIR/rommgr.inf" 2>/dev/null || true
-    fi
-    rmdir rommgr 2>/dev/null || true
-elif [ -f "rommgr" ]; then
-    # File extracted directly (not in subdirectory)
-    mv rommgr "$VDFS_DIR/rommgr" 2>/dev/null || true
-    if [ -f "rommgr.inf" ]; then
-        mv rommgr.inf "$VDFS_DIR/rommgr.inf" 2>/dev/null || true
-    fi
-fi
-
-# Extract binary files from SSD (dynamically based on what's in bin directory)
-if [ -d "$BIN_DIR" ]; then
-    for binfile in "$BIN_DIR"/*; do
-        # Skip if not a regular file or if it's a .inf file
-        [ ! -f "$binfile" ] && continue
-        [[ "$(basename "$binfile")" == *.inf ]] && continue
-        
-        binname=$(basename "$binfile")
-        echo "Extracting $binname from SSD..."
-        
-        "$PROJECT_ROOT/bin/mmbutils/beeb" getfile "$TMP_DIR/build.ssd" "$binname" > /dev/null 2>&1
-        if [ $? -eq 0 ]; then
-            # mmbutils creates a directory structure, move file to correct location
-            if [ -d "$binname" ]; then
-                mv "$binname/$binname" "$VDFS_DIR/$binname" 2>/dev/null || true
-                if [ -f "$binname/$binname.inf" ]; then
-                    mv "$binname/$binname.inf" "$VDFS_DIR/$binname.inf" 2>/dev/null || true
-                fi
-                rmdir "$binname" 2>/dev/null || true
-            elif [ -f "$binname" ]; then
-                mv "$binname" "$VDFS_DIR/$binname" 2>/dev/null || true
-                if [ -f "$binname.inf" ]; then
-                    mv "$binname.inf" "$VDFS_DIR/$binname.inf" 2>/dev/null || true
-                fi
-            fi
-        fi
-    done
-fi
-
-# Final cleanup of any remaining extraction artifacts in project root
-rm -rf $CLEANUP_FILES 2>/dev/null || true
+# Extract to tmp directory (not project root) to avoid cluttering project
+# We're already in TMP_DIR from beebasm step, so stay here
+# mmbutils getfile extracts ALL files from SSD into a directory
+# Extract once (using first file) to get all files, then move what we need
+extract_all_from_ssd
 
 # Create rommanager.inf file for VDFS directory
 # This controls boot options for the emulator (OPT=00 = no auto-boot, OPT=03 = auto-boot)
-echo "Creating rommanager.inf file..."
-echo '$.$ OPT=00 DIR=1 MDATE=D148 MTIME=06380F' > "$VDFS_DIR.inf"
+echo "Creating rommanager.inf file with OPT=$BOOT_OPT..."
+printf '$.$ OPT=%s DIR=1 MDATE=D148 MTIME=06380F\n' "$BOOT_OPT" > "$VDFS_DIR.inf"
 
 # Verify files are in VDFS directory
 echo ""
@@ -230,10 +137,14 @@ echo "Ready to run emulator..."
 echo ""
 
 echo "Running b-em emulator..."
-echo "NOTE: Emulator will stay open (REM *QUIT) so you can see any errors"
+if [ "$DEBUG" -eq 1 ]; then
+    echo "NOTE: Debug mode - emulator will stay open (OPT=00, no auto-boot)"
+else
+    echo "NOTE: Auto-boot enabled (OPT=03) - !BOOT will execute automatically"
+fi
 echo ""
 
-# Run emulator (BBC Master, possibly with Tube mode for more RAM)
+# Run emulator (BBC Model B with ARM CoPro for more RAM)
 # -autoboot: Auto-execute !BOOT file
 "$BEM_PATH" -autoboot
 
