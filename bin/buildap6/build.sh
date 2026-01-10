@@ -137,6 +137,66 @@ echo "📊 Final ROM Statistics:"
 if [ -f "$OUTPUT_ROM" ]; then
     ls -la "$OUTPUT_ROM"
     echo "✅ Build completed successfully!"
+    
+    # Copy ROM and create INF file for /dev/eap6
+    echo ""
+    echo "📋 Step 5: Copying ROM to /dev/eap6..."
+    EAP6_DIR="dev/eap6"
+    ROM_NAME="AP6"
+    
+    # Copy ROM file
+    cp "$OUTPUT_ROM" "$EAP6_DIR/$ROM_NAME"
+    if [ $? -eq 0 ]; then
+        echo "✅ ROM copied to $EAP6_DIR/$ROM_NAME"
+        
+        # Calculate CRC and create INF file
+        python3 << PYEOF
+import zlib
+import sys
+
+def calc_crc(data):
+    """Calculate CRC using BBC Micro format (from BeebUtils.pm)"""
+    crc = 0
+    for byte in data:
+        crc ^= (256 * byte)
+        for x in range(8):
+            crc *= 2
+            if crc > 65535:
+                crc -= 65535
+                crc ^= 0x1020
+    return crc & 0xFFFF
+
+# Read the ROM file
+rom_file = "$OUTPUT_ROM"
+inf_file = "$EAP6_DIR/$ROM_NAME.inf"
+rom_name = "$ROM_NAME"
+
+with open(rom_file, 'rb') as f:
+    data = f.read()
+
+# Calculate CRC
+crc = calc_crc(data)
+
+# Create INF file - ROMs load at 0x8000
+load_addr = 0x8000
+exec_addr = 0x8000
+
+inf_content = f"\$.{rom_name}    {load_addr:04X}   {exec_addr:04X} CRC={crc:04X}\n"
+
+with open(inf_file, 'w') as f:
+    f.write(inf_content)
+
+print(f"✅ Created {inf_file}")
+print(f"   Load: 0x{load_addr:04X}, Exec: 0x{exec_addr:04X}, CRC: 0x{crc:04X}")
+PYEOF
+        if [ $? -eq 0 ]; then
+            echo "✅ INF file created successfully"
+        else
+            echo "⚠️  Warning: Failed to create INF file"
+        fi
+    else
+        echo "⚠️  Warning: Failed to copy ROM to $EAP6_DIR"
+    fi
 else
     echo "❌ Output ROM not found at $OUTPUT_ROM"
 fi

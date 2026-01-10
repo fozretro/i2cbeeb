@@ -60,9 +60,12 @@ chmod 644 "$CONFIGURE_DIR/Configure.asm" 2>/dev/null || true
 # Copy original Time-Config source files (untouched)
 echo ""
 echo "*** Copying Time-Config source files ***"
-cp "$TIMECONFIG_DIR/ROM/Settings.asm" "$CONFIGURE_DIR/"
 cp "$TIMECONFIG_DIR/ROM/Strings.asm" "$CONFIGURE_DIR/"
 cp "$TIMECONFIG_DIR/ROM/Roms.asm" "$CONFIGURE_DIR/"
+
+# Copy Settings.asm with selective removal of hard break flag and unplugRoms code
+echo "*** Extracting Settings.asm (removing hard break flag and unplugRoms) ***"
+python3 "$(dirname "$0")/extractsettings.py" "$TIMECONFIG_DIR/ROM/Settings.asm" "$CONFIGURE_DIR/Settings.asm"
 
 # Copy Commands.asm with selective removal of TIME command
 echo "*** Extracting Commands.asm (removing TIME command) ***"

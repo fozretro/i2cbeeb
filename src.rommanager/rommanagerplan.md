@@ -348,8 +348,42 @@ Consider:
 5. **Stamp command**: Is this available in b-em? May need to handle gracefully if not. This is just for file timestamp, not critical for build.
 6. **BBC Master Tube mode**: Should we enable Tube mode in b-em for more RAM? The user mentioned this might be needed.
 
+## Alternative Build Approach: Acorn Archimedes A5000
+
+**Status:** Under consideration - needs verification that A5000 can build successfully
+
+**Approach:**
+1. Build `rommanager.bas` on Acorn Archimedes A5000 (native Archimedes BASIC V)
+2. Save resulting ROM file to network share (`/Volumes/andrewfawcett` or `/Volumes/Econet`)
+3. Copy ROM from network share to project directory
+4. Integrate into AP6 ROM build process
+
+**Advantages:**
+- ✅ No compatibility issues - Archimedes BASIC V code (lines 7-9) works natively
+- ✅ Builds on real hardware
+- ✅ Network share accessible from macOS (`/Volumes/andrewfawcett` confirmed accessible)
+- ✅ Can use full Archimedes BASIC V features
+
+**Workflow:**
+1. Copy `rommanager.bas` to A5000 (via network share or other method)
+2. Run on A5000 with appropriate TARGET% setting
+3. Save output ROM to network share (e.g., `/Volumes/andrewfawcett/i2cbeeb/roms/`)
+4. From macOS, copy ROM from network share to `roms/` or `dist/` directory
+5. Use existing AP6 build process to integrate ROM
+
+**Network Share Locations:**
+- `/Volumes/andrewfawcett` - Main user share (117GB available)
+- `/Volumes/Econet` - Econet filesystem share
+
+**Next Steps:**
+- ⏳ Verify A5000 can successfully build `rommanager.bas`
+- ⏳ Determine best location on network share for ROM files
+- ⏳ Create script to copy ROM from network share to project
+- ⏳ Integrate into existing build workflow
+
 ## Next Steps - Phase 1: Reproduce Existing ROM
 
+**Option A: Emulator Build (Current)**
 1. ✅ Copy reference files to `refs/emulationbuilding/`
 2. ✅ Create this plan document
 3. ✅ Document compatibility issues (Archimedes BASIC V code removal)
@@ -362,6 +396,14 @@ Consider:
 10. ⏳ Verify BBC Master emulation works (with Tube mode if needed)
 11. ⏳ Build ROM and compare with `roms/ROMManager-v1.34.rom`
 12. ⏳ Verify binary match (or identify and fix differences)
+
+**Option B: A5000 Build (Alternative)**
+1. ⏳ Verify A5000 can build `rommanager.bas` successfully
+2. ⏳ Set up network share location for ROM output
+3. ⏳ Build ROM on A5000 for Electron target (TARGET%=0)
+4. ⏳ Copy ROM from network share to project
+5. ⏳ Compare with `roms/ROMManager-v1.34.rom`
+6. ⏳ Verify binary match (or identify and fix differences)
 
 ## Future Steps - Phase 2: NVRAM Integration
 
