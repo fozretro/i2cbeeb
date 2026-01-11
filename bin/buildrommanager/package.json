@@ -1,0 +1,15 @@
+{
+  "name": "rommanager-build",
+  "version": "1.0.0",
+  "description": "Build script for ROM Manager ROM using Archimedes Live emulator",
+  "main": "build.js",
+  "scripts": {
+    "build": "./build.sh"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "playwright": "^1.40.0"
+  }
+}

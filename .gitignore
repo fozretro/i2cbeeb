@@ -22,6 +22,7 @@ __pycache__/
 
 # Build output directories
 src/out/
+bin/buildrommanager/out/
 
 # Temporary build files
 out.ssd

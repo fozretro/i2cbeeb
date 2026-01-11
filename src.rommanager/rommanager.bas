@@ -26,7 +26,7 @@ TARGET%=5 :REM Build for Compact
 TARGET%=0 :REM Build for Electron
 IF TARGET$<>"":TARGET%=VALTARGET$
 :
-ver$="1.34":date$="04 Jan 2021"
+ver$="1.35":date$="04 Jan 2021"
 REM              Removed pre-v1.337 code
 :
 REM Thoughts: *INSERT/*UNPLUG/*LANG/*TUBE call OSBYTE 162
@@ -283,7 +283,9 @@ CLC:RTS                         :\ Return A=digit, CC
 .Serv1
 TYA:PHA                    :\ Save current workspace address
 OPT FNif(TARGET%<3)
-  LDA L0D6D:ASL A:ASL A    :\ Get Tube Enable from bit 5
+  \ Read Tube enable from NVRAM address 15 via OSBYTE 161
+  LDA #&A1:LDX #15:JSR OSBYTE:\ OSBYTE 161 Read NVRAM address 15
+  TYA:ASL A:ASL A          :\ Get Tube Enable from bit 5 (Y contains value)
   BPL Serv1a               :\ bit 5 = 0, not disabled
   LDA #0:STA &027A         :\ Disable Tube
   LDA &FFB7:STA &A8        :\ Point to default vectors
@@ -308,8 +310,8 @@ PLA:RTS
 \ =============================================
 .Serv7
 LDA &EF
-CMP #&A1:BEQ Serv7go     :\ OSBYTE &A1 - Read settings
-CMP #&A2:BNE Serv1Exit   :\ OSBYTE &A2 - Write settings
+CMP #&A1:BEQ Serv7go     :\ OSBYTE A1 Read settings
+CMP #&A2:BNE Serv1Exit   :\ OSBYTE A2 Write settings
 .Serv7go
 LDX &F0
 CPX #15:BEQ Serv7Tube    :\ Location 15, Tube On/Off
@@ -362,7 +364,9 @@ JMP Serv7RdOk            :\ EOR FF and return
 \
 .Serv10
 LDA &EF:ORA &F0
-ORA &F1:BNE Serv10Exit   :\ Not BREAK, skip
+ORA &F1:BEQ Serv10Cont
+JMP Serv10Exit
+.Serv10Cont
 LDA &028D
 CMP #&01:BNE X813E       :\ Not Power-On, insert/unplug ROMs
 OPT FNif(TARGET%<3)
@@ -372,21 +376,35 @@ OPT FNif(TARGET%<3)
   \      =11xxxxxx - no BASIC
   LDA &024B              :\ Get BASIC ROM number
   .Serv10SetLang
-  EOR L0D6D:AND #&CF     :\ Clear and merge LANG bits
-  EOR L0D6D:STA L0D6D    :\ Default language = BASIC
+  \ Read current LANG from NVRAM address 5 via OSBYTE 161
+  PHA                     :\ Save BASIC ROM number
+  LDA #&A1:LDX #5:JSR OSBYTE:\ OSBYTE 161 Read NVRAM address 5
+  TYA                     :\ Get current LANG value
+  STA &F6                 :\ Save current LANG
+  PLA                     :\ Restore BASIC ROM number
+  EOR &F6:AND #&CF        :\ Clear and merge LANG bits
+  EOR &F6                 :\ Merge with BASIC ROM number
+  \ Write LANG to NVRAM address 5 via OSBYTE 162
+  TAY                     :\ Y new LANG value
+  LDA #&A2:LDX #5:JSR OSBYTE:\ OSBYTE 162 Write NVRAM address 5
 OPT FNendif
 PLA:RTS
 :
 .X813E
-LDX #15:LDA L0D6F        :\ Unplug bitmap for ROMs 8-15
+\ Read bitmaps via OSBYTE 161
+LDA #&A1:LDX #7:JSR OSBYTE:\ OSBYTE 161 Read NVRAM address 7 ROMs 8-15
+TYA:STA &F6               :\ Save bitmap for ROMs 8-15
+LDA #&A1:LDX #6:JSR OSBYTE:\ OSBYTE 161 Read NVRAM address 6 ROMs 0-7
+TYA:STA &F7               :\ Save bitmap for ROMs 0-7
+LDX #15:LDA &F6           :\ Start with ROM 15, bitmap 8-15
 .Serv10Lp1
 CPX #7:BNE Serv10a
-LDA L0D6E                :\ Unplug bitmap for ROMs 0-7
+LDA &F7                    :\ ROM 7, switch to bitmap 0-7
 .Serv10a
-ROL A:BCC Serv10Next           :\ Leave inserted
+ROL A:BCC Serv10Next      :\ Leave inserted
 PHA:LDA #0:STA ROMTABLE,X:PLA  :\ Remove from ROM table
 .Serv10Next
-DEX:BPL Serv10Lp1        :\ Loop down to ROM 0
+DEX:BPL Serv10Lp1         :\ Loop down to ROM 0
 \.Serv10Done
 LDA #&7A:JSR OSBYTE       :\ Check keys pressed
 CPX #&48:BEQ Serv10Enable :\ *
@@ -839,7 +857,8 @@ LDA #&00:STA &A8:STA &A9 :\ Line number=0
 TYA:CLC:ADC &F2:TAX      :\ Convert (&F2),Y to XY
 LDA &F3:ADC #&00:TAY
 PLA:JSR OSFIND           :\ Open file
-TAY:BNE OpenFileOk       :\ File found
+TAY:BEQ errFileNotFound
+JMP OpenFileOk
 .errFileNotFound
 JSR MkError:EQUB 214:EQUS "File not found":BRK
 
@@ -868,9 +887,23 @@ OPT FNendif
 RTS
 .TubeOn
 .TubeOff
-EOR #8:AND #8:ASL A:ASL A :\ Move ON/OFF to bit 5
-EOR L0D6D:AND #&20        :\ Clear and merge TUBE bit
-EOR L0D6D:STA L0D6D       :\ Should only do on non-Master
+EOR #8:AND #8:ASL A:ASL A :\ Move ON/OFF to bit 5 (0=on, 1=off)
+PHA                      :\ Save Tube bit 5 value
+\ Read current Tube setting from NVRAM address 15 via OSBYTE 161
+LDA #&A1:LDX #15:JSR OSBYTE :\ OSBYTE 161 Read NVRAM address 15
+TYA:ASL A:ASL A:ASL A:ASL A:ASL A :\ Get Tube value and move to bit 5
+\ Convert bit 0 format to bit 5 format
+EOR #&20                :\ Invert bit
+STA &F6                 :\ Save current Tube bit 5 value
+PLA                      :\ Restore Tube bit 5 value
+EOR &F6:AND #&20         :\ Clear and merge TUBE bit
+EOR &F6                  :\ Merge with Tube bit
+\ Convert bit 5 format back to bit 0 format for NVRAM
+LSR A:LSR A:LSR A:LSR A:LSR A :\ Move bit 5 to bit 0
+EOR #1                   :\ Invert bit
+\ Write Tube setting to NVRAM address 15 via OSBYTE 162
+TAY                      :\ Y new Tube value bit 0 0 off 1 on
+LDA #&A2:LDX #15:JSR OSBYTE:\ OSBYTE 162 Write NVRAM address 15
 RTS
 
 
@@ -925,11 +958,21 @@ PHA:JMP Serv10SetLang  :\ Set as default language
 \          CS=ROM is unplugged
 .L8D07
 JSR XtoBitmap:BCS L8D1A :\ Jump for ROM 8-15
-AND L0D6E:BCC L8D1D     :\ Mask with bitmap for 0-7
+\ Read bitmap for ROMs 0-7 via OSBYTE 161
+PHA                      :\ Save bitmap bit
+LDA #&A1:LDX #6:JSR OSBYTE:\ OSBYTE 161 Read NVRAM address 6
+TYA:STA &F6              :\ Get bitmap for ROMs 0-7
+PLA                      :\ Restore bitmap bit
+AND &F6:BCC L8D1D        :\ Mask with bitmap for 0-7
 .L8D1A
-AND L0D6F               :\ Mask with bitmap for 8-15
+\ Read bitmap for ROMs 8-15 via OSBYTE 161
+PHA                      :\ Save bitmap bit
+LDA #&A1:LDX #7:JSR OSBYTE:\ OSBYTE 161 Read NVRAM address 7
+TYA:STA &F6              :\ Get bitmap for ROMs 8-15
+PLA                      :\ Restore bitmap bit
+AND &F6                  :\ Mask with bitmap for 8-15
 .L8D1D
-CMP #1:RTS              :\ CC=inserted, CS=unplugged
+CMP #1:RTS               :\ CC=inserted, CS=unplugged
 .XtoBitmap
 TXA:CMP #8:AND #7:TAX
 LDA Bitmap,X:RTS
@@ -1061,19 +1104,43 @@ RTS
 \ A=ROM, Y=&FF, unplug ROM
 \ A=ROM, Y=&00, insert ROM
 \
-\ Update, do via OSBYTE 162
+\ Uses OSBYTE 161/162 to read/write NVRAM via I2CBeeb ROM
+\ NVRAM address 6 = bitmap for ROMs 0-7
+\ NVRAM address 7 = bitmap for ROMs 8-15
 \
 .InsertUnplug
 TAX
 .InsertUnplugX
-JSR XtoBitmap            :\ A=2^X, CC=0-7, CS=8-15
-INY:BNE InsertThisRom    :\ Y was &00, jump to insert
-BCC P%+3:INY
-ORA L0D6E,Y:STA L0D6E,Y  :\ Store into bitmap
-RTS
+TYA:PHA                 :\ Save insert/unplug flag
+JSR XtoBitmap           :\ A=2^X, CC=0-7, CS=8-15
+PHA                     :\ Save bitmap bit
+BCC InsUnpAddr          :\ ROM 0-7, use address 6
+LDX #7                  :\ ROM 8-15, use address 7
+BNE InsUnpRead
+.InsUnpAddr
+LDX #6                  :\ ROM 0-7, use address 6
+.InsUnpRead
+STX &F5                 :\ Save NVRAM address
+LDA #&A1:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
+TYA:STA &F6             :\ Get current bitmap value
+PLA                     :\ Restore bitmap bit (A = bitmap bit)
+STA &F7                 :\ Save bitmap bit
+PLA                     :\ Restore insert/unplug flag
+TAY                     :\ Y = &FF (unplug) or &00 (insert)
+INY:BNE InsertThisRom   :\ Y was &00 (insert), jump to clear bit
+\ Unplug Set bit in bitmap OR with bitmask
+LDA &F6                 :\ Get current bitmap
+ORA &F7                 :\ OR with bitmap bit
+BNE InsUnpWrite
 .InsertThisRom
-EOR #&FF:BCS P%+3:DEY
-AND L0D6E,Y:STA L0D6E,Y  :\ Store into bitmap
+\ Insert Clear bit in bitmap AND with inverted bitmask
+LDA &F7                 :\ Get bitmap bit
+EOR #&FF                :\ Invert bitmask
+AND &F6                 :\ AND current bitmap with inverted bitmask
+.InsUnpWrite
+TAY                     :\ Y new bitmap value
+LDX &F5                 :\ Restore NVRAM address
+LDA #&A2:JSR OSBYTE     :\ OSBYTE 162 Write NVRAM
 RTS
 
 
@@ -1210,9 +1277,11 @@ TXA:PHA                   :\ stack => romtype, sram, header
 JSR PrText:EQUS "ROM ":EQUB 0
 LDX &F5:TXA:JSR PrNybble
 JSR PrSpace
-LDA L0D6D:AND #&8F
-CMP &F5:BNE RomInfo3      :\ Not default language
-LDA #ASC"*":JSR L9002     :\ Print inverted '*'
+\ Read LANG from NVRAM address 5 via OSBYTE 161
+LDA #&A1:LDX #5:JSR OSBYTE:\ OSBYTE 161 Read NVRAM address 5
+TYA:AND #&8F             :\ Get LANG value
+CMP &F5:BNE RomInfo3   :\ Not default language
+LDA #ASC"*":JSR L9002    :\ Print inverted '*'
 BNE RomInfo4
 .RomInfo3
 LDA #ASC":":JSR OSWRCH
@@ -1499,7 +1568,7 @@ RTS                     :\ Jump to code on stack
 .RomStackStart
 .RomCopyStart
 PHA:JSR &100          :\ Select SRAM/SROM bank
-TYA                   :\ Prepare A=0 for wipe
+LDA #0                :\ Prepare A=0 for wipe
 .RomCopyLp1
 LDX #&40              :\ Write 64 bytes at a time for EEPROM
 .RomCopyLp2
@@ -1640,7 +1709,7 @@ LDA #&00:STA L0938           :\ Set to side 0
 \ &93F=physical sector number
 :
 JSR CheckMode
-JSR L97B4:STX L0939          :\ OSBYTE &83 - read top of user memory
+JSR L97B4:STX L0939          :\ OSBYTE 83 read top of user memory
 TYA:SEC:SBC #&1A:STA L093A   :\ Use 6.5K of memory below screen
 :
 .Format13
@@ -2010,7 +2079,7 @@ ASL A:ASL A:ASL A     :\ drive*32
 ASL A:ASL A:STA L09D6 :\ Sector=drive*32+000000
 LDA #&10:STA L09EF    :\ 16 sectors per call
 JSR CheckMode
-JSR L97B4:STX LAE+0          :\ OSBYTE &83 - read top of user memory
+JSR L97B4:STX LAE+0          :\ OSBYTE 83 read top of user memory
 TYA:SEC:SBC #&12:STA LAE+1   :\ Use 5K of memory below screen
 :
 \ FBLK+0  &93B=current track

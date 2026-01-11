@@ -488,10 +488,8 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	EQUB	HI(xconfigure), LO(xconfigure)
 	EQUS	"STATUS"
 	EQUB	HI(xstatus), LO(xstatus)
-	EQUS	"INSERT"
-	EQUB	HI(xinsert), LO(xinsert)
-	EQUS	"UNPLUG"
-	EQUB	HI(xunplug), LO(xunplug)
+	\ INSERT and UNPLUG removed - ROM Manager handles these commands
+	\ I2CBeeb provides NVRAM via OSBYTE 161/162 instead
 	ENDIF
 	EQUB	$FF		\end of table marker
 
@@ -1773,50 +1771,9 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	RTS					\return to MOS
 
 \------------------------------------------------------------------------------
-\*INSERT
-\Wrapper for Time-Config CMD_Insert command handler
-\Inserts a ROM into the ROM table (marks it as plugged in)
-\Syntax: *INSERT <rom_number>
-\Calls CMD_Insert directly - it uses STR_ParseHex internally to parse command line
-
-.xinsert
-	NOP					\assembler call entry point
-.xinsert_go
-	LDY	comdata			\restore Y to correct CLI value (after command name)
-	\ CMD_Insert uses STR_ParseHex internally, which requires TextPointer to
-	\ point to the command line. MOS sets this up when calling our command handler,
-	\ so no additional setup needed here.
-	\ CMD_Insert returns A=0 on success, or calls CMD_doError on failure
-	JSR	CMD_Insert		\call Time-Config insert handler
-	PLA					\MOS command graceful exit
-	TAY
-	PLA
-	TAX
-	LDA	#0				\set A=0 to inform MOS command taken
-	RTS					\return to MOS
-
-\------------------------------------------------------------------------------
-\*UNPLUG
-\Wrapper for Time-Config CMD_Unplug command handler
-\Unplugs a ROM from the ROM table (marks it as unplugged)
-\Syntax: *UNPLUG <rom_number>
-\Calls CMD_Unplug directly - it uses STR_ParseHex internally to parse command line
-
-.xunplug
-	NOP					\assembler call entry point
-.xunplug_go
-	LDY	comdata			\restore Y to correct CLI value (after command name)
-	\ CMD_Unplug uses STR_ParseHex internally, which requires TextPointer to
-	\ point to the command line. MOS sets this up when calling our command handler,
-	\ so no additional setup needed here.
-	\ CMD_Unplug returns A=0 on success, or calls CMD_doError on failure
-	JSR	CMD_Unplug		\call Time-Config unplug handler
-	PLA					\MOS command graceful exit
-	TAY
-	PLA
-	TAX
-	LDA	#0				\set A=0 to inform MOS command taken
-	RTS					\return to MOS
+\ INSERT and UNPLUG command handlers removed
+\ ROM Manager handles these commands - I2CBeeb provides NVRAM via OSBYTE 161/162
+\ This avoids command conflicts and allows ROM Manager to use NVRAM storage
 
 	ENDIF
 

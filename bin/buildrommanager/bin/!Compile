@@ -1,0 +1,12 @@
+*Quit
+*Configure RmaSize 80
+*Spool Out
+*Echo Compile Start
+*SetType 6502_BASIC Module
+*RmEnsure B6502 0.00 RmLoad 6502_BASIC
+*B6502 
+TEXTLOAD "AP6"
+RUN  
+*Quit
+*Echo Compile Complete
+*Spool
