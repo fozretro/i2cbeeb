@@ -81,11 +81,15 @@ RESET='\033[0m'
 echo ""
 echo -e "${GREEN}*** Building ROM Manager ROM ***${RESET}"
 if [ "$VERBOSE" = true ]; then
+  set +e  # Temporarily disable exit on error to capture exit code
   node build.js --verbose
   BUILD_RESULT=$?
+  set -e  # Re-enable exit on error
 else
+  set +e  # Temporarily disable exit on error to capture exit code
   node build.js
   BUILD_RESULT=$?
+  set -e  # Re-enable exit on error
 fi
 
 if [ $BUILD_RESULT -eq 0 ]; then
