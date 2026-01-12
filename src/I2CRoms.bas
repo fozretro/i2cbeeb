@@ -1,0 +1,42 @@
+REM **************************
+REM I2CRoms : *UNPLUG/*INSERT NVRAM Persistence Test
+REM Tests ROM Manager's *UNPLUG and *INSERT commands
+REM Verifies NVRAM persistence via OSBYTE 161/162
+REM Tests ROM 6 (NVRAM address 6, bit 6) and ROM 12 (NVRAM address 7, bit 4)
+REM **************************
+PRINT "I2CRoms: *UNPLUG/*INSERT Test"
+PRINT ""
+REM Initialize NVRAM to known state
+PRINT "Init NVRAM: addr 6,7=255"
+A%=&A2:X%=6:Y%=255:CALL &FFF4
+A%=&A2:X%=7:Y%=255:CALL &FFF4
+PRINT ""
+REM Test ROM 6 (address 6, bit 6)
+PRINT "Test 1: ROM 6"
+*UNPLUG 6
+A%=&A1:X%=6:Y%=0
+U%=USR(&FFF4)
+Y%=(U% AND &FF0000) DIV &10000
+IF (Y% AND &40)=0 THEN PASS6%=1 ELSE PASS6%=0
+*INSERT 6
+A%=&A1:X%=6:Y%=0
+U%=USR(&FFF4)
+Y%=(U% AND &FF0000) DIV &10000
+IF (Y% AND &40)<>0 AND PASS6% THEN PASS6%=1 ELSE PASS6%=0
+IF PASS6% THEN PRINT "  PASS" ELSE PRINT "  FAIL"
+PRINT ""
+REM Test ROM 12 (address 7, bit 4)
+PRINT "Test 2: ROM 12"
+*UNPLUG 12
+A%=&A1:X%=7:Y%=0
+U%=USR(&FFF4)
+Y%=(U% AND &FF0000) DIV &10000
+IF (Y% AND &10)=0 THEN PASS12%=1 ELSE PASS12%=0
+*INSERT 12
+A%=&A1:X%=7:Y%=0
+U%=USR(&FFF4)
+Y%=(U% AND &FF0000) DIV &10000
+IF (Y% AND &10)<>0 AND PASS12% THEN PASS12%=1 ELSE PASS12%=0
+IF PASS12% THEN PRINT "  PASS" ELSE PRINT "  FAIL"
+PRINT ""
+IF PASS6% AND PASS12% THEN PRINT "Result: PASS" ELSE PRINT "Result: FAIL"

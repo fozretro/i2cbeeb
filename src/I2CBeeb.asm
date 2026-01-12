@@ -2713,3 +2713,4 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 
 SAVE romstart, romend
 PUTBASIC "src/I2CBeeb.bas", "I2CTEST"
+PUTBASIC "src/I2CRoms.bas", "I2CROMS"

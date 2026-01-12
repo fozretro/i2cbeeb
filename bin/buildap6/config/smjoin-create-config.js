@@ -25,7 +25,12 @@ module.exports = {
             name: "AP1Plus"
         },
         {
-            path: "../../roms/ROMManager-v1.34.rom", 
+            path: "tmp/i2c-reloc.rom",
+            name: "I2C",
+            pageAlignment: true 
+        },
+        {
+            path: "../../bin/buildrommanager/out/AP6v135", 
             name: "ROMManager",
             pageAlignment: false
         },
@@ -33,11 +38,6 @@ module.exports = {
             path: "../../roms/TUBEelk-v1.10.rom",
             name: "TUBEelk", 
             pageAlignment: false
-        },
-        {
-            path: "tmp/i2c-reloc.rom",
-            name: "I2C",
-            pageAlignment: true 
         },
         {
             path: "../../roms/AP6Count-v0.05.rom",

@@ -26,7 +26,7 @@ TARGET%=5 :REM Build for Compact
 TARGET%=0 :REM Build for Electron
 IF TARGET$<>"":TARGET%=VALTARGET$
 :
-ver$="1.34":date$="04 Jan 2021"
+ver$="1.35":date$="12 Jan 2025"
 REM              Removed pre-v1.337 code
 :
 REM Thoughts: *INSERT/*UNPLUG/*LANG/*TUBE call OSBYTE 162
@@ -1061,19 +1061,47 @@ RTS
 \ A=ROM, Y=&FF, unplug ROM
 \ A=ROM, Y=&00, insert ROM
 \
-\ Update, do via OSBYTE 162
+\ Uses OSBYTE 161/162 to read/write NVRAM via I2CBeeb ROM
+\ NVRAM address 6 = bitmap for ROMs 0-7
+\ NVRAM address 7 = bitmap for ROMs 8-15
 \
 .InsertUnplug
 TAX
 .InsertUnplugX
-JSR XtoBitmap            :\ A=2^X, CC=0-7, CS=8-15
-INY:BNE InsertThisRom    :\ Y was &00, jump to insert
-BCC P%+3:INY
-ORA L0D6E,Y:STA L0D6E,Y  :\ Store into bitmap
-RTS
+TYA:PHA                 :\ Save insert/unplug flag
+JSR XtoBitmap           :\ A=2^X, CC=0-7, CS=8-15
+PHA                     :\ Save bitmap bit
+BCC InsUnpAddr          :\ ROM 0-7, use address 6
+LDX #7                  :\ ROM 8-15, use address 7
+BNE InsUnpRead
+.InsUnpAddr
+LDX #6                  :\ ROM 0-7, use address 6
+.InsUnpRead
+STX &A8                 :\ Save NVRAM address (command workspace)
+LDA #&A1:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
+TYA                     :\ Get value from Y
+EOR #&FF                :\ Invert OSBYTE format (bit SET=inserted) to RAM format (bit SET=unplugged)
+STA &A9                 :\ Store current bitmap (RAM format) in command workspace
+PLA                     :\ Restore bitmap bit (A = bitmap bit)
+STA &AA                 :\ Save bitmap bit in command workspace
+PLA                     :\ Restore insert/unplug flag
+TAY                     :\ Y = &FF (unplug) or &00 (insert)
+INY:BNE InsertThisRom   :\ Y was &00 (insert), jump to clear bit
+\ Unplug Set bit in bitmap OR with bitmask
+LDA &A9                 :\ Get current bitmap
+ORA &AA                 :\ OR with bitmap bit
+BNE InsUnpWrite
 .InsertThisRom
-EOR #&FF:BCS P%+3:DEY
-AND L0D6E,Y:STA L0D6E,Y  :\ Store into bitmap
+\ Insert Clear bit in bitmap AND with inverted bitmask
+LDA &AA                 :\ Get bitmap bit
+EOR #&FF                :\ Invert bitmask
+AND &A9                 :\ AND current bitmap with inverted bitmask
+.InsUnpWrite
+TAY                     :\ Y new bitmap value (RAM format bit SET=unplugged)
+TYA:EOR #&FF            :\ Invert RAM format to OSBYTE format (bit SET=inserted)
+TAY                     :\ Y now in OSBYTE format for NVRAM storage
+LDX &A8                 :\ Restore NVRAM address
+LDA #&A2:JSR OSBYTE     :\ OSBYTE 162 Write NVRAM
 RTS
 
 
