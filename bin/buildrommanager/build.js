@@ -47,6 +47,14 @@ function failure(msg) {
   }
 }
 
+async function waitForExploration(page) {
+  if (VERBOSE) {
+    console.log(`\n${colors.blue}Keeping browser open for 5 minutes for exploration...${colors.reset}`);
+    console.log(`${colors.blue}Browser will close automatically after 5 minutes.${colors.reset}`);
+    await page.waitForTimeout(5 * 60 * 1000); // 5 minutes = 300000ms
+  }
+}
+
 async function buildAP6() {
   log('Launching browser...');
   const browser = await chromium.launch({
@@ -220,14 +228,26 @@ async function buildAP6() {
                   break;
                 }
                 if (inBuildSection) {
-                  // Skip RUN and *Quit lines (case-insensitive, trimmed)
+                  // Skip expected informational lines (case-insensitive, trimmed)
                   const trimmedLower = lowerLine.trim();
-                  if (!trimmedLower.includes('run') && 
-                      !trimmedLower.includes('*quit') && 
-                      !trimmedLower.startsWith('*quit') &&
-                      trimmedLower !== 'run') {
-                    buildLines.push(line);
+                  // Skip RUN and *Quit commands
+                  if (trimmedLower.includes('run') || 
+                      trimmedLower.includes('*quit') || 
+                      trimmedLower.startsWith('*quit') ||
+                      trimmedLower === 'run') {
+                    continue;
                   }
+                  // Skip BASIC version/info messages
+                  if (trimmedLower.includes('**b6502') ||
+                      trimmedLower.includes('*b6502') ||
+                      trimmedLower.includes('arm bbc basic') ||
+                      trimmedLower.includes('(c) acorn') ||
+                      trimmedLower.includes('starting with') ||
+                      trimmedLower.includes('bytes free') ||
+                      trimmedLower.includes('program renumbered')) {
+                    continue;
+                  }
+                  buildLines.push(line);
                 }
               }
               
@@ -274,6 +294,7 @@ async function buildAP6() {
           } else {
             failure('errors detected in OUT file');
           }
+          await waitForExploration(page);
           await browser.close();
           process.exit(1);
         }
@@ -285,6 +306,7 @@ async function buildAP6() {
             process.stdout.write('\r' + ' '.repeat(80) + '\r');
             failure('');
             console.log(`${colors.red}${checkResult.buildOutput}${colors.reset}`);
+            await waitForExploration(page);
             await browser.close();
             process.exit(1);
           }
@@ -339,14 +361,26 @@ async function buildAP6() {
           break;
         }
         if (inBuildSection) {
-          // Skip RUN and *Quit lines (case-insensitive, trimmed)
+          // Skip expected informational lines (case-insensitive, trimmed)
           const trimmedLower = lowerLine.trim();
-          if (!trimmedLower.includes('run') && 
-              !trimmedLower.includes('*quit') && 
-              !trimmedLower.startsWith('*quit') &&
-              trimmedLower !== 'run') {
-            buildLines.push(line);
+          // Skip RUN and *Quit commands
+          if (trimmedLower.includes('run') || 
+              trimmedLower.includes('*quit') || 
+              trimmedLower.startsWith('*quit') ||
+              trimmedLower === 'run') {
+            continue;
           }
+          // Skip BASIC version/info messages
+          if (trimmedLower.includes('**b6502') ||
+              trimmedLower.includes('*b6502') ||
+              trimmedLower.includes('arm bbc basic') ||
+              trimmedLower.includes('(c) acorn') ||
+              trimmedLower.includes('starting with') ||
+              trimmedLower.includes('bytes free') ||
+              trimmedLower.includes('program renumbered')) {
+            continue;
+          }
+          buildLines.push(line);
         }
       }
       buildOutput = buildLines.join('\n').trim();
@@ -382,6 +416,7 @@ async function buildAP6() {
           console.log('─'.repeat(60));
         }
       }
+      await waitForExploration(page);
       await browser.close();
       process.exit(1);
     }
@@ -398,6 +433,7 @@ async function buildAP6() {
         failure('');
         // Output only the build failure text in red
         console.log(`${colors.red}${buildOutput}${colors.reset}`);
+        await waitForExploration(page);
         await browser.close();
         process.exit(1);
       }
@@ -457,8 +493,10 @@ async function buildAP6() {
         const projectRoot = path.join(__dirname, '../..');
         const relativePath = path.relative(projectRoot, localRomPath);
         success(`${romData.length} bytes -> ${relativePath}`);
+        await waitForExploration(page);
       } else {
         failure('Could not read ROM data from HostFS');
+        await waitForExploration(page);
         await browser.close();
         process.exit(1);
       }
@@ -480,12 +518,14 @@ async function buildAP6() {
       if (romCheckResult.error) {
         console.log(`  ${colors.red}${romCheckResult.error}${colors.reset}`);
       }
+      await waitForExploration(page);
       await browser.close();
       process.exit(1);
     }
     
   } catch (error) {
     failure(error.message);
+    await waitForExploration(page);
     await browser.close();
     process.exit(1);
   } finally {

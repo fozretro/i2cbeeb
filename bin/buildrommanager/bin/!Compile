@@ -2,11 +2,9 @@
 *Configure RmaSize 80
 *SetType 6502_BASIC Module
 *RmEnsure B6502 0.00 RmLoad 6502_BASIC
-*B6502 
-TEXTLOAD "AP6"
 *Spool Out
 *Echo BUILD_START
-RUN  
+*B6502 -chain AP6 -quit
 *Echo BUILD_END
 *Spool
 *Quit
