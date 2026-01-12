@@ -378,10 +378,24 @@ OPT FNendif
 PLA:RTS
 :
 .X813E
-LDX #15:LDA L0D6F        :\ Unplug bitmap for ROMs 8-15
+LDX #7                   :\ Read NVRAM address 7 (ROMs 8-15)
+STX &A8                 :\ Save NVRAM address (command workspace)
+LDA #&A1:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
+TYA                     :\ Get value from Y
+EOR #&FF                :\ Invert OSBYTE format (bit SET=inserted) to RAM format (bit SET=unplugged)
+STA &A9                 :\ Store bitmap for ROMs 8-15 (RAM format) in command workspace
+LDX #15                 :\ Start at ROM 15
+LDA &A9                 :\ Load bitmap for ROMs 8-15
 .Serv10Lp1
-CPX #7:BNE Serv10a
-LDA L0D6E                :\ Unplug bitmap for ROMs 0-7
+CPX #7:BNE Serv10a      :\ Not ROM 7, continue with current bitmap
+LDX #6                  :\ Read NVRAM address 6 (ROMs 0-7)
+STX &A8                 :\ Save NVRAM address (command workspace)
+LDA #&A1:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
+TYA                     :\ Get value from Y
+EOR #&FF                :\ Invert OSBYTE format (bit SET=inserted) to RAM format (bit SET=unplugged)
+STA &A9                 :\ Store bitmap for ROMs 0-7 (RAM format) in command workspace
+LDX #7                  :\ Restore X to 7
+LDA &A9                 :\ Load bitmap for ROMs 0-7
 .Serv10a
 ROL A:BCC Serv10Next           :\ Leave inserted
 PHA:LDA #0:STA ROMTABLE,X:PLA  :\ Remove from ROM table
