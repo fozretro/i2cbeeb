@@ -19,6 +19,8 @@ OSFILE=&FFDD:OSARGS=&FFDA:OSBGET=&FFD7:OSBPUT=&FFD4
 OSGBPB=&FFD1:OSFIND=&FFCE:GSINIT=&FFC2:GSREAD=&FFC5
 FSCV=&21E:WHATOS=0
 :
+OSB_ReadNVRAM=&A1:OSB_WriteNVRAM=&A2:REM NVRAM via OSBYTE 161/162
+:
 TARGET%=-1:REM Build for 6502Em with no FDC hardware, no real ADFS
 TARGET%=1 :REM Build for BBC B/B+
 TARGET%=3 :REM Build for Master
@@ -48,7 +50,6 @@ L0D70=&0D70                     :REM Saved file vectors
 L0930=&0930                     :REM Base of *FORMAT workspace
 L09D0=FILEBLK+1:L09EC=FILEBLK+12:REM Base of *VERIFY workspace
 L0D6C=&0D6C:L0D6D=&0D6D         :REM ROM manager settings
-L0D6E=&0D6E:L0D6F=&0D6F         :REM UNPLUG bitmap
 :
 REM *FORMAT workspace
 REM -----------------
@@ -308,8 +309,8 @@ PLA:RTS
 \ =============================================
 .Serv7
 LDA &EF
-CMP #&A1:BEQ Serv7go     :\ OSBYTE &A1 - Read settings
-CMP #&A2:BNE Serv1Exit   :\ OSBYTE &A2 - Write settings
+CMP #OSB_ReadNVRAM:BEQ Serv7go     :\ OSBYTE &A1 - Read settings
+CMP #OSB_WriteNVRAM:BNE Serv1Exit   :\ OSBYTE &A2 - Write settings
 .Serv7go
 LDX &F0
 CPX #15:BEQ Serv7Tube    :\ Location 15, Tube On/Off
@@ -380,7 +381,7 @@ PLA:RTS
 .X813E
 LDX #7                   :\ Read NVRAM address 7 (ROMs 8-15)
 STX &A8                 :\ Save NVRAM address (command workspace)
-LDA #&A1:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
+LDA #OSB_ReadNVRAM:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
 TYA                     :\ Get value from Y
 EOR #&FF                :\ Invert OSBYTE format (bit SET=inserted) to RAM format (bit SET=unplugged)
 STA &A9                 :\ Store bitmap for ROMs 8-15 (RAM format) in command workspace
@@ -390,7 +391,7 @@ LDA &A9                 :\ Load bitmap for ROMs 8-15
 CPX #7:BNE Serv10a      :\ Not ROM 7, continue with current bitmap
 LDX #6                  :\ Read NVRAM address 6 (ROMs 0-7)
 STX &A8                 :\ Save NVRAM address (command workspace)
-LDA #&A1:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
+LDA #OSB_ReadNVRAM:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
 TYA                     :\ Get value from Y
 EOR #&FF                :\ Invert OSBYTE format (bit SET=inserted) to RAM format (bit SET=unplugged)
 STA &A9                 :\ Store bitmap for ROMs 0-7 (RAM format) in command workspace
@@ -948,7 +949,7 @@ BNE L8D07Read
 LDX #6                  :\ ROM 0-7, use address 6
 .L8D07Read
 STX &A8                 :\ Save NVRAM address (command workspace)
-LDA #&A1:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
+LDA #OSB_ReadNVRAM:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
 TYA                     :\ Get value from Y
 EOR #&FF                :\ Invert OSBYTE format (bit SET=inserted) to RAM format (bit SET=unplugged)
 STA &A9                 :\ Store bitmap (RAM format) in command workspace
@@ -1089,7 +1090,7 @@ RTS
 \ A=ROM, Y=&FF, unplug ROM
 \ A=ROM, Y=&00, insert ROM
 \
-\ Uses OSBYTE 161/162 to read/write NVRAM via I2CBeeb ROM
+\ Uses OSBYTE 161/162 to read/write NVRAM
 \ NVRAM address 6 = bitmap for ROMs 0-7
 \ NVRAM address 7 = bitmap for ROMs 8-15
 \
@@ -1106,7 +1107,7 @@ BNE InsUnpRead
 LDX #6                  :\ ROM 0-7, use address 6
 .InsUnpRead
 STX &A8                 :\ Save NVRAM address (command workspace)
-LDA #&A1:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
+LDA #OSB_ReadNVRAM:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
 TYA                     :\ Get value from Y
 EOR #&FF                :\ Invert OSBYTE format (bit SET=inserted) to RAM format (bit SET=unplugged)
 STA &A9                 :\ Store current bitmap (RAM format) in command workspace
@@ -1129,7 +1130,7 @@ TAY                     :\ Y new bitmap value (RAM format bit SET=unplugged)
 TYA:EOR #&FF            :\ Invert RAM format to OSBYTE format (bit SET=inserted)
 TAY                     :\ Y now in OSBYTE format for NVRAM storage
 LDX &A8                 :\ Restore NVRAM address
-LDA #&A2:JSR OSBYTE     :\ OSBYTE 162 Write NVRAM
+LDA #OSB_WriteNVRAM:JSR OSBYTE     :\ OSBYTE 162 Write NVRAM
 RTS
 
 
