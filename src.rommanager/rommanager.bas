@@ -924,11 +924,25 @@ PHA:JMP Serv10SetLang  :\ Set as default language
 \ On exit, CC=ROM is inserted
 \          CS=ROM is unplugged
 .L8D07
-JSR XtoBitmap:BCS L8D1A :\ Jump for ROM 8-15
-AND L0D6E:BCC L8D1D     :\ Mask with bitmap for 0-7
-.L8D1A
-AND L0D6F               :\ Mask with bitmap for 8-15
-.L8D1D
+TXA:PHA                 :\ Save ROM number
+JSR XtoBitmap           :\ A=2^X, CC=0-7, CS=8-15
+PHA                     :\ Save bitmap bit
+BCC L8D07Addr           :\ ROM 0-7, use address 6
+LDX #7                  :\ ROM 8-15, use address 7
+BNE L8D07Read
+.L8D07Addr
+LDX #6                  :\ ROM 0-7, use address 6
+.L8D07Read
+STX &A8                 :\ Save NVRAM address (command workspace)
+LDA #&A1:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
+TYA                     :\ Get value from Y
+EOR #&FF                :\ Invert OSBYTE format (bit SET=inserted) to RAM format (bit SET=unplugged)
+STA &A9                 :\ Store bitmap (RAM format) in command workspace
+PLA                     :\ Restore bitmap bit (A = bitmap bit)
+AND &A9                 :\ AND bitmap bit with bitmap value
+STA &AA                 :\ Save AND result in command workspace
+PLA:TAX                 :\ Restore ROM number
+LDA &AA                 :\ Restore AND result to A
 CMP #1:RTS              :\ CC=inserted, CS=unplugged
 .XtoBitmap
 TXA:CMP #8:AND #7:TAX
