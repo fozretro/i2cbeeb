@@ -1,7 +1,7 @@
 I2CBeeb ROM for BBC, Electron, Electron AP6
 ===========================================
 
-> **⚠️ IMPORTANT NOTE:** This is an exploration branch only at present. Source files relating to other ROMs and builds of them will not be merged into the final branch—they are temporarily stored here for ease of exploration.
+> **⚠️ IMPORTANT NOTE:** This is an exploration branch only at present. Source files relating to other AP6 supporting ROMs and builds of them will not be merged into the final branch—they are temporarily stored here for ease of exploration.
 
 This project got started as a means to explore and implement RTC commands and others that make use of the RTC (a `PCF8583`) within the Electron **AP6** by Dave Hitchens. StarDot forum discussion [here](https://www.stardot.org.uk/forums/viewtopic.php?t=28720). It has now become a means to build the I2C Rom by MartinB (of StarDot) using the BeebAsm assembler for three targets, **BBC Micro**, **Electron** and **Electron Plus with AP6** (`/bin/build.sh`). Additionally tools in this project will also rebuild the AP6 Support ROM to include the I2C AP6 ROM (`/bin/buildap6/build.sh`) all be it without TreeROM due to size restrictions. All compiled output is in `/dist`.
 
