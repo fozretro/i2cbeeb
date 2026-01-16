@@ -380,29 +380,24 @@ PLA:RTS
 :
 .X813E
 LDX #7                   :\ Read NVRAM address 7 (ROMs 8-15)
-STX &A8                 :\ Save NVRAM address (command workspace)
 LDA #OSB_ReadNVRAM:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
 TYA                     :\ Get value from Y
 EOR #&FF                :\ Invert OSBYTE format (bit SET=inserted) to RAM format (bit SET=unplugged)
 STA &A9                 :\ Store bitmap for ROMs 8-15 (RAM format) in command workspace
-LDX #15                 :\ Start at ROM 15
-LDA &A9                 :\ Load bitmap for ROMs 8-15
-.Serv10Lp1
-CPX #7:BNE Serv10a      :\ Not ROM 7, continue with current bitmap
 LDX #6                  :\ Read NVRAM address 6 (ROMs 0-7)
-STX &A8                 :\ Save NVRAM address (command workspace)
 LDA #OSB_ReadNVRAM:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
 TYA                     :\ Get value from Y
 EOR #&FF                :\ Invert OSBYTE format (bit SET=inserted) to RAM format (bit SET=unplugged)
-STA &A9                 :\ Store bitmap for ROMs 0-7 (RAM format) in command workspace
-LDX #7                  :\ Restore X to 7
-LDA &A9                 :\ Load bitmap for ROMs 0-7
+STA &AA                 :\ Store bitmap for ROMs 0-7 (RAM format) in command workspace
+LDX #15:LDA &A9         :\ Start at ROM 15, load bitmap for ROMs 8-15
+.Serv10Lp1
+CPX #7:BNE Serv10a      :\ Not ROM 7, continue with current bitmap
+LDA &AA                 :\ Load bitmap for ROMs 0-7
 .Serv10a
 ROL A:BCC Serv10Next           :\ Leave inserted
 PHA:LDA #0:STA ROMTABLE,X:PLA  :\ Remove from ROM table
 .Serv10Next
 DEX:BPL Serv10Lp1        :\ Loop down to ROM 0
-\.Serv10Done
 LDA #&7A:JSR OSBYTE       :\ Check keys pressed
 CPX #&48:BEQ Serv10Enable :\ *
 CPX #&5B:BEQ Serv10Enable :\ K*
