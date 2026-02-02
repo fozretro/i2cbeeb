@@ -1,0 +1,10 @@
+*Quit
+*Configure RmaSize 80
+*SetType 6502_BASIC Module
+*RmEnsure B6502 0.00 RmLoad 6502_BASIC
+*Spool Out
+*Echo BUILD_START
+*B6502 -chain AP1 -quit
+*Echo BUILD_END
+*Spool
+*Quit

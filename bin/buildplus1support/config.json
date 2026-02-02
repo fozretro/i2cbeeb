@@ -1,0 +1,8 @@
+{
+  "sourcePath": "../../src.plus1support/plus1support.bas",
+  "hostFsName": "AP1",
+  "romPattern": "ap1v",
+  "compileScriptPath": "bin/!Compile",
+  "outDir": "out",
+  "projectName": "Plus 1 Support"
+}

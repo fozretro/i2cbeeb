@@ -51,8 +51,8 @@ if [ -d "$OUT_DIR" ]; then
 fi
 mkdir -p "$OUT_DIR"
 
-[ ! -f "../../src.rommanager/rommanager.bas" ] && {
-  echo "Error: rommanager.bas not found" >&2
+[ ! -f "../../src.plus1support/plus1support.bas" ] && {
+  echo "Error: plus1support.bas not found" >&2
   exit 1
 }
 
@@ -61,7 +61,7 @@ RED='\033[0;31m'
 RESET='\033[0m'
 
 echo ""
-echo -e "${GREEN}*** Building ROM Manager ROM ***${RESET}"
+echo -e "${GREEN}*** Building Plus 1 Support ROM ***${RESET}"
 if [ "$VERBOSE" = true ]; then
   set +e
   node "$COMMON_DIR/build.js" --config "$SCRIPT_DIR/config.json" --verbose
@@ -74,11 +74,11 @@ else
   set -e
 fi
 
-if [ $BUILD_RESULT -eq 0 ]; then
-  echo ""
-  echo -e "${GREEN}Build completed successfully${RESET}"
-else
+if [ $BUILD_RESULT -ne 0 ]; then
   echo ""
   echo -e "${RED}Build failed${RESET}"
   exit 1
 fi
+
+echo ""
+echo -e "${GREEN}Build completed successfully${RESET}"

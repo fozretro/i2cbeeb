@@ -1,0 +1,8 @@
+{
+  "sourcePath": "../../src.rommanager/rommanager.bas",
+  "hostFsName": "AP6",
+  "romPattern": "ap6v",
+  "compileScriptPath": "bin/!Compile",
+  "outDir": "out",
+  "projectName": "ROM Manager"
+}

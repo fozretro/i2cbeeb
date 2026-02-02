@@ -21,7 +21,7 @@ module.exports = {
     // ROM files to combine (in order)
     romFiles: [
         {
-            path: "../../roms/AP1Plus-v1.34.rom",
+            path: "../../bin/buildplus1support/out/AP1v131",
             name: "AP1Plus"
         },
         {
