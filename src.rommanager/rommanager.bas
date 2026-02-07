@@ -284,8 +284,11 @@ CLC:RTS                         :\ Return A=digit, CC
 .Serv1
 TYA:PHA                    :\ Save current workspace address
 OPT FNif(TARGET%<3)
-  LDA L0D6D:ASL A:ASL A    :\ Get Tube Enable from bit 5
-  BPL Serv1a               :\ bit 5 = 0, not disabled
+  LDX #15
+  LDA #OSB_ReadNVRAM:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
+  TYA
+  LSR A                    ;\ Get Tube Enable from bit 0
+  BCC Serv1a               :\ bit 0 = 0, not disabled
   LDA #0:STA &027A         :\ Disable Tube
   LDA &FFB7:STA &A8        :\ Point to default vectors
   LDA &FFB8:STA &A9        :\ Reset EVENTV and BRKV
