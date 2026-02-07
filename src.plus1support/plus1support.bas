@@ -543,9 +543,13 @@ LDA &0380,X:STA ROMtable,X :\ Copy &0380-&038F back to ROM table
 INX:CPX #&10:BCC L831F
 LDA &0D68:AND #&FB:STA &0D68 :\ Set 'ROM table not moved'
 .L832A
+
 LDY #1                       :\ On first pass, start at Plus 1 ROM
-LDA L0D6D:AND #&8F           :\ Get default LANG ROM number
-TAX:BPL TryThisROM           :\ b7=0, default ROM
+LDX #5                       :\ NVRAM address 5 (LANG in low nibble, FILE in high)
+LDA #&A1:JSR OSBYTE               :\ OSBYTE 161 read; Y = byte
+TYA:LSR A: LSR A: LSR A: LSR A:   :\ LANG = low nibble only (0-15)
+LDY #1
+TAX:LDA ROMtable,X:ASL A:BMI TryThisROM     :\ b6=1, contains language
 .LookForROMlp
 DEY:BNE P%+4:LDX &F4         :\ Start at Plus 1 ROM
 DEX:BPL P%+4:LDX #15         :\ Step down, looping around
