@@ -263,6 +263,16 @@ echo "*** Copying I2CROMS BASIC File to Dev Folder ***"
 cp ./src/out/ap6/I2CROMS ./dev/eap6/ 2>/dev/null || true
 cp ./src/out/ap6/I2CROMS.inf ./dev/eap6/ 2>/dev/null || true
 
+# Copy RTCTest, RTCRead, NVList tokenized BASIC files to dev/eap6 for hardware testing
+echo ""
+echo "*** Copying RTC/NVRAM Test BASIC Files to Dev Folder ***"
+cp ./src/out/ap6/RTCTest ./dev/eap6/ 2>/dev/null || true
+cp ./src/out/ap6/RTCTest.inf ./dev/eap6/ 2>/dev/null || true
+cp ./src/out/ap6/RTCRead ./dev/eap6/ 2>/dev/null || true
+cp ./src/out/ap6/RTCRead.inf ./dev/eap6/ 2>/dev/null || true
+cp ./src/out/ap6/NVList ./dev/eap6/ 2>/dev/null || true
+cp ./src/out/ap6/NVList.inf ./dev/eap6/ 2>/dev/null || true
+
 # Copy configure-less ROMs to dev/eap6 for hardware testing
 echo ""
 echo "*** Copying Configure-less ROMs to Dev Folder ***"

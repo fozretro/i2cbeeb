@@ -2714,3 +2714,6 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 SAVE romstart, romend
 PUTBASIC "src/I2CBeeb.bas", "I2CTEST"
 PUTBASIC "src/I2CRoms.bas", "I2CROMS"
+PUTBASIC "src/tests/RTCTest.bas", "RTCTest"
+PUTBASIC "src/tests/RTCRead.bas", "RTCRead"
+PUTBASIC "src/tests/NVList.bas", "NVList"
