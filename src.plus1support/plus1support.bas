@@ -1,4 +1,4 @@
-REM > AP1v131/src
+REM > AP1v1312/src
 REM Source for Electron Plus 1 Support
 :
 ON ERROR REPORT:PRINT" at line ";ERL:END
@@ -35,6 +35,12 @@ verROM$="1.34" :dateROM$="22 Jun 2018":REM Date of whole ROM build
 ver$   ="1.311":date$   ="22 Jun 2018":REM Date of AP1 Support
 REM 28-Dec-2020: Claims BRKV on startup to catch startup errors
 REM              Removed pre-v1.311 code
+:
+verROM$="1.341":dateROM$="12 Feb 2026":REM Date of whole ROM build
+ver$   ="1.312":date$   ="10 Feb 2026":REM Date of AP1 Support
+REM 10 Feb 2026: Offers to NVRAM to get settings
+REM              Optimised ROM table copying - reverted, didn't work
+REM ver$="1.32"
 :
 :
 REM Base addresses
@@ -79,11 +85,11 @@ REM  &01 = serial output buffer active
 REM  &02 = serial input buffer active
 REM &0D6B ROMSTROBE (&FC73) RAM copy
 REM &0D6C Saved ROM paging semaphore when temporarily disabled
-REM &0D6D If b7=0 - default language ROM in b3-b0
-REM       If b6=1 - reserved for NoRelocate
+REM &0D6D If b7=0 - default language ROM in b3-b0 (v1.312+ deprecated)
+REM       If b6=1 - reserved for NoRelocate       (v1.312+ deprecated)
 REM       If b5=1 - Tube disabled
 REM       If b4=1 - spare
-REM       b3-b0   - language ROM
+REM       b3-b0   - language ROM                  (v1.312+ ignores b7)
 REM &0D6E INSERT/UNPLUG bitmap 0-7, b7=7, 0=inserted, 1=unplugged
 REM &0D6F INSERT/UNPLUG bitmap 8-15, b7=15, 0=inserted, 1=unplugged
 REM
@@ -279,16 +285,16 @@ PLA:LDA #&00:RTS        :\ Claim call and return
 .L815E
 TYA:PHA                    :\ Save workspace pointer
 OPT FNif(TARGET%<1)
-  LDA &FFB2
-  CMP #&40:BEQ L8160       :\ Running on Electron?
-  LDX &F4:LDA &0DF0,X
-  ORA #&80:STA &0DF0,X     :\ Not Electron, disable myself
-  .L8160
+LDA &FFB2
+CMP #&40:BEQ L8160         :\ Running on Electron?
+LDX &F4:LDA &0DF0,X
+ORA #&80:STA &0DF0,X       :\ Not Electron, disable myself
+.L8160
 OPT FNendif
 LDA #0:STA &0D68           :\ No 100Hz calls enabled, ROM table not moved, nothing disabled
 STA &0D6B:STA &FC73        :\ Set ROMSTROBE and copy to &00
 OPT FNif(TARGET%<1)
-  LDA &28D                 :\ Check Break type
+LDA &28D                   :\ Check Break type
 OPT FNendif
 BEQ L8182                  :\ Soft Break (or not Electron), don't move ROM table
 LDX &F4:BPL L816E          :\ Jump to start at the ROM above me
@@ -303,7 +309,7 @@ LDX #&04:JSR L8388         :\ Set maximum ADC channel to 4
 LDA &028D:CLC:BEQ L8192    :\ Soft Break, don't set defaults
 .L818C
 OPT FNif(FALSE)
-  LDA &28F:AND #&CF:STA &28F :\ Reset disk access speed
+LDA &28F:AND #&CF:STA &28F :\ Reset disk access speed
 OPT FNendif
 LDX #&01:STX &285          :\ Set Printer Type to 1 (parallel)
 SEC                        :\ SEC=use default serial speed
@@ -435,7 +441,7 @@ CLC:JMP L8299       :\ Clear Printer Buffer Busy flag and return
 .L8293
 LDA #&40:JSR L85FD  :\ Clear b6 of &0D68, turn off 100Hz poll
 SEC                 :\ Set b7 of &02C6 and return
-                    :\ Set Serial Error event flag
+:\ Set Serial Error event flag
 .L8299
 JMP L87AB           :\ Set/Clear Printer Buffer Busy flag
 
@@ -543,21 +549,35 @@ LDA &0380,X:STA ROMtable,X :\ Copy &0380-&038F back to ROM table
 INX:CPX #&10:BCC L831F
 LDA &0D68:AND #&FB:STA &0D68 :\ Set 'ROM table not moved'
 .L832A
-
-LDY #1                       :\ On first pass, start at Plus 1 ROM
-LDX #5                       :\ NVRAM address 5 (LANG in low nibble, FILE in high)
-LDA #&A1:JSR OSBYTE               :\ OSBYTE 161 read; Y = byte
-TYA:LSR A: LSR A: LSR A: LSR A:   :\ LANG = low nibble only (0-15)
-LDY #1
-TAX:LDA ROMtable,X:ASL A:BMI TryThisROM     :\ b6=1, contains language
+OPT FNif(VALver$>=1.312)
+LDA L0D6D                   :\ Get internal default value
+ASL A:ASL A:ASL A:ASL A:TAY :\ Use this if NVRAM doesn't respond
+LDX #5:LDA #161:JSR OSBYTE  :\ See if NVRAM can provide a language
+\ Y is now either our value, or replaced with NVRAM value
+\ Can no longer have 'default' setting, as only four bits available
+TYA:LSR A:LSR A:LSR A:LSR A :\ A=ROM number
+TAX:LDA ROMtable,X          :\ Get ROM byte
+ASL A:BMI LangRomFound      :\ It's a language ROM, return it
+LDX &F4                     :\ Start looking below Plus1 ROM
+.LookForLang
+DEX:BPL P%+4:LDX #15        :\ Step down, looping around
+CPX &F4:BEQ LangRomFound    :\ If looped back to Plus 1, no more left
+LDA ROMtable,X              :\ Get ROM byte
+ASL A:BPL LookForLang       :\ No language, try next one down
+.LangRomFound
+OPT FNelse
+LDY #1                      :\ On first pass, start at Plus 1 ROM
+LDA L0D6D:AND #&8F          :\ Get default LANG ROM number
+TAX:BPL TryThisROM          :\ b7=0, default ROM
 .LookForROMlp
-DEY:BNE P%+4:LDX &F4         :\ Start at Plus 1 ROM
-DEX:BPL P%+4:LDX #15         :\ Step down, looping around
-CPX &F4:BEQ NoLanguage       :\ If looped back to Plus 1, no more left
+DEY:BNE P%+4:LDX &F4        :\ Start at Plus 1 ROM
+DEX:BPL P%+4:LDX #15        :\ Step down, looping around
+CPX &F4:BEQ NoLanguage      :\ If looped back to Plus 1, no more left
 .TryThisROM
-LDA ROMtable,X               :\ Get ROM byte
-ASL A:BPL LookForROMlp       :\ No language, try next one down
+LDA ROMtable,X              :\ Get ROM byte
+ASL A:BPL LookForROMlp      :\ No language, try next one down
 .NoLanguage
+OPT FNendif
 TXA
 CMP &F4:BNE P%+4:ORA #&80    :\ If no language found, return &80+Plus1
 JMP L80D0                    :\ Jump to return A as returned X

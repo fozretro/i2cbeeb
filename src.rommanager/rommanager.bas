@@ -1,4 +1,4 @@
-REM > AP6v134/src
+REM > AP6v1341/src
 REM Source for Updated PRES AP6 ROM Manager and Utilities
 REM Can test on Master, but ROM Manager workspace clashes
 :
@@ -19,8 +19,6 @@ OSFILE=&FFDD:OSARGS=&FFDA:OSBGET=&FFD7:OSBPUT=&FFD4
 OSGBPB=&FFD1:OSFIND=&FFCE:GSINIT=&FFC2:GSREAD=&FFC5
 FSCV=&21E:WHATOS=0
 :
-OSB_ReadNVRAM=&A1:OSB_WriteNVRAM=&A2:REM NVRAM via OSBYTE 161/162
-:
 TARGET%=-1:REM Build for 6502Em with no FDC hardware, no real ADFS
 TARGET%=1 :REM Build for BBC B/B+
 TARGET%=3 :REM Build for Master
@@ -28,12 +26,13 @@ TARGET%=5 :REM Build for Compact
 TARGET%=0 :REM Build for Electron
 IF TARGET$<>"":TARGET%=VALTARGET$
 :
-ver$="1.35":date$="12 Jan 2025"
+ver$="1.34":date$="04 Jan 2021"
 REM              Removed pre-v1.337 code
 :
-REM Thoughts: *INSERT/*UNPLUG/*LANG/*TUBE call OSBYTE 162
-REM OSBYTE 161/162 pass on to any Configure Module before implementing manually
-REM eg set/reset &DF0,X.b6 to pass on
+ver$="1.341":date$="12 Feb 2026"
+REM              *INSERT/*UNPLUG/*LANG/*TUBE call NVRAM OSBYTEs
+REM              Local copy of settings read via NVRAM calls.
+REM              Bugfix: OSBYTE 162,15 wasn't setting TUBE setting.
 :
 :
 REM Base addresses
@@ -50,6 +49,7 @@ L0D70=&0D70                     :REM Saved file vectors
 L0930=&0930                     :REM Base of *FORMAT workspace
 L09D0=FILEBLK+1:L09EC=FILEBLK+12:REM Base of *VERIFY workspace
 L0D6C=&0D6C:L0D6D=&0D6D         :REM ROM manager settings
+L0D6E=&0D6E:L0D6F=&0D6F         :REM UNPLUG bitmap
 :
 REM *FORMAT workspace
 REM -----------------
@@ -277,27 +277,57 @@ CMP #ASC"9"+1:BCS ChkDigitCS    :\ >'9'
 INY:AND #&0F
 .ChkDigitCC
 CLC:RTS                         :\ Return A=digit, CC
+:
+OPT FNif(VALver$>=1.341)
+.GetPlugMapAndLang
+TYA:PHA:JSR GetTubeAndLang        :\ Update local LANG value
+PLA:TAY
+:
+.GetPlugMap
+CLC                               :\ CC=Read from NVRAM
+.GetPutPlugMap
+TYA:PHA:LDX #6                    :\ Insert map first byte
+.GetPlugMapLp
+TXA:PHA:PHP                       :\ Save loop value and Carry
+LDA L0D6E-6,X:EOR #&FF:TAY        :\ Get our internal value
+LDA #161:ADC #0:JSR OSBYTE        :\ Offer it to NVRAM
+\ if valid response X=hardware offset,                    Y=value
+\    if no response X=&FF if no NVRAM support,            Y=preserved
+\    if no response X=preserved if location out of range, Y=preserved
+\ on writing, Y always preserved, so no problem writing back
+TYA:EOR #&FF:STA L0D6E-6,X        :\ Update insert map
+PLP:PLA:TAX:INX:EOR #7            :\ Check for last byte without hitting Carry
+BNE GetPlugMapLp:PLA:TAY:RTS      :\ Loop for both bytes
+:
+.GetTubeAndLang
+LDX #5:LDA #161:JSR OSBYTE        :\ Get LANG, may call ourselves
+TYA:LSR A:LSR A:LSR A:LSR A:PHA
+LDX #15:LDA #161:JSR OSBYTE       :\ Get TUBE, may call ourselves
+TYA:LSR A                         :\ CS=TUBE disabled
+PLA:BCC P%+4:ORA #32:STA L0D6D    :\ Update local value
+RTS
+OPT FNendif                       :\ A=LANG, CY=TUBE
 
 
 \ SERVICE 1 - Do Reset processing
 \ ===============================
 .Serv1
-TYA:PHA                    :\ Save current workspace address
-OPT FNif(TARGET%<3)
-  LDX #15
-  LDA #OSB_ReadNVRAM:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
-  TYA
-  LSR A                    ;\ Get Tube Enable from bit 0
-  BCC Serv1a               :\ bit 0 = 0, not disabled
-  LDA #0:STA &027A         :\ Disable Tube
-  LDA &FFB7:STA &A8        :\ Point to default vectors
-  LDA &FFB8:STA &A9        :\ Reset EVENTV and BRKV
-  LDY #&21                 :\ Point to EVENTV
-  .Serv1lp
-  LDA (&A8),Y:STA &200,Y
-  CPY #&20:BNE P%+4:LDY #4 :\ EVENTV done, point to BRKV+1
-  DEY:CPY #1:BNE Serv1lp
+TYA:PHA                  :\ Save current workspace address
+OPT FNif(VAL ver$<1.341)
+LDA L0D6D:ASL A:ASL A    :\ Get TUBE Enable from bit 5
+BPL Serv1a               :\ bit 5 = 0, not disabled
+OPT FNelse
+JSR GetTubeAndLang       :\ Get TUBE enable and LANG
+BCC Serv1a               :\ Not disabled
 OPT FNendif
+LDA #0:STA &027A         :\ Disable Tube
+LDA &FFB7:STA &A8        :\ Point to default vectors
+LDA &FFB8:STA &A9        :\ Reset EVENTV and BRKV
+LDY #&21                 :\ Point to EVENTV
+.Serv1lp
+LDA (&A8),Y:STA &200,Y
+CPY #&20:BNE P%+4:LDY #4 :\ EVENTV done, point to BRKV+1
+DEY:CPY #1:BNE Serv1lp
 .Serv1a
 LDA &028D
 CMP #&01:BNE Serv1Done   :\ Check last Break type
@@ -310,14 +340,15 @@ PLA:RTS
 
 \ SERVICE 7 - Read/Write configuration settings
 \ =============================================
+\ We will respond if nobody higher than us has already responded
 .Serv7
 LDA &EF
-CMP #OSB_ReadNVRAM:BEQ Serv7go     :\ OSBYTE &A1 - Read settings
-CMP #OSB_WriteNVRAM:BNE Serv1Exit   :\ OSBYTE &A2 - Write settings
+CMP #&A1:BEQ Serv7go     :\ OSBYTE &A1 - Read settings
+CMP #&A2:BNE Serv1Exit   :\ OSBYTE &A2 - Write settings
 .Serv7go
 LDX &F0
 CPX #15:BEQ Serv7Tube    :\ Location 15, Tube On/Off
-CPX #5:BCC Serv1Exit
+CPX #5:BCC Serv1Exit     :\ Ignore if not something we know about
 CPX #8:BCS Serv1Exit
 \  5 = b4-b7=LANG
 \  6 = b0-b7=unplug bitmap 0-7
@@ -348,8 +379,14 @@ LSR A:BCS Serv7TubeRd    :\ Jump with Read
 TYA:LSR A                :\ Cy=~T
 LDA L0D6D                :\ A=xxTxLLLL
 AND #&DF                 :\ A=xx0xLLLL
+OPT FNif(VALver$<1.341)
 BCS Serv7WrOk            :\ Enable Tube
 ORA #&20:BNE Serv7WrOk   :\ Disable Tube
+OPT FNelse
+BCC Serv7WrTube          :\ Enable Tube
+ORA #&20:.Serv7WrTube    :\ Disable Tube
+STA L0D6D:JMP Serv7Done
+OPT FNendif
 .Serv7TubeRd
 LDA L0D6D                :\ A=xxTxLLLL
 AND #&20:CMP #&20        :\ A=00Tx0000
@@ -370,37 +407,36 @@ ORA &F1:BNE Serv10Exit   :\ Not BREAK, skip
 LDA &028D
 CMP #&01:BNE X813E       :\ Not Power-On, insert/unplug ROMs
 OPT FNif(TARGET%<3)
-  \ &024B=00xxrrrr - 6502 BASIC ROM
-  \      =01xxrrrr - 6502 BASIC don't relocate
-  \      =10xxrrrr - non-6502 BASIC ROM
-  \      =11xxxxxx - no BASIC
-  LDA &024B              :\ Get BASIC ROM number
-  .Serv10SetLang
-  EOR L0D6D:AND #&CF     :\ Clear and merge LANG bits
-  EOR L0D6D:STA L0D6D    :\ Default language = BASIC
+\ On power-on, set the default language to BASIC
+\ Give NRAM opportunity to over-ride
+\ &024B=00xxrrrr - 6502 BASIC ROM
+\      =01xxrrrr - 6502 BASIC don't relocate
+\      =10xxrrrr - non-6502 BASIC ROM
+\      =11xxxxxx - no BASIC
+LDA &024B              :\ Get BASIC ROM number
+.Serv10SetLang
+EOR L0D6D:AND #&CF     :\ Clear and merge LANG bits
+EOR L0D6D:STA L0D6D    :\ Default language = BASIC
+OPT FNendif
+OPT FNif(VALver$>=1.341)
+JSR GetTubeAndLang     :\ Let NVRAM override our setting
 OPT FNendif
 PLA:RTS
 :
 .X813E
-LDX #7                   :\ Read NVRAM address 7 (ROMs 8-15)
-LDA #OSB_ReadNVRAM:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
-TYA                     :\ Get value from Y
-EOR #&FF                :\ Invert OSBYTE format (bit SET=inserted) to RAM format (bit SET=unplugged)
-STA &A9                 :\ Store bitmap for ROMs 8-15 (RAM format) in command workspace
-LDX #6                  :\ Read NVRAM address 6 (ROMs 0-7)
-LDA #OSB_ReadNVRAM:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
-TYA                     :\ Get value from Y
-EOR #&FF                :\ Invert OSBYTE format (bit SET=inserted) to RAM format (bit SET=unplugged)
-STA &AA                 :\ Store bitmap for ROMs 0-7 (RAM format) in command workspace
-LDX #15:LDA &A9         :\ Start at ROM 15, load bitmap for ROMs 8-15
+OPT FNif(VALver$>=1.341)
+JSR GetPlugMap         :\ Check for NVRAM unplug map
+OPT FNendif
+LDX #15:LDA L0D6F      :\ Unplug bitmap for ROMs 8-15
 .Serv10Lp1
-CPX #7:BNE Serv10a      :\ Not ROM 7, continue with current bitmap
-LDA &AA                 :\ Load bitmap for ROMs 0-7
+CPX #7:BNE Serv10a
+LDA L0D6E              :\ Unplug bitmap for ROMs 0-7
 .Serv10a
 ROL A:BCC Serv10Next           :\ Leave inserted
 PHA:LDA #0:STA ROMTABLE,X:PLA  :\ Remove from ROM table
 .Serv10Next
-DEX:BPL Serv10Lp1        :\ Loop down to ROM 0
+DEX:BPL Serv10Lp1         :\ Loop down to ROM 0
+\.Serv10Done
 LDA #&7A:JSR OSBYTE       :\ Check keys pressed
 CPX #&48:BEQ Serv10Enable :\ *
 CPX #&5B:BEQ Serv10Enable :\ K*
@@ -547,17 +583,17 @@ CLC
 TYA:PHA:TXA:PHA
 PHP:JSR PrText:EQUB 13
 OPT FNif(TARGET%=0)
-  EQUS "RetroHardware Plus 1 Support "+LEFT$(ver$,4)+LEFT$(CHR$(96+VALRIGHT$(ver$,1)),LENver$>4)
+EQUS "RetroHardware Plus 1 Support "+LEFT$(ver$,4)+LEFT$(CHR$(96+VALRIGHT$(ver$,1)),LENver$>4)
 OPT FNelse
-  EQUS "ROM Manager and Utilities "+LEFT$(ver$,4)+LEFT$(CHR$(96+VALRIGHT$(ver$,1)),LENver$>4)
+EQUS "ROM Manager and Utilities "+LEFT$(ver$,4)+LEFT$(CHR$(96+VALRIGHT$(ver$,1)),LENver$>4)
 OPT FNendif
 EQUB 0
 PLP:BCC PrHelpTitleDone
 OPT FNif(TARGET%=0)
-  LDA &30A:SBC &308:SBC #47:BCC PrHelpTitleDone1
-  JSR PrText
-  EQUS " (ADC/Printer/RS423)"
-  EQUB 0
+LDA &30A:SBC &308:SBC #47:BCC PrHelpTitleDone1
+JSR PrText
+EQUS " (ADC/Printer/RS423)"
+EQUB 0
 OPT FNendif
 .PrHelpTitleDone1
 JSR OSNEWL
@@ -718,10 +754,10 @@ EQUB &00
 \  &AE                               OSWORD 0 min
 \  &AF                               OSWORD 0 max
 \
-\ *LIST <file>
+\ *DELETEABS <file>
 \ ============
 .FLIST
-LDA #&FF                   :\ &FF=LIST
+LDA #&FF                   :\ &FF=DELETEABS
 
 \ *TYPE <file>
 \ ============
@@ -870,21 +906,30 @@ DEY                      :\ Step back to error with non-number
 .TubeNum
 JSR ScanDec8             :\ Scan for number
 OPT FNif(TARGET%<3)
-  STA TUBEIO+6                    :\ Select Tube CPU on Electron or BBC
+STA TUBEIO+6                    :\ Select Tube CPU on Electron or BBC
 OPT FNendif
 OPT FNif(TARGET%>2)
-  TAX:PHP:SEI:LDA &FE34           :\ Disable IRQs, get current Tube
-  EOR #&10:STA &FE34:STX TUBEIO+6 :\ Swap Tube, select Tube CPU
-  EOR #&10:STA &FE34:STX TUBEIO+6 :\ Swap Tube back, select Tube CPU
-  PLP                             :\ Restore IRQs
+TAX:PHP:SEI:LDA &FE34           :\ Disable IRQs, get current Tube
+EOR #&10:STA &FE34:STX TUBEIO+6 :\ Swap Tube, select Tube CPU
+EOR #&10:STA &FE34:STX TUBEIO+6 :\ Swap Tube back, select Tube CPU
+PLP                             :\ Restore IRQs
 OPT FNendif
 RTS
 .TubeOn
 .TubeOff
+OPT FNif(VALver$<1.341)
 EOR #8:AND #8:ASL A:ASL A :\ Move ON/OFF to bit 5
 EOR L0D6D:AND #&20        :\ Clear and merge TUBE bit
 EOR L0D6D:STA L0D6D       :\ Should only do on non-Master
 RTS
+OPT FNelse
+EOR #8:AND #8:CMP #8:PHP  :\ Cy=TUBE OFF
+LDA #161:JSR TubeNVRAM    :\ Read TUBE from NVRAM or from ourselves
+TYA:LSR A:PLP:ROL A:TAY   :\ Copy into NVRAM value
+LDA #162                  :\ Write it back to NVRAM or to ourselves
+.TubeNVRAM
+LDX #15:JMP OSBYTE        :\ Read/Write NVRAM location 15
+OPT FNendif
 
 
 \ ********************
@@ -906,6 +951,9 @@ PLA:TAY               :\ Drop through to *ROMS
 \ *ROMS (*)
 \ =========
 .ROMS
+OPT FNif(VALver$>=1.341)
+JSR GetPlugMapAndLang :\ Preserves Y, corrupts A,X
+OPT FNendif
 LDA (&F2),Y:CMP #ASC"*"
 BEQ P%+3:CLC          :\ SEC=all ROMs
 LDX #&0F:STX &F5      :\ Start at ROM 15
@@ -927,35 +975,37 @@ RTS
 \ Doesn't enter selected language, just configures it.
 \ If no <rom>, no default, allows MOS to select default
 .LANG
+OPT FNif(VALver$<1.341)
 JSR L8CA5              :\ Scan for ROM number
 BCC P%+4:LDA #&FF      :\ If no <rom>, set no default
 PHA:JMP Serv10SetLang  :\ Set as default language
+OPT FNelse
+JSR L8CA5              :\ Scan for ROM number
+BCC P%+4:LDA #&08:PHA  :\ If no <rom>, set no default
+LDA #161:JSR LANGnvram :\ Read from NVRAM or ourselves
+PLA:STA &F5            :\ Get <rom> back
+TYA:ASL A:ASL A:ASL A  :\ Push LANG out of A
+ASL A:LDX #4
+.LANGlp
+ROR &F5:ROR A          :\ Rotate <rom> into A
+DEX:BNE LANGlp
+TAY:LDA #162           :\ Write back to NVRAM or to ourselves
+.LANGnvram
+LDX #5:JMP OSBYTE
+OPT FNendif
 
 
 \ Is ROM X unplugged?
 \ -------------------
+\ Requires GetPlugMap to have been called
 \ On exit, CC=ROM is inserted
 \          CS=ROM is unplugged
 .L8D07
-TXA:PHA                 :\ Save ROM number
-JSR XtoBitmap           :\ A=2^X, CC=0-7, CS=8-15
-PHA                     :\ Save bitmap bit
-BCC L8D07Addr           :\ ROM 0-7, use address 6
-LDX #7                  :\ ROM 8-15, use address 7
-BNE L8D07Read
-.L8D07Addr
-LDX #6                  :\ ROM 0-7, use address 6
-.L8D07Read
-STX &A8                 :\ Save NVRAM address (command workspace)
-LDA #OSB_ReadNVRAM:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
-TYA                     :\ Get value from Y
-EOR #&FF                :\ Invert OSBYTE format (bit SET=inserted) to RAM format (bit SET=unplugged)
-STA &A9                 :\ Store bitmap (RAM format) in command workspace
-PLA                     :\ Restore bitmap bit (A = bitmap bit)
-AND &A9                 :\ AND bitmap bit with bitmap value
-STA &AA                 :\ Save AND result in command workspace
-PLA:TAX                 :\ Restore ROM number
-LDA &AA                 :\ Restore AND result to A
+JSR XtoBitmap:BCS L8D1A :\ Jump for ROM 8-15
+AND L0D6E:BCC L8D1D     :\ Mask with bitmap for 0-7
+.L8D1A
+AND L0D6F               :\ Mask with bitmap for 8-15
+.L8D1D
 CMP #1:RTS              :\ CC=inserted, CS=unplugged
 .XtoBitmap
 TXA:CMP #8:AND #7:TAX
@@ -986,7 +1036,7 @@ PLA:TAY                :\ Y='I' option
 PLA:CLC:ADC #&96:TAX   :\ X=sub-bank select value - confirmed &96 not 96
 PHP:SEI                :\ Stop IRQs while rebuilding ROM table
 OPT FNif(TARGET%>2)
-  LDA &FE34:PHA        :\ Get current 1MHz bus selection
+LDA &FE34:PHA        :\ Get current 1MHz bus selection
 OPT FNendif
 TYA:PHA                :\ Save options
 JSR RomPage            :\ Select sub-bank via stack
@@ -1000,28 +1050,31 @@ BEQ AQRdone
 \ *AQRPAGE <page>
 \ ===============
 .AQRPAGE
-JSR ScanDec4:TAX     :\ Scan for a short hex number
-PHP:SEI              :\ Stop IRQs while rebuilding ROM table
+JSR ScanDec4:TAX      :\ Scan for a short hex number
+PHP:SEI               :\ Stop IRQs while rebuilding ROM table
 OPT FNif(TARGET%>2)
-  LDA &FE34:PHA      :\ Get current 1MHz bus selection
-  ORA #&20:STA &FE34 :\ Select cartridge bus
+LDA &FE34:PHA         :\ Get current 1MHz bus selection
+ORA #&20:STA &FE34    :\ Select cartridge bus
 OPT FNendif
-STX &FCFC            :\ Set paging register
+STX &FCFC             :\ Set paging register
 .RebuildROMs
-LDX #&0F             :\ Rebuild ROM table
+OPT FNif(VALver$>=1.341)
+JSR GetPlugMap        :\ Check for NVRAM unplug map
+OPT FNendif
+LDX #&0F              :\ Rebuild ROM table
 .AQRlp
-STX &F5:JSR L8D07    :\ Is it unplugged?
+STX &F5:JSR L8D07     :\ Is it unplugged?
 .AQRunplugged
-LDA #0:BCS AQRstore  :\ Clear ROM table byte
+LDA #0:BCS AQRstore   :\ Clear ROM table byte
 LDX &F5
-JSR ChkRomHeader     :\ Is there a ROM in the bank in &F5?
-BCS AQRunplugged     :\ No header, clear ROM table byte
+JSR ChkRomHeader      :\ Is there a ROM in the bank in &F5?
+BCS AQRunplugged      :\ No header, clear ROM table byte
 .AQRstore
 LDX &F5:STA ROMTABLE,X :\ Store in ROM table
 DEX:BPL AQRlp          :\ Step through all ROMs
 .AQRdone
 OPT FNif(TARGET%>2)
-  PLA:STA &FE34        :\ Restore 1MHz bus selection
+PLA:STA &FE34          :\ Restore 1MHz bus selection
 OPT FNendif
 PLP:RTS                :\ Restore IRQs and return
 
@@ -1040,13 +1093,25 @@ PLP:RTS                :\ Restore IRQs and return
 LDA #&FF                 :\ A=&FF - UNPLUG
 .INSERT
 PHA                      :\ Save <ins/unp>
+OPT FNif(VALver$>=1.341)
+JSR GetPlugMapAndLang    :\ Preserves Y, corrupts A,X
+OPT FNendif
 JSR L8CA0:PHP            :\ Scan for <rom>, save <rom>/<all> flag
 STA &F5                  :\ Save <rom>
 JSR srOptionsSpc:AND #&A0:\ Look for any options, %UxIxxxxx (corrupts X)
 PLP:BEQ L8D94            :\ No <rom> or *, insert/unplug all ROMs
+:
+\ Insert or unplug single ROM
+\ ----------------------------
 TAX:PLA:TAY:TXA:PHA      :\ Y=<ins/unp>, SP=>options
 LDX &F5:JSR InsertUnplugX:\ Insert or Unplug this ROM
 PLA                      :\ Get option %ULIQxxxx
+OPT FNif(VALver$>=1.341)
+JSR InsertOption
+.PlugMapUpdate
+SEC:JMP GetPutPlugMap    :\ Write to NVRAM
+OPT FNendif
+:
 .InsertOption
 EOR #&20:BEQ InsertMe    :\ %xxIxxxxx - Insert
 EOR #&A0:BNE InsertDone  :\ %Uxxxxxxx - Unplug
@@ -1058,8 +1123,8 @@ LDX &F5:STA ROMTABLE,X   :\ Insert or remove from ROM table
 .InsertDone
 RTS
 :
-\ Insert or unplug ROMs
-\ --------------------------------
+\ Insert or unplug multiple ROMs
+\ ------------------------------
 .L8D94
 \ On entry, CC=*    - silent
 \           CS=<cr> - prompt
@@ -1081,54 +1146,28 @@ LDX &F5:JSR InsertOption :\ Deal with (I)(U) options
 PLA:TAY:PLP              :\ Get ins/unp and silent flag back
 DEX:BPL InsUnpLoop       :\ Loop down from 15 to 0
 PLA                      :\ Drop options
+OPT FNif(VALver$>=1.341)
+JMP PlugMapUpdate        :\ Write to NVRAM
+OPT FNelse
 RTS
+OPT FNendif
 :
 \ Insert or Unplug a ROM
 \ ----------------------
 \ A=ROM, Y=&FF, unplug ROM
 \ A=ROM, Y=&00, insert ROM
 \
-\ Uses OSBYTE 161/162 to read/write NVRAM
-\ NVRAM address 6 = bitmap for ROMs 0-7
-\ NVRAM address 7 = bitmap for ROMs 8-15
-\
 .InsertUnplug
 TAX
 .InsertUnplugX
-TYA:PHA                 :\ Save insert/unplug flag
-JSR XtoBitmap           :\ A=2^X, CC=0-7, CS=8-15
-PHA                     :\ Save bitmap bit
-BCC InsUnpAddr          :\ ROM 0-7, use address 6
-LDX #7                  :\ ROM 8-15, use address 7
-BNE InsUnpRead
-.InsUnpAddr
-LDX #6                  :\ ROM 0-7, use address 6
-.InsUnpRead
-STX &A8                 :\ Save NVRAM address (command workspace)
-LDA #OSB_ReadNVRAM:JSR OSBYTE     :\ OSBYTE 161 Read NVRAM returns value in Y
-TYA                     :\ Get value from Y
-EOR #&FF                :\ Invert OSBYTE format (bit SET=inserted) to RAM format (bit SET=unplugged)
-STA &A9                 :\ Store current bitmap (RAM format) in command workspace
-PLA                     :\ Restore bitmap bit (A = bitmap bit)
-STA &AA                 :\ Save bitmap bit in command workspace
-PLA                     :\ Restore insert/unplug flag
-TAY                     :\ Y = &FF (unplug) or &00 (insert)
-INY:BNE InsertThisRom   :\ Y was &00 (insert), jump to clear bit
-\ Unplug Set bit in bitmap OR with bitmask
-LDA &A9                 :\ Get current bitmap
-ORA &AA                 :\ OR with bitmap bit
-BNE InsUnpWrite
+JSR XtoBitmap            :\ A=2^X, CC=0-7, CS=8-15
+INY:BNE InsertThisRom    :\ Y was &00, jump to insert
+BCC P%+3:INY
+ORA L0D6E,Y:STA L0D6E,Y  :\ Store into bitmap
+RTS
 .InsertThisRom
-\ Insert Clear bit in bitmap AND with inverted bitmask
-LDA &AA                 :\ Get bitmap bit
-EOR #&FF                :\ Invert bitmask
-AND &A9                 :\ AND current bitmap with inverted bitmask
-.InsUnpWrite
-TAY                     :\ Y new bitmap value (RAM format bit SET=unplugged)
-TYA:EOR #&FF            :\ Invert RAM format to OSBYTE format (bit SET=inserted)
-TAY                     :\ Y now in OSBYTE format for NVRAM storage
-LDX &A8                 :\ Restore NVRAM address
-LDA #OSB_WriteNVRAM:JSR OSBYTE     :\ OSBYTE 162 Write NVRAM
+EOR #&FF:BCS P%+3:DEY
+AND L0D6E,Y:STA L0D6E,Y  :\ Store into bitmap
 RTS
 
 
@@ -1144,7 +1183,7 @@ PHA:JSR L8CA0       :\ Save lock/unlock flag, scan <rom> to A
 BNE P%+3:SEC        :\ No <rom> given, lock/unlock all ROMs
 TAX:PLA:TAY         :\ X=<rom>, Y=lock/unlock flag
 BCC LockUnlockROM   :\ <rom> given, lock/unlock that ROM
-                    :\ No <rom> given, drop into lock/unlocal all
+:\ No <rom> given, drop into lock/unlocal all
 :
 \ Lock/Unlock all ROMs, Y=lock/unlock
 \ -----------------------------------
@@ -1164,12 +1203,12 @@ EOR LockAddrs,X      :\ Get lock address for this ROM
 BPL LockUnlockDone   :\ <&80=no lock register
 TAX                  :\ X=offset to lock register
 OPT FNif(TARGET%>2)
-  LDA &FE34:PHA      :\ Get current 1MHz bus selection
-  ORA #&20:STA &FE34 :\ Select cartridge bus
+LDA &FE34:PHA      :\ Get current 1MHz bus selection
+ORA #&20:STA &FE34 :\ Select cartridge bus
 OPT FNendif
 STA &FC00,X          :\ write to lock register
 OPT FNif(TARGET%>2)
-  PLA:STA &FE34      :\ Restore 1MHz bus selection
+PLA:STA &FE34      :\ Restore 1MHz bus selection
 OPT FNendif
 .LockUnlockDone
 RTS
@@ -1241,10 +1280,10 @@ CLC
 PHP:STX &F5:JSR ChkRomHeader  :\ CLC=Ok, A=type; SEC=empty
 PHA:PHP                       :\ stack => romtype, header
 OPT FNif(TARGET%=0)
-  CMP #&60:BNE RomInfo0        :\ ROM is not BASIC
-  LDX &F5:CPX #10:BNE RomInfo0 :\ Not ROM 10 is not BASIC
-  PLP:BCC RomInfoDup:PHP       :\ ROM 10 is BASIC, duplicate of ROM 11
-  .RomInfo0
+CMP #&60:BNE RomInfo0        :\ ROM is not BASIC
+LDX &F5:CPX #10:BNE RomInfo0 :\ Not ROM 10 is not BASIC
+PLP:BCC RomInfoDup:PHP       :\ ROM 10 is BASIC, duplicate of ROM 11
+.RomInfo0
 OPT FNendif
 JSR RomTest               :\ Y=&00 for ROM, 'R' for RAM, 'E' for EEPROM
 PLP:BCC PrRomInfo1        :\ CLC, ROM header exists
@@ -1333,11 +1372,11 @@ LDY &F5:JMP &FFB9
 \ ROM load/save/wipe commands
 \ ***************************
 
-\ *SAVEROM <afsp> <rom>
+\ *DELETEBGETROM <afsp> <rom>
 \ *RSAVE   <afsp> <rom>
 \ *SRSAVE  <afsp> <start> <end> <rom>
 \ *RLOAD   <afsp> <rom> (I) (L) (P) (Q) (R) (U)
-\ *LOADROM <afsp> <rom> (I) (L) (P) (Q) (R) (U)
+\ *DELETEACSROM <afsp> <rom> (I) (L) (P) (Q) (R) (U)
 \ *SRLOAD  <afsp> <start> <rom> (I) (L) (P) (Q) (R) (U)
 \ *ZERO    <rom>  (I) (L) (P) (Q) (R) (U)
 \ *SRWIPE  <rom>  (I) (L) (P) (Q) (R) (U)
@@ -1623,7 +1662,7 @@ STX ROMSEL:RTS               :\ 26 bytes
 \ Disk Commands
 \ *************
 
-\ *FORMAT <drv> <S|M|L> (Y)
+\ *Format <drv> <S|M|L> (Y)
 \ =========================
 .AFORMAT
 JSR L97E9:PHA           :\ Check ADFS, get drive number, A=0/1, X=0-F drive number
@@ -1663,7 +1702,7 @@ JSR CheckEnabled
 JSR NMIClaim           :\ *FX143,12,255 - claim NMIs
 LDA #&07:JSR X93E0     :\ Spin the disk up again
 :
-\ *FORMAT enabled, format existing disk enabled, NMI claimed, all ready to go
+\ *Format enabled, format existing disk enabled, NMI claimed, all ready to go
 \ stack => physical drive, size, logical drive
 .Format11
 PLA:STA L0935                :\ Store physical drive number
@@ -1712,7 +1751,7 @@ ROR A:BCS L9338       :\ Loop until FDC not BUSY
 \
 AND #&20:BEQ L935C    :\ Not WriteProtected
 OPT FNif(TARGET%<0)
-  BNE L935C           :\ Ignore WriteProtected
+BNE L935C           :\ Ignore WriteProtected
 OPT FNendif
 JSR NMIRelease
 JSR MkError:EQUB 201:EQUS "Disk read only":BRK
@@ -1772,12 +1811,12 @@ LDA X9A39,X:STA cmdBuf,X :\ Copy commands to top of page A
 DEX:BPL X9A0F
 PLA:PHA                  :\ Get ASCII drive number
 STA cmdBuf+&05           :\ Store in '*DIR'
-STA cmdBuf+&0D           :\ Store in '*SAVE'
+STA cmdBuf+&0D           :\ Store in '*DELETEBGET'
 STA cmdBuf+&28           :\ Store in '*ACCESS'
 LDX #(cmdBuf AND 255)+0
 JSR X9980                :\ Do '*DIR'
 LDX #(cmdBuf AND 255)+7
-JSR X9980                :\ Do '*SAVE'
+JSR X9980                :\ Do '*DELETEBGET'
 LDX #(cmdBuf AND 255)+&20
 JSR X9980                :\ Do '*ACCESS'
 JSR OSNEWL
@@ -1828,26 +1867,26 @@ LDA L093A:STA LAC+1
 \ ----------------
 .X99A7
 OPT FNif(TARGET%>-1)
-  SEI:LDY #&00
-  .X99AE
-  LDA FDCstatus:AND #&21  :\ Read FDC Spin+Busy status
-  CMP #&20:BNE X99AE      :\ Not spun up, loop until spinning
-  LDA #&F4:STA FDCcommand :\ Write FDC command &F4=Write track, h=spin, e=no delay
-  LDY #&9
-  .X99EF
-  DEY:BNE X99EF           :\ Delay
-  .X99C6
-  LDA (LAC),Y             :\ Get byte from track data
-  CMP #&FF:BEQ X99EC      :\ &FF=end of data
-  TAX                     :\ X=data to write
-  .X99CD
-  LDA FDCstatus
-  AND #&02:BEQ X99CD      :\ Loop until DataRequest
-  STX FDCdata             :\ Write data
-  INY:BNE X99C6           :\ Loop for 256 bytes
-  INC LAC+1:BNE X99C6     :\ Loop for next 256 bytes
-  .X99EC
-  CLI
+SEI:LDY #&00
+.X99AE
+LDA FDCstatus:AND #&21  :\ Read FDC Spin+Busy status
+CMP #&20:BNE X99AE      :\ Not spun up, loop until spinning
+LDA #&F4:STA FDCcommand :\ Write FDC command &F4=Write track, h=spin, e=no delay
+LDY #&9
+.X99EF
+DEY:BNE X99EF           :\ Delay
+.X99C6
+LDA (LAC),Y             :\ Get byte from track data
+CMP #&FF:BEQ X99EC      :\ &FF=end of data
+TAX                     :\ X=data to write
+.X99CD
+LDA FDCstatus
+AND #&02:BEQ X99CD      :\ Loop until DataRequest
+STX FDCdata             :\ Write data
+INY:BNE X99C6           :\ Loop for 256 bytes
+INC LAC+1:BNE X99C6     :\ Loop for next 256 bytes
+.X99EC
+CLI
 OPT FNendif
 :
 .X959A
@@ -1945,9 +1984,9 @@ PHA:LDA #&00:JSR L9454       :\ Fill sector with &00
 DEC LAE+1                    :\ Step back to start of sector
 PLA     :BEQ L950F           :\ Sector 0 - FSM starts
 CMP #&02:BCC L9523           :\ Sector 1 - FSM lengths
-         BEQ L9547           :\ Sector 2 - start of '$'
+:        BEQ L9547           :\ Sector 2 - start of '$'
 CMP #&06:BCS X94E7           :\ Sector 6 - end of '$'
-         JMP X9732           :\ Sector 3-5 - middle of '$'
+:        JMP X9732           :\ Sector 3-5 - middle of '$'
 
 \ Sector 0 - Free Space Map starts
 \ --------------------------------
@@ -2037,7 +2076,7 @@ INY:INY:BNE ChkModeChk
 .CheckMode6
 JSR L97A6            :\ Read current screen mode
 .ChkModeChk
-CPY #6:BCS ChkModeOk :\ MODE>6 or MODE>4, don't change MODE
+CPY #6:BCS ChkModeOk :\ MODE>=6 (or MODE>=4), don't change MODE
 LDA #22:JSR OSWRCH   :\ Need more memory, change to MODE 7 (drops to MODE 6)
 LDA #7:JMP OSWRCH
 .ChkModeOk
@@ -2121,8 +2160,8 @@ STA L09EC-&FC,Y        :\ Copy disk size to &9EC/D/E
 INY:CPY #&FF:BNE X9664
 :
 OPT FNif(TARGET%<0)
-  LDA #&0A:STA L09ED
-  LDA #0:STA L09EC:STA L09EE
+LDA #&0A:STA L09ED
+LDA #0:STA L09EC:STA L09EE
 OPT FNendif
 BEQ Verify13           :\ Step to next track
 .VerifyEscape
@@ -2181,7 +2220,7 @@ TYA:PHA
 LDA #0:TAY:JSR OSARGS
 CMP #8:BEQ L97EC  :\ Filing system is ADFS
 OPT FNif(TARGET%<0)
-  BNE L97EC       :\ Ignore current filing system
+BNE L97EC       :\ Ignore current filing system
 OPT FNendif
 PLA               :\ Drop Y
 PLA:PLA           :\ Drop return address to command
@@ -2192,15 +2231,16 @@ LDA #4
 RTS
 .L97EC
 PLA:TAY           :\ Get command pointer back
-                  :\ Check for valid drive number
-                  :\ 0,1,4,5,A,B,E,F
-                  :\ Should also allow leading <colon>
+:\ Check for valid drive number
+:\ 0,1,4,5,A,B,E,F
+:\ Should also allow leading <colon>
 LDA (&F2),Y       :\ Get drive character
 JSR CheckDigit    :\ Check if valid character, INY if valid
 BCS errBadDrive
 TAX:CMP #8        :\ Keep original drive number in X
 BCC P%+4:SBC #2   :\ Convert to logical drive number
 AND #3:CMP #2:BCC L97EB
+\ *TO DO* Support four floppies?
 .errBadDrive
 JSR MkError:EQUB 205:EQUS "Bad drive":BRK
 :
