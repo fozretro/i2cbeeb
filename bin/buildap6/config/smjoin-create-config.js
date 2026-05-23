@@ -30,7 +30,7 @@ module.exports = {
             pageAlignment: true 
         },
         {
-            path: "../../bin/buildrommanager/out/AP6v135", 
+            path: "../../bin/buildrommanager/out/AP6v134",
             name: "ROMManager",
             pageAlignment: false
         },

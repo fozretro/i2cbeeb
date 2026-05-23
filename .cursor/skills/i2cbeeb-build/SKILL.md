@@ -16,8 +16,8 @@ Assume repo root `$REPO`; run shells from `$REPO` unless noted.
 
 ## Electron AP6 support ROM bundle (optional / heavier)
 
-- **`./bin/buildap6/build.sh`** — Node SMJoin relocation pipeline (`npm install` under **`bin/buildap6`**), merges I²C ROM with Plus1 / ROM Manager / other AP6 components. Supports flags like **`--skip-i2c-build`**, **`--skip-testing`** (see script `--help`).
-- Depends on artefacts from the main BeebAsm build when not skipping I²C steps.
+- **`./bin/buildap6/build.sh`** — Node SMJoin relocation pipeline (`npm install` under **`bin/buildap6`**); merges relocated I²C with Plus 1 stub, ROM Manager binary, **`roms/TUBEelk`** and **`roms/AP6Count`**; writes **`dist/ap6.rom`** and **`dev/eap6/AP6`**. Flags **`--skip-i2c-build`**, **`--skip-testing`** — see script **`--help`**.
+- **Prerequisite:** BeebAsm I²CEAP6 targets when Step 1 runs, plus **`./bin/buildplus1support/build.sh`** and **`./bin/buildrommanager/build.sh`** so **`bin/buildap6/config/smjoin-create-config.js`** paths under **`bin/build*/out/`** exist.
 
 ## JGH BASIC sources (Plus 1 Support / ROM Manager)
 
