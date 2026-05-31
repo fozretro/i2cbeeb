@@ -881,7 +881,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	TAX
 	LDA	#0				\set A=0 to inform MOS command taken
 	RTS					\return to MOS
-	INCLUDE 	"./src/tests/tests.asm"
+	INCLUDE 	"./src/tests/rom/tests.asm"
 	ENDIF
 
 \-------------------------------------------------------------------------------
@@ -2714,6 +2714,6 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 SAVE romstart, romend
 PUTBASIC "src/I2CBeeb.bas", "I2CTEST"
 PUTBASIC "src/I2CRoms.bas", "I2CROMS"
-PUTBASIC "src/tests/RTCTest.bas", "RTCTest"
-PUTBASIC "src/tests/RTCRead.bas", "RTCRead"
-PUTBASIC "src/tests/NVList.bas", "NVList"
+PUTBASIC "src/tests/native/RTCTest.bas", "RTCTest"
+PUTBASIC "src/tests/native/RTCRead.bas", "RTCRead"
+PUTBASIC "src/tests/native/NVList.bas", "NVList"

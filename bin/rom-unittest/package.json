@@ -1,0 +1,20 @@
+{
+  "name": "i2cbeeb-rom-unittest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "BBC sideways ROM unit tests using the jsbeeb 6502 core with mocked MOS APIs",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.29",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.1"
+  },
+  "dependencies": {
+    "jsbeeb": "github:stardot/jsbeeb"
+  }
+}

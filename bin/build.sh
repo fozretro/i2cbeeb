@@ -1,6 +1,27 @@
 #!/bin/bash
 set -e # Exit immediately if a command exits with a non-zero status.
 
+SKIP_TESTING=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --skip-testing)
+            SKIP_TESTING=true
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 [--skip-testing]"
+            echo "  --skip-testing  Skip ROM unit tests (bin/rom-unittest) after the build"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
 ############################################################
 # Extract Time-Config source files
 ############################################################
@@ -144,7 +165,8 @@ echo "*** Building C.I2CB ROM ***"
     -D PAD=1 \
     -D INC_TESTS=0 \
     -D INC_CONFIG=0 \
-    -o "C.I2CB"
+    -o "C.I2CB" \
+    -d -labels ./src/out/C.I2CB.labels
 # Extract from ssd to output folder
 ./bin/mmbutils/beeb getfile ./src/out/configb.ssd ./src/out/configb
 
@@ -160,7 +182,8 @@ echo "*** Building C.I2CE ROM ***"
     -D PAD=1 \
     -D INC_TESTS=0 \
     -D INC_CONFIG=0 \
-    -o "C.I2CE"
+    -o "C.I2CE" \
+    -d -labels ./src/out/C.I2CE.labels
 # Extract from ssd to output folder
 ./bin/mmbutils/beeb getfile ./src/out/confige.ssd ./src/out/confige
 
@@ -177,9 +200,23 @@ echo "*** Building C.I2CEAP6 ROM ***"
     -D PAD=0 \
     -D INC_TESTS=0 \
     -D INC_CONFIG=1 \
-    -o "C.I2CEAP6"
+    -o "C.I2CEAP6" \
+    -d -labels ./src/out/C.I2CEAP6.labels
 # Extract from ssd to output folder
 ./bin/mmbutils/beeb getfile ./src/out/configap6.ssd ./src/out/configap6c
+
+############################################################
+# ROM unit tests (jsbeeb 6502 core + mocked MOS)
+############################################################
+
+if [ "$SKIP_TESTING" = false ]; then
+    echo ""
+    echo "*** Running ROM unit tests ***"
+    pushd ./bin/rom-unittest >/dev/null
+    npm install
+    npm test
+    popd >/dev/null
+fi
 
 ############################################################
 # Build i2c.ssd (includes both production and test ROMs)
@@ -219,8 +256,11 @@ cp ./src/out/testap6/T.I2CEAP6 ./dist/i2ceap6t.rom
 
 # Copy configure-less ROMs to dist folder
 cp ./src/out/configb/C.I2CB ./dist/i2cbc.rom
+cp ./src/out/C.I2CB.labels ./dist/i2cbc.labels
 cp ./src/out/confige/C.I2CE ./dist/i2cec.rom
+cp ./src/out/C.I2CE.labels ./dist/i2cec.labels
 cp ./src/out/configap6c/C.I2CEAP6 ./dist/i2ceap6c.rom
+cp ./src/out/C.I2CEAP6.labels ./dist/i2ceap6c.labels
 
 ################################################################################
 # Update Dev Folders used with real target machines via UPURSFS

@@ -10,7 +10,7 @@ Assume repo root `$REPO`; run shells from `$REPO` unless noted.
 ## Main I2CBeeb ROM pipeline
 
 1. `./bin/time-config/extract.sh` pulls **Barney Hilken — Time‑Config.** from Codeberg into **`refs/Time-Config`** (gitignored **`/refs`**), pins commit in `TIMECONFIG_COMMIT`, copies/strips into **`src/configure/`**. **Requires:** `git`, `python3`, **network on first clone**.
-2. **`./bin/build.sh`** runs that extract then BeebAsm compiles **`src/I2CBeeb.asm`** for BBC / Electron / EAP6 and test/configure variants into **`dist/`**, **`src/out/`**, **`dev/`** staging. **Uses:** `./bin/beebasm`, `./bin/mmbutils/beeb`.
+2. **`./bin/build.sh`** runs that extract then BeebAsm compiles **`src/I2CBeeb.asm`** for BBC / Electron / EAP6 and test/configure variants into **`src/out/`**, runs **ROM unit tests** in **`bin/rom-unittest/`** against the fresh **`src/out/configb/C.I2CB`** (before anything is copied to **`dist/`**), then packages **`dist/`** and **`dev/`** staging. Pass **`--skip-testing`** to omit the Vitest step. **Uses:** `./bin/beebasm`, `./bin/mmbutils/beeb`, **`node`/`npm`** for tests.
 
 **Smoke check:** from `$REPO`, run `./bin/build.sh`; expect exits `0` and SSD/ROM artefacts updated under `dist/` and dev folders described in **`README.md`**.
 
@@ -40,7 +40,8 @@ Console labels like `AP1v131` / `AP6v134` may reflect **config** filenames; rely
 
 | Goal | Command |
 |------|---------|
-| All I²C ROM variants + dev copies | `./bin/build.sh` |
+| All I²C ROM variants + dev copies + ROM unit tests | `./bin/build.sh` |
+| Build only (no Vitest) | `./bin/build.sh --skip-testing` |
 | AP6 combined/support ROM pipeline | `./bin/buildap6/build.sh` |
 | Plus 1 Support ROM from BASIC | `./bin/buildplus1support/build.sh` |
 | ROM Manager from BASIC | `./bin/buildrommanager/build.sh` |

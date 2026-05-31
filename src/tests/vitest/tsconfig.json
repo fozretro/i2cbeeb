@@ -1,0 +1,13 @@
+{
+  "extends": "../../../bin/rom-unittest/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "../../../bin/rom-unittest",
+    "paths": {
+      "vitest": ["node_modules/vitest"],
+      "vitest/*": ["node_modules/vitest/*"]
+    },
+    "typeRoots": ["../../../bin/rom-unittest/node_modules/@types"],
+    "types": ["node"]
+  },
+  "include": ["./**/*.ts"]
+}

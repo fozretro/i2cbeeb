@@ -1,0 +1,62 @@
+---
+description: When stubbing BBC MOS APIs in ROM unit tests, cross-ref jsbeeb tests and reuse their patterns before inventing new mocks
+globs: bin/rom-unittest/**/*
+alwaysApply: false
+---
+
+# ROM unit tests — jsbeeb MOS stub cross-reference
+
+When adding or changing **OS/MOS API stubs** (`OSWRCH`, `OSASCI`, `OSNEWL`, `OSBYTE`, `OSWORD`, `OSCLI`, `OSRDCH`, or other `$FFxx` vectors) in `bin/rom-unittest/`, **check jsbeeb first**. Reuse or adapt an existing jsbeeb test pattern before writing a bespoke mock.
+
+## Where to look
+
+1. **Installed dependency** (fastest): `bin/rom-unittest/node_modules/jsbeeb/`
+2. **Upstream**: [stardot/jsbeeb](https://github.com/stardot/jsbeeb)
+
+Search for the vector address (e.g. `0xffd2`, `0xffe4`) and `debugInstruction`:
+
+```bash
+rg -n "0xffe|0xffd|debugInstruction|writemem.*0x60" bin/rom-unittest/node_modules/jsbeeb/tests
+```
+
+## jsbeeb test categories
+
+| Test | MOS mocking? | Use when |
+|------|----------------|----------|
+| `tests/test-dormann.js` | **No** — flat RAM, no `JSR $FFxx` | Pure 6502 / no MOS |
+| `tests/test-suite.js` | **Yes** — primary MOS stub reference | Any ROM that calls MOS |
+| `tests/unit/` | Usually **no** | Isolated CPU snippets |
+| `tests/integration/` | Machine/hardware focused | Timing, not sideways-ROM MOS |
+
+**Do not** copy `FakeVideo` / `FakeSoundChip` from `fake6502.js` when the ROM only needs MOS — those are hardware fakes, not OS API stubs.
+
+## jsbeeb MOS stub pattern (canonical)
+
+From `tests/test-suite.js` — match this before extending `MosMock`:
+
+1. Patch the vector with **`RTS` ($60)** (or a tiny inline routine — see `$FFE4` keyboard stub).
+2. Hook **`cpu.debugInstruction.add(...)`** so logic runs **before** RTS returns to caller.
+3. Return **`false`** from the hook so RTS still executes (unless intentionally stopping the CPU).
+
+Known upstream examples in `test-suite.js`:
+
+- **`$FFD2`** — character output / line buffer (PETSCII → ASCII)
+- **`$FFE4–$FFE6`** — keyboard scan stub (`LDA #3` + `RTS`)
+- **`$FFD2` + `$030C`** — side-effect write after “OS” call
+
+Our `src/mos/mos-mock.ts` already follows this pattern for `OSASCI` / `OSNEWL` / `OSWRCH`. **Extend there** after checking jsbeeb, not with one-off test hacks.
+
+## Workflow when stubbing a new OS call
+
+1. Identify which **`JSR $FFxx`** the ROM uses (source grep + ROM binary scan for `20 xx FF`).
+2. Search jsbeeb `tests/` for that address or MOS name.
+3. If jsbeeb has a stub → **port behaviour** into `MosMock` (or a dedicated handler), preserving register/stack semantics and RTS return.
+4. If jsbeeb has **no** stub → document why in a short comment, implement minimal behaviour in `MosMock`, add a test that proves the ROM path works.
+5. Never silently no-op a MOS call the ROM depends on — use **`unexpected-mos`** / test failure until stubbed.
+
+## Project files
+
+- MOS constants: `src/bbc/mos.ts`
+- Stub implementation: `src/mos/mos-mock.ts`
+- Harness: `src/harness/rom-test-harness.ts`
+- Examples: `src/tests/vitest/datetime.test.ts` (imports this framework from `bin/rom-unittest/`)
