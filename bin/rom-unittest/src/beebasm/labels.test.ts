@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseBeebAsmLabels, rtcHookAddresses, serviceEntryAddress } from "./labels.js";
+import {
+  parseBeebAsmLabels,
+  rtcHookAddresses,
+  serviceEntryAddress,
+  translateCompositeLabels,
+} from "./labels.js";
 
 const SAMPLE_LABELS = `[{'service':32804L,'getrtc':36290L,'writetd':36324L,'wtbrk':36357L}]`;
 
@@ -17,6 +22,18 @@ describe("BeebAsm labels parser", () => {
       getrtc: 0x8dc2,
       writetd: 0x8de4,
       wtbrk: 0x8e05,
+    });
+  });
+
+  it("translates all symbol addresses by the composite image offset", () => {
+    const symbols = parseBeebAsmLabels(SAMPLE_LABELS);
+    const translated = translateCompositeLabels(symbols, 0x400);
+
+    expect(serviceEntryAddress(translated)).toBe(0x8424);
+    expect(rtcHookAddresses(translated)).toEqual({
+      getrtc: 0x91c2,
+      writetd: 0x91e4,
+      wtbrk: 0x9205,
     });
   });
 });

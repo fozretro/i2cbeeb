@@ -59,6 +59,19 @@ const harness = new RomTestHarness({
 
 ROM unit tests live in **`src/tests/vitest/`** as `*.test.ts`. On-target BASIC and assembly tests are in **`src/tests/native/`**. Run Vitest from here via `npm test`.
 
+| Command | Scope |
+|---------|--------|
+| `npm test` | Standalone sideways ROMs — run by `./bin/build.sh` before the AP6 amalgam step |
+| `npm run test:composite` | **`ap6-composite` fixture only** — same test files, one variant; run by `buildap6` Step 4a |
+| `npm run test:all-fixtures` | Standalone **plus** composite in one run (optional local matrix) |
+
+Set `I2CBEEB_TEST_COMPOSITE=only` or `append` to control variant lists (see `rom-variants.ts`).
+
+### Standalone vs composite fixtures
+
+- **Standalone** — `i2cbc`, `i2cec`, `i2ceap6c` load a single sideways I²C image at `$8000` with matching BeebAsm labels.
+- **Composite** — `ap6-composite` loads the full AP6 amalgam (`dist/ap6.rom`) and uses relocated I²C hook labels (`dist/ap6-i2c.labels`). The harness calls the embedded I²C `service` entry directly (not the composite ROM header at `$8003`). One datetime test skips the header-JMP check for embedded slices.
+
 ## Notes
 
 - jsbeeb **RTS adds one** to the stacked return address (correct 6502 JSR/RTS semantics). `pushReturnAddress()` accounts for this.

@@ -50,5 +50,14 @@ module.exports = {
     output: {
         path: "../../dist/ap6.rom",
         name: "AP6v134t-I2C ROM (TreeCopy replaced with I2C)"
-    }
+    },
+
+    // I²C BeebAsm labels relocated for rom-unittest composite fixture (#29)
+    i2cLabels: {
+        source: "tmp/C.I2CEAP6.labels",
+        output: "../../dist/ap6-i2c.labels",
+        manifest: "../../dist/ap6-i2c.manifest.json",
+        moduleName: "I2C",
+        romBase: 0x8000,
+    },
 };

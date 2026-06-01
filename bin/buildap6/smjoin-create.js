@@ -17,6 +17,8 @@ class SMJoin {
         this.in = 0;
         this.romCount = 0; // Track number of ROMs added
         this.verbose = process.argv.includes('--verbose') || process.argv.includes('-v');
+        /** @type {Record<string, number>} Image offset where each named module was loaded */
+        this.moduleOffsets = {};
     }
 
     loadConfig(configPath) {
@@ -31,7 +33,8 @@ class SMJoin {
 
     addFileFromConfig(romConfig) {
         const options = {
-            pageAlignment: romConfig.pageAlignment !== false // Default to true if not specified
+            pageAlignment: romConfig.pageAlignment !== false, // Default to true if not specified
+            name: romConfig.name,
         };
         return this.addFile(romConfig.path, options);
     }
@@ -121,6 +124,10 @@ class SMJoin {
 
         // Increment ROM count
         this.romCount++;
+
+        if (options.name) {
+            this.moduleOffsets[options.name] = oldPtr;
+        }
 
         if (oldPtr !== 0 || this.ptr < 0x3FFF) {
             return true;
@@ -359,6 +366,23 @@ function main() {
     }
 
     smjoin.save(outputFile);
+
+    if (config?.i2cLabels) {
+        const moduleName = config.i2cLabels.moduleName || 'I2C';
+        const imageOffset = smjoin.moduleOffsets[moduleName];
+        if (imageOffset === undefined) {
+            console.error(`Failed to record image offset for module '${moduleName}'`);
+            process.exit(1);
+        }
+        const { emitAp6I2cLabels } = require('./emit-ap6-i2c-labels');
+        emitAp6I2cLabels({
+            sourcePath: config.i2cLabels.source,
+            outputPath: config.i2cLabels.output,
+            manifestPath: config.i2cLabels.manifest,
+            imageOffset,
+            romBase: config.i2cLabels.romBase ?? 0x8000,
+        });
+    }
 }
 
 if (require.main === module) {

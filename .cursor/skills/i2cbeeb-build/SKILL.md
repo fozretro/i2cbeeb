@@ -10,14 +10,13 @@ Assume repo root `$REPO`; run shells from `$REPO` unless noted.
 ## Main I2CBeeb ROM pipeline
 
 1. `./bin/time-config/extract.sh` pulls **Barney Hilken — Time‑Config.** from Codeberg into **`refs/Time-Config`** (gitignored **`/refs`**), pins commit in `TIMECONFIG_COMMIT`, copies/strips into **`src/configure/`**. **Requires:** `git`, `python3`, **network on first clone**.
-2. **`./bin/build.sh`** runs that extract then BeebAsm compiles **`src/I2CBeeb.asm`** for BBC / Electron / EAP6 and test/configure variants into **`src/out/`**, runs **ROM unit tests** in **`bin/rom-unittest/`** against the fresh **`src/out/configb/C.I2CB`** (before anything is copied to **`dist/`**), then packages **`dist/`** and **`dev/`** staging. Pass **`--skip-testing`** to omit the Vitest step. **Uses:** `./bin/beebasm`, `./bin/mmbutils/beeb`, **`node`/`npm`** for tests.
+2. **`./bin/build.sh`** runs that extract then BeebAsm compiles **`src/I2CBeeb.asm`** for BBC / Electron / EAP6 and test/configure variants into **`src/out/`**, runs **standalone ROM unit tests**, packages **`dist/`**, then runs **`./bin/buildap6/build.sh`** (unless **`--skip-ap6`**) so **`dist/ap6.rom`** matches the current I²C build. Auto-builds Plus 1 Support / ROM Manager if their **`bin/build*/out/`** artefacts are missing. Pass **`--skip-testing`** to omit Vitest and AP6 smoke tests. **Uses:** `./bin/beebasm`, `./bin/mmbutils/beeb`, **`node`/`npm`** for tests.
 
-**Smoke check:** from `$REPO`, run `./bin/build.sh`; expect exits `0` and SSD/ROM artefacts updated under `dist/` and dev folders described in **`README.md`**.
+**Smoke check:** from `$REPO`, run `./bin/build.sh`; expect exits `0` and SSD/ROM artefacts updated under **`dist/`** (including **`ap6.rom`**) and **`dev/`** staging described in **`README.md`**.
 
-## Electron AP6 support ROM bundle (optional / heavier)
+## Electron AP6 support ROM amalgam
 
-- **`./bin/buildap6/build.sh`** — Node SMJoin relocation pipeline (`npm install` under **`bin/buildap6`**); merges relocated I²C with Plus 1 stub, ROM Manager binary, **`roms/TUBEelk`** and **`roms/AP6Count`**; writes **`dist/ap6.rom`** and **`dev/eap6/AP6`**. Flags **`--skip-i2c-build`**, **`--skip-testing`** — see script **`--help`**.
-- **Prerequisite:** BeebAsm I²CEAP6 targets when Step 1 runs, plus **`./bin/buildplus1support/build.sh`** and **`./bin/buildrommanager/build.sh`** so **`bin/buildap6/config/smjoin-create-config.js`** paths under **`bin/build*/out/`** exist.
+- Invoked automatically from **`./bin/build.sh`** unless **`--skip-ap6`**. Can also run standalone: **`./bin/buildap6/build.sh`**. Node SMJoin relocation pipeline; merges relocated I²C with Plus 1 stub, ROM Manager binary, **`roms/TUBEelk`** and **`roms/AP6Count`**; writes **`dist/ap6.rom`**, **`dist/ap6-i2c.labels`**, and **`dev/eap6/AP6`**. Step 4a runs **`npm run test:composite`** (**`ap6-composite` fixture only**). **`./bin/build.sh`** passes **`--skip-emulator-tests`** (Playwright/OCR **`smjoin-test.js`** skipped — Vitest is the primary gate). Run **`./bin/buildap6/build.sh`** without that flag to exercise emulator smoke manually. Flags **`--skip-i2c-build`**, **`--skip-testing`**, **`--skip-emulator-tests`** — see script **`--help`**.
 
 ## JGH BASIC sources (Plus 1 Support / ROM Manager)
 
@@ -40,9 +39,12 @@ Console labels like `AP1v131` / `AP6v134` may reflect **config** filenames; rely
 
 | Goal | Command |
 |------|---------|
-| All I²C ROM variants + dev copies + ROM unit tests | `./bin/build.sh` |
-| Build only (no Vitest) | `./bin/build.sh --skip-testing` |
-| AP6 combined/support ROM pipeline | `./bin/buildap6/build.sh` |
+| All I²C ROM variants + dev copies + standalone Vitest + AP6 amalgam | `./bin/build.sh` |
+| Build only (no Vitest / AP6 tests) | `./bin/build.sh --skip-testing` |
+| I²C ROMs only (no AP6 amalgam) | `./bin/build.sh --skip-ap6` |
+| AP6 combined/support ROM pipeline alone | `./bin/buildap6/build.sh` |
+| Composite fixture Vitest only | `cd bin/rom-unittest && npm run test:composite` |
+| Standalone + composite matrix | `cd bin/rom-unittest && npm run test:all-fixtures` |
 | Plus 1 Support ROM from BASIC | `./bin/buildplus1support/build.sh` |
 | ROM Manager from BASIC | `./bin/buildrommanager/build.sh` |
 

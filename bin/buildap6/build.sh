@@ -11,6 +11,7 @@ KEEP_SERVER_RUNNING=false
 TEST_FILTER=""
 VERBOSE=false
 SKIP_TESTING=false
+SKIP_EMULATOR_TESTS=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -34,14 +35,19 @@ while [[ $# -gt 0 ]]; do
             SKIP_TESTING=true
             shift
             ;;
+        --skip-emulator-tests)
+            SKIP_EMULATOR_TESTS=true
+            shift
+            ;;
         -h|--help)
-            echo "Usage: $0 [--skip-i2c-build] [--nokill-romserver] [--testFilter ROM1,ROM2,...] [--verbose] [--skip-testing]"
-            echo "  --skip-i2c-build     Skip I2C ROM compilation, use existing files"
-            echo "  --nokill-romserver   Keep ROM server running after tests complete"
-            echo "  --testFilter         Comma-separated list of ROM names to test (e.g., AP6.rom,I2C.rom)"
-            echo "                       Available ROMs: AP6.rom, LatestAP6.rom, I2C.rom, LatestI2C.rom"
-            echo "  --verbose, -v        Enable verbose logging in test output"
-            echo "  --skip-testing       Skip ROM testing step entirely"
+            echo "Usage: $0 [--skip-i2c-build] [--nokill-romserver] [--testFilter ROM1,ROM2,...] [--verbose] [--skip-testing] [--skip-emulator-tests]"
+            echo "  --skip-i2c-build       Skip I2C ROM compilation, use existing files"
+            echo "  --nokill-romserver     Keep ROM server running after tests complete"
+            echo "  --testFilter           Comma-separated list of ROM names to test (e.g., AP6.rom,I2C.rom)"
+            echo "                         Available ROMs: AP6.rom, LatestAP6.rom, I2C.rom, LatestI2C.rom"
+            echo "  --verbose, -v          Enable verbose logging in test output"
+            echo "  --skip-testing         Skip all ROM tests (Vitest composite and emulator smoke)"
+            echo "  --skip-emulator-tests  Skip Playwright/OCR smjoin-test.js (Step 4b); Vitest composite still runs"
             exit 0
             ;;
         *)
@@ -65,6 +71,9 @@ if [ "$SKIP_I2C_BUILD" = true ]; then
 fi
 if [ "$SKIP_TESTING" = true ]; then
     echo "  -> Skipping testing step"
+fi
+if [ "$SKIP_EMULATOR_TESTS" = true ]; then
+    echo "  -> Skipping emulator OCR smoke tests (smjoin-test.js)"
 fi
 echo ""
 
@@ -206,7 +215,24 @@ if [ "$SKIP_TESTING" = true ]; then
     echo "🧪 Step 4: Skipping ROM tests..."
     echo "✅ Testing step skipped"
 else
-    echo "🧪 Step 4: Running ROM tests..."
+    echo "🧪 Step 4a: Running AP6 composite fixture Vitest (ap6-composite only)..."
+    pushd bin/rom-unittest > /dev/null
+    npm install --silent 2>/dev/null || npm install
+    npm run test:composite
+    if [ $? -ne 0 ]; then
+        popd > /dev/null
+        echo "❌ Composite ROM unit tests failed!"
+        exit 1
+    fi
+    popd > /dev/null
+    echo "✅ Composite Vitest passed"
+    echo ""
+
+    if [ "$SKIP_EMULATOR_TESTS" = true ]; then
+        echo "🧪 Step 4b: Skipping SMJoin browser smoke tests (--skip-emulator-tests)"
+        echo "✅ Emulator smoke tests skipped"
+    else
+    echo "🧪 Step 4b: Running SMJoin browser smoke tests..."
     if [ -n "$TEST_FILTER" ]; then
         echo "  -> Filtering tests to: $TEST_FILTER"
     fi
@@ -242,6 +268,7 @@ else
     if [ $? -ne 0 ]; then
         echo "❌ ROM tests failed!"
         exit 1
+    fi
     fi
 fi
 echo ""

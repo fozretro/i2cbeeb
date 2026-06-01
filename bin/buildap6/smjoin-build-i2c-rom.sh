@@ -20,6 +20,7 @@ mkdir -p ./bin/buildap6/tmp
     -D PAD=0 \
     -D INC_TESTS=0 \
     -D INC_CONFIG=1 \
+    -d -labels ./bin/buildap6/tmp/C.I2CEAP6.labels \
     -o "I2CEAP6"
 # Extract from ssd to output folder
 ./bin/mmbutils/beeb getfile ./bin/buildap6/tmp/out.ssd ./bin/buildap6/tmp/8000

@@ -28,6 +28,8 @@ export {
   rtcHookAddresses,
   serviceEntryAddress,
   symbolAddress,
+  translateCompositeLabels,
+  formatBeebAsmLabels,
 } from "./beebasm/labels.js";
 export type { BeebAsmSymbols } from "./beebasm/labels.js";
 export { RtcMock, RTC_BUF, DEFAULT_RTC_MOCK_STATE, BLANK_RTC_MOCK_STATE, mergeRtcMockState } from "./rtc/getrtc-stub.js";
@@ -58,8 +60,12 @@ export {
 export {
   CONFIGLESS_ROM_VARIANTS,
   CONFIGURE_ROM_VARIANTS,
+  COMPOSITE_ROM_VARIANTS,
   requireRomVariants,
   requireConfigureRomVariants,
+  requireCompositeRomVariants,
+  compositeTestsEnabled,
+  compositeTestMode,
   repoRootFromFramework,
 } from "./rom-variants.js";
-export type { ResolvedRomVariant, RomVariant } from "./rom-variants.js";
+export type { ResolvedRomVariant, RomVariant, CompositeTestMode } from "./rom-variants.js";

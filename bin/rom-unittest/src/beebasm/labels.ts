@@ -83,3 +83,5 @@ export function configureHookAddresses(symbols: BeebAsmSymbols): {
     readKeySwitches: symbolAddress(symbols, "con_readkeyswitches"),
   };
 }
+
+export { formatBeebAsmLabels, translateCompositeLabels } from "./composite-labels.js";

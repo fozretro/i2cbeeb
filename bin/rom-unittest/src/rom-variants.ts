@@ -10,6 +10,11 @@ export interface RomVariant {
   /** Copied artefact under `dist/` (used by standalone `npm test`). */
   distPath: string;
   distLabelsPath: string;
+  /**
+   * I²C is embedded in a larger amalgam — `$8003` is not the I²C service JMP.
+   * Tests invoke the relocated I²C `service` label directly.
+   */
+  embeddedSlice?: boolean;
 }
 
 export const CONFIGLESS_ROM_VARIANTS: RomVariant[] = [
@@ -51,6 +56,43 @@ export const CONFIGURE_ROM_VARIANTS: RomVariant[] = [
   },
 ];
 
+/** Composite AP6 support ROM with embedded I²C slice (requires `./bin/buildap6/build.sh`). */
+export const COMPOSITE_ROM_VARIANTS: RomVariant[] = [
+  {
+    id: "ap6-composite",
+    label: "AP6 amalgam / embedded I²C",
+    buildPath: "dist/ap6.rom",
+    buildLabelsPath: "dist/ap6-i2c.labels",
+    distPath: "dist/ap6.rom",
+    distLabelsPath: "dist/ap6-i2c.labels",
+    embeddedSlice: true,
+  },
+];
+
+/** How the AP6 amalgam fixture participates in Vitest variant lists. */
+export type CompositeTestMode = "off" | "append" | "only";
+
+/**
+ * `off` — standalone fixtures only (default `npm test`).
+ * `only` — **`ap6-composite`** only (`npm run test:composite`, buildap6 Step 4a).
+ * `append` — standalone plus composite (manual full matrix).
+ */
+export function compositeTestMode(): CompositeTestMode {
+  const value = process.env.I2CBEEB_TEST_COMPOSITE;
+  if (value === "only") {
+    return "only";
+  }
+  if (value === "1" || value === "append") {
+    return "append";
+  }
+  return "off";
+}
+
+/** @deprecated Prefer {@link compositeTestMode}. */
+export function compositeTestsEnabled(): boolean {
+  return compositeTestMode() !== "off";
+}
+
 export interface ResolvedRomVariant extends RomVariant {
   path: string;
   labelsPath: string;
@@ -82,9 +124,11 @@ function resolveRomVariant(variant: RomVariant, repoRoot: string): ResolvedRomVa
     missing.push(`labels (${variant.buildLabelsPath} or ${variant.distLabelsPath})`);
   }
   if (missing.length > 0) {
-    throw new Error(
-      `${variant.id}: missing ${missing.join(" and ")}. Run ./bin/build.sh from the repo root.`,
-    );
+    const buildHint =
+      variant.id === "ap6-composite"
+        ? "Run ./bin/buildap6/build.sh from the repo root."
+        : "Run ./bin/build.sh from the repo root.";
+    throw new Error(`${variant.id}: missing ${missing.join(" and ")}. ${buildHint}`);
   }
 
   return { ...variant, path: path!, labelsPath: labelsPath! };
@@ -92,6 +136,10 @@ function resolveRomVariant(variant: RomVariant, repoRoot: string): ResolvedRomVa
 
 /** All configure-less ROM variants — throws if any ROM or labels file is absent. */
 export function requireRomVariants(repoRoot = repoRootFromFramework()): ResolvedRomVariant[] {
+  if (compositeTestMode() === "only") {
+    return requireCompositeRomVariants(repoRoot);
+  }
+
   const errors: string[] = [];
   const resolved: ResolvedRomVariant[] = [];
 
@@ -107,11 +155,15 @@ export function requireRomVariants(repoRoot = repoRootFromFramework()): Resolved
     throw new Error(`ROM unit tests require a full build.\n${errors.join("\n")}`);
   }
 
-  return resolved;
+  return appendCompositeWhenEnabled(resolved, repoRoot);
 }
 
 /** Configure ROM variants — throws if any ROM or labels file is absent. */
 export function requireConfigureRomVariants(repoRoot = repoRootFromFramework()): ResolvedRomVariant[] {
+  if (compositeTestMode() === "only") {
+    return requireCompositeRomVariants(repoRoot);
+  }
+
   const errors: string[] = [];
   const resolved: ResolvedRomVariant[] = [];
 
@@ -125,6 +177,36 @@ export function requireConfigureRomVariants(repoRoot = repoRootFromFramework()):
 
   if (errors.length > 0) {
     throw new Error(`Configure ROM unit tests require a full build.\n${errors.join("\n")}`);
+  }
+
+  return appendCompositeWhenEnabled(resolved, repoRoot);
+}
+
+function appendCompositeWhenEnabled(
+  resolved: ResolvedRomVariant[],
+  repoRoot: string,
+): ResolvedRomVariant[] {
+  if (compositeTestMode() !== "append") {
+    return resolved;
+  }
+  return [...resolved, ...requireCompositeRomVariants(repoRoot)];
+}
+
+/** Composite AP6 ROM variants — throws if amalgamated ROM or relocated I²C labels are absent. */
+export function requireCompositeRomVariants(repoRoot = repoRootFromFramework()): ResolvedRomVariant[] {
+  const errors: string[] = [];
+  const resolved: ResolvedRomVariant[] = [];
+
+  for (const variant of COMPOSITE_ROM_VARIANTS) {
+    try {
+      resolved.push(resolveRomVariant(variant, repoRoot));
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Composite ROM unit tests require an AP6 build.\n${errors.join("\n")}`);
   }
 
   return resolved;
