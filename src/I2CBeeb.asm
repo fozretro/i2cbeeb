@@ -258,8 +258,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	PHA					\..our title and return. Thus, first..
 	TXA					\..save the registers
 	PHA
-	JSR	OSNEWL			\blank line leader (Acorn protocol)
-	LDX	#1				\indexing title with X
+	LDX	#1				\indexing title with X (no leading OSNEWL — global *HELP)
 .help_a1	
 	LDA	title,X			\get a title chr
 	BNE	help_a2			\not a null so goto print it
