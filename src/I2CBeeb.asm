@@ -351,6 +351,9 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 
 \-------------------------------------------------------------------------------
 \Main unknown MOS *<command> interpreter - entered when A=4
+\
+\ MOS-style abbreviation: user must terminate the star keyword with '.' before
+\ parameters (e.g. *CONFIG. MODE). Matches Time-Config CMD_matchCommand abbrev.
 
 .command	
 	TXA					\save X
@@ -364,6 +367,8 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	LDA	#HI(comtab-1)
 	STA	htexth
 	LDX	#0				\X stays at 0 for indirect addressing
+	LDA	#0
+	STA	i2cstat				\non-zero once a command character matched
 .comm_a1	INY			\increment CLI pointer
 	\Increment command table pointer (handle page boundary)
 	INC	htextl
@@ -372,18 +377,36 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 .comm_a1_cont
 	LDA	(htextl,X)		\test for end of table = $FF (X=0)
 	CMP	#$FF
-	BEQ	comm_a4			\hit table end, not for us, jump to exit
+	BNE	comm_notTableEnd
+	JMP	comm_a4
+.comm_notTableEnd
 	LDA	(cli),Y			\get next chr of the user *command
 	CMP	#$61			\check if chr is lower case
 	BMI	comm_a6			\not, so continue
 	AND	#upper			\else force to upper case
-.comm_a6	CMP	#cr		\if <cr> or <space> then one more test
+.comm_a6	CMP	#'.'
+	BEQ	comm_dot
+	CMP	#cr		\if <cr> or <space> then one more test
 	BEQ	comm_a5			\<cr> - end of user command
 	CMP	#spc
 	BEQ	comm_a5			\<spc> - end of user command
 	CMP	(htextl,X)		\compare with chr from command table (X=0)
 	BNE	comm_a2			\no match, skip this command
+	LDA	#1
+	STA	i2cstat
 	JMP	comm_a1			\else repeat for next chr
+.comm_dot
+	LDA	i2cstat
+	BEQ	comm_a2
+.comm_abbrevSkip
+	INC	htextl
+	BNE	comm_abbrevCont
+	INC	htexth
+.comm_abbrevCont
+	LDA	(htextl,X)
+	BPL	comm_abbrevSkip
+	INY					\skip past '.' so configure/status parse params
+	JMP	comm_a3
 .comm_a5	
 	LDA	(htextl,X)		\get equivalent comtab command chr (X=0)
 	BMI	comm_a3			\$8x, this is a command match so..
@@ -414,6 +437,8 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	BNE	comm_a7_skip	\no page wrap
 	INC	htexth			\handle page boundary
 .comm_a7_skip
+	LDA	#0
+	STA	i2cstat
 	PLA					\restore original Y ((MOS value of Y)-1)
 	PHA					\save again
 	TAY

@@ -61,5 +61,30 @@ describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
       expect(harness.mos.getOutputText()).toMatch(/MODE\s+2/);
       expect(harness.mos.unexpected).toHaveLength(0);
     });
+
+    it("accepts dot-abbreviated star commands (*CONFIG. *STAT.)", () => {
+      // When — MOS requires '.' to abbreviate the star keyword (not bare prefix)
+      const configure = harness.invokeCommand({ commandText: "CONFIG. MODE 1\r" });
+      harness.mos.resetCaptures();
+      const status = harness.invokeCommand({ commandText: "STAT. MODE\r" });
+
+      // Then — both dispatch successfully
+      expect(configure.reason).toBe("return");
+      expect(status.reason).toBe("return");
+      expect(harness.registers().a).toBe(0);
+      expect(harness.getNvramImage()[NVR_VDUSettings]! & NVR_MODE_MASK).toBe(1);
+      expect(harness.mos.getOutputText()).toMatch(/MODE\s+1/);
+      expect(harness.mos.unexpected).toHaveLength(0);
+    });
+
+    it("rejects bare prefix without dot (*CONFIG MODE)", () => {
+      // When — prefix without '.' is not a valid abbreviation
+      const result = harness.invokeCommand({ commandText: "CONFIG MODE 1\r" });
+
+      // Then — ROM does not claim the command (passes to other ROMs)
+      expect(result.reason).toBe("return");
+      expect(harness.registers().a).toBe(4);
+      expect(harness.getNvramImage()[NVR_VDUSettings]! & NVR_MODE_MASK).toBe(0);
+    });
   });
 });
