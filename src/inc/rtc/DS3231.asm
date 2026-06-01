@@ -3,8 +3,12 @@
 \ The code below simply passes back and forth the data in bufXX to the device
 \ unlike the code in /inc/rtc/PCF8583.asm there is no translation needed
 \ as the main code for this ROM assumes the DS3231 format
+\
+\ I2C transaction workspace (i2cdev, i2creg, i2cbyte, temp2, htextl) is defined
+\ in I2CBeeb.asm — not hardcoded zero-page addresses. temp2/htextl are reused as
+\ register-valid and stop-inhibit flags during internal cmd3/cmd4/cmd6 calls.
 
-RTC			=	$68		\AP6 RTC I2C Slave Address (PCF8583 Build) 
+RTC			=	$68		\DS3231 I2C slave address on the bus
 RTC_TEMP	=	-1		\tempurate is supported for this RTC
 RTC_TEST_REG	=	$08		\Register offset for testing byte transmission (Alarm 1 Seconds - unused by ROM, alarms disabled)
 
@@ -18,12 +22,12 @@ RTC_TEST_REG	=	$08		\Register offset for testing byte transmission (Alarm 1 Seco
 	STA	bufloc+1
 						\set up rxd call to fetch all RTC data
 	LDA	#RTC			\DS3231 RTC device id
-	STA	$68
+	STA	i2cdev
 	LDA	#0				\register number - start at 0 (secs)
-	STA	$69
+	STA	i2creg
 	LDA	#19				\number of bytes to fetch (addr $00-$12)
-	STA	$6A
-	STA	$6C				\reg-valid flag to non-zero
+	STA	i2cbyte
+	STA	temp2				\reg-valid flag to non-zero
 	JSR	cmd6			\and make the rxd(go) call
 	LDA	#LO(i2cbuf)		\reset I2C buffer to $0A00
 	STA	bufloc
@@ -45,13 +49,13 @@ RTC_TEST_REG	=	$08		\Register offset for testing byte transmission (Alarm 1 Seco
 	CPX	#7				\copying 7 bytes
 	BNE	wtd_a1
 	LDA	#RTC			\set up txd call
-	STA	$68				\slave address
+	STA	i2cdev				\slave address
 	LDA	#0
-	STA	$69				\start register
-	STA	$6D				\no stop inhibit
+	STA	i2creg				\start register
+	STA	htextl				\no stop inhibit
 	LDA	#7
-	STA	$6A				\7 bytes to tx
-	STA	$6C				\non-zero = $69 register valid
+	STA	i2cbyte				\7 bytes to tx
+	STA	temp2				\non-zero = i2creg register valid
 	JSR	cmd4			\perform the write via txd(go)
 	RTS					\and return
 
@@ -63,12 +67,12 @@ RTC_TEST_REG	=	$08		\Register offset for testing byte transmission (Alarm 1 Seco
 
 .wtbrk	
 	LDA	#RTC			\target i2c device id (here rtc)
-	STA	$68
-	STA	$6C				\$6C<>0 mean register specified in $69
+	STA	i2cdev
+	STA	temp2				\temp2<>0 mean register specified in i2creg
 	LDA	#12				\start register = 12 = Alarm 2 Hours
-	STA	$69
+	STA	i2creg
 	LDA	#0
-	STA	$6D				\$6D=0 means Stop after txb
+	STA	htextl				\htextl=0 means Stop after txb
 	JSR	cmd3			\and send the byte via txb(go)
 	RTS
 

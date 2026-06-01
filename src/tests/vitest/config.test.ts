@@ -149,7 +149,7 @@ describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
         expect(nvramMode(harness.getNvramImage())).toBe(0);
 
         // When — MODE 8 exceeds help7 range (0–7)
-        harness.invokeCommand({ commandText: "CONFIGURE MODE 8\r" });
+        const result = harness.invokeCommand({ commandText: "CONFIGURE MODE 8\r" });
 
         // Then — NVRAM unchanged (bad parameter path)
         expect(nvramMode(harness.getNvramImage())).toBe(0);

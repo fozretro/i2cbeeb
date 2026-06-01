@@ -139,22 +139,24 @@ bufloc	=	$CE			\zp,y pointer to i2c buffer for RxB..
 						\..and RxD. Normally $0A00 but can..
 						\..also be $0380 during RTC access.
 i2cbuf	=	$0A00		\i2c Tx and Rx data buffer (to $0AFF)
-eeplo	=	$60			\24C32 target address lo-byte for r/w
-eephi	=	$61			\24C32 target address hi-byte for r/w
-spare	=	$62			\not used 
-bcdt	=	$63			\temporary for bcd tens
-bcdu	=	$64			\temporary for bcd units
-i2cslot	=	$65			\sideways rom slot id of i2c rom
-zpreg	=	$66			\transient store for Pxr registers
-i2cstat	=	$67			\i2c transaction status 0=good
-i2cdev	=	$68			\i2c slave device address
-i2creg	=	$69			\i2c slave device target register
-i2cbyte	=	$6A			\i2c rx or tx byte
-temp1	=	$6B			\command transient temporary #1
-temp2	=	$6C			\command transient temporary #2
-htextl	=	$6D			\help text pointer lo / general flag
-htexth	=	$6E			\help text pointer hi / general flag
-comdata	=	$6F			\temp Y store during command parsing
+mos_scratch = &A8		\MOS star-command scratch (#12, JGH-style)
+comdata	=	mos_scratch+0	\Y save during command parsing
+temp1	=	mos_scratch+1	\command transient temporary #1
+temp2	=	mos_scratch+2	\command transient temporary #2
+htextl	=	mos_scratch+6	\help/command table ptr lo — must be ZP for (htextl),Y
+htexth	=	mos_scratch+7	\help/command table ptr hi
+i2cwrk	=	&02E0		\I2C transaction workspace (not zero page)
+eeplo	=	i2cwrk+0	\24C32 target address lo-byte for r/w
+eephi	=	i2cwrk+1	\24C32 target address hi-byte for r/w
+spare	=	i2cwrk+2	\not used 
+bcdt	=	i2cwrk+3	\temporary for bcd tens
+bcdu	=	i2cwrk+4	\temporary for bcd units
+i2cslot	=	i2cwrk+5	\sideways rom slot id of i2c rom
+zpreg	=	i2cwrk+6	\transient store for Pxr registers
+i2cstat	=	i2cwrk+7	\i2c transaction status 0=good
+i2cdev	=	i2cwrk+8	\i2c slave device address
+i2creg	=	i2cwrk+9	\i2c slave device target register
+i2cbyte	=	i2cwrk+10	\i2c rx or tx byte
 devidlo	=	$08			\lowest i2c device id to interrogate
 devidhi	=	$77			\highest i2c device id to interrogate
 EEP32	=	$57			\AT24C32 eeprom I2C slave address
@@ -814,9 +816,9 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 .xtb1	
 	LDA	#1				\currently off, turn on
 .xtb2	
-	STA	$6A				\tx byte (1 or 0 ToB flag)
+	STA	i2cbyte			\tx byte (1 or 0 ToB flag)
 	JSR	wtbrk			\store state in RTC ram (see /inc/rtc)
-	LDA	$6A				\report On or Off
+	LDA	i2cbyte			\report On or Off
 	BEQ	xtb3			\0 SO goto 'Off'
 	LDA	#6				\else 1 so 'On'
 	BNE	xtb4
@@ -2457,24 +2459,24 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 .eeprd	
 	PHA				\temporarily save number of bytes
 	LDA	#EEP32		\target i2c device id (here eeprom)
-	STA	$68
-	STA	$6D			\$6D<>0 means no Stop after txb
+	STA	i2cdev
+	STA	htextl			\htextl<>0 means no Stop after txb
 	LDA	#0
-	STA	$6C			\$6C=0 mean no register specified
+	STA	temp2			\temp2=0 mean no register specified
 	LDA	eephi		\first send eeprom address hi-byte
-	STA	$6A			\tx byte
+	STA	i2cbyte			\tx byte
 	JSR	cmd3		\send the hi-byte via txb(go)
 	LDA	#$FF		\streaming so no i2c address this time
-	STA	$68
+	STA	i2cdev
 	LDA	eeplo		\next, send eeprom address lo-byte
-	STA	$6A			\tx byte
+	STA	i2cbyte			\tx byte
 	JSR	cmd3		\send the lo-byte via txb(go)	
 	LDA	#EEP32		\now perform an rxd multi-byte read
-	STA	$68			\restore eeprom id
-	LDA	#0			\$6C=0 mean no register specified
-	STA	$6C
+	STA	i2cdev			\restore eeprom id
+	LDA	#0			\temp2=0 mean no register specified
+	STA	temp2
 	PLA				\retrieve number of bytes to read..
-	STA	$6A			\and set for rxd
+	STA	i2cbyte			\and set for rxd
 	JSR	cmd6		\and fetch the bytes via rxd(go)
 	RTS
 
@@ -2486,25 +2488,25 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 .eepwr	
 	PHA				\temporarily save number of bytes
 	LDA	#EEP32		\target i2c device id (here eeprom)
-	STA	$68
-	STA	$6D			\$6D<>0 means no Stop after txb
+	STA	i2cdev
+	STA	htextl			\htextl<>0 means no Stop after txb
 	LDA	#0
-	STA	$6C			\$6C=0 mean no register specified
+	STA	temp2			\temp2=0 mean no register specified
 	LDA	eephi		\first send eeprom address hi-byte
-	STA	$6A			\tx byte
+	STA	i2cbyte			\tx byte
 	JSR	cmd3		\send the hi-byte via txb(go)
 	LDA	#$FF		\streaming so no i2c address this time
-	STA	$68
+	STA	i2cdev
 	LDA	eeplo		\next, send eeprom address lo-byte
-	STA	$6A			\tx byte
+	STA	i2cbyte			\tx byte
 	JSR	cmd3		\send the lo-byte via txb(go)	
 	LDA	#EEP32		\now perform a txd multi-byte write
-	STA	$68			\restore eeprom id
-	LDA	#0			\$6C=0 mean no register specified
-	STA	$6C
+	STA	i2cdev			\restore eeprom id
+	LDA	#0			\temp2=0 mean no register specified
+	STA	temp2
 	PLA				\retrieve number of bytes to write..
 	PHA				\..but preserve entry A
-	STA	$6A			\set for txd
+	STA	i2cbyte			\set for txd
 	JSR	cmd4		\and write the bytes via txd(go)
 	PLA				\restore entry A
 	RTS

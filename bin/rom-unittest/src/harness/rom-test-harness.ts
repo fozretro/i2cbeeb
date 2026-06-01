@@ -25,9 +25,11 @@ import { createBlankNvramImage } from "../nvram/defaults.js";
 import { BLANK_RTC_MOCK_STATE } from "../rtc/defaults.js";
 import { ReadKeySwitchesStub } from "../nvram/configure-stubs.js";
 import {
-  assertStarCommandWorkspace,
-  poisonStarCommandWorkspace,
-  type GuardedWorkspace,
+  assertWorkspaceGuard,
+  MOS_ERROR_PTR_ADDRESS,
+  snapshotWorkspaceGuard,
+  type WorkspaceGuardOptions,
+  type WorkspaceSnapshot,
 } from "./workspace-guard.js";
 
 export interface RomHarnessOptions {
@@ -42,10 +44,12 @@ export interface RomHarnessOptions {
   mos?: MosMock;
   /**
    * After each {@link invokeService} / {@link invokeCommand} / {@link invokeBoot},
-   * assert `&0234–&0235` (INDV3) and `&A8–&AF` were not modified (#12).
+   * assert zero page is unchanged except MOS star-command scratch `&A8–&AF` (#12).
    * Default true.
    */
   workspaceGuard?: boolean;
+  /** Options when {@link workspaceGuard} is enabled (optional RAM regions, etc.). */
+  workspaceGuardOptions?: WorkspaceGuardOptions;
 }
 
 export interface CommandCallOptions {
@@ -95,9 +99,11 @@ export class RomTestHarness {
   private rtcMockEnabled = false;
   private configureMockEnabled = false;
   private readonly workspaceGuardEnabled: boolean;
+  private readonly workspaceGuardOptions: WorkspaceGuardOptions;
 
   constructor(options: RomHarnessOptions) {
     this.workspaceGuardEnabled = options.workspaceGuard !== false;
+    this.workspaceGuardOptions = options.workspaceGuardOptions ?? {};
     this.romBase = options.romBase ?? ROM_BASE;
     this.rom = loadRomImage(options.romPath);
     this.symbols = loadBeebAsmLabels(options.labelsPath);
@@ -224,7 +230,6 @@ export class RomTestHarness {
 
   /** Invoke the sideways ROM service entry (JMP target from the ROM header). */
   invokeService(options: ServiceCallOptions): RunResult {
-    const workspaceExpected = this.poisonWorkspaceIfEnabled();
     const cmdAddr = options.commandLine ?? 0x0900;
     const text = options.commandText ?? "\r";
     writeCommandLine(this.cpu, cmdAddr, text);
@@ -236,6 +241,14 @@ export class RomTestHarness {
       y = Math.max(0, text.length - 1);
     }
 
+    const workspaceSnapshot = this.snapshotWorkspaceIfEnabled();
+    const errorPtrBefore = this.workspaceGuardEnabled
+      ? ([
+          this.readMemory(MOS_ERROR_PTR_ADDRESS),
+          this.readMemory(MOS_ERROR_PTR_ADDRESS + 1),
+        ] as const)
+      : null;
+
     const result = this.run({
       pc: this.serviceEntry,
       a: options.serviceType & 0xff,
@@ -244,7 +257,7 @@ export class RomTestHarness {
       returnAddress: this.returnTrampoline,
       flags: { i: true },
     });
-    this.assertWorkspaceIfEnabled(workspaceExpected);
+    this.assertWorkspaceIfEnabled(workspaceSnapshot, result, errorPtrBefore);
     return result;
   }
 
@@ -296,20 +309,35 @@ export class RomTestHarness {
     }
   }
 
-  private poisonWorkspaceIfEnabled(): GuardedWorkspace | null {
+  private snapshotWorkspaceIfEnabled(): WorkspaceSnapshot | null {
     if (!this.workspaceGuardEnabled) {
       return null;
     }
-    return poisonStarCommandWorkspace((address, value) => {
-      this.writeMemory(address, value);
-    });
+    return snapshotWorkspaceGuard(
+      (address) => this.readMemory(address),
+      this.workspaceGuardOptions,
+    );
   }
 
-  private assertWorkspaceIfEnabled(expected: GuardedWorkspace | null): void {
-    if (expected === null) {
+  private assertWorkspaceIfEnabled(
+    snapshot: WorkspaceSnapshot | null,
+    result?: RunResult,
+    errorPtrBefore?: readonly [number, number] | null,
+  ): void {
+    if (snapshot === null) {
       return;
     }
-    assertStarCommandWorkspace((address) => this.readMemory(address), expected);
+    const read = (address: number) => this.readMemory(address);
+    if (
+      result?.reason === "brk" ||
+      (errorPtrBefore !== null &&
+        errorPtrBefore !== undefined &&
+        (read(MOS_ERROR_PTR_ADDRESS) !== errorPtrBefore[0] ||
+          read(MOS_ERROR_PTR_ADDRESS + 1) !== errorPtrBefore[1]))
+    ) {
+      return;
+    }
+    assertWorkspaceGuard(read, snapshot);
   }
 
   private reinstallConfigureMock(): void {

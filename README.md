@@ -35,7 +35,7 @@ The Time & Config integration code is dynamically pulled from the [Time & Config
 Status - Release v3.3 In Progress - Test Framework and Configure Support (Jan 2026)
 ----------------------------------------------------------------------------------
 
-This release introduces significant enhancements including integration with the Time & Config ROM for configuration management and ROM control features. The `*CONFIGURE` and `*STATUS` commands enable system configuration settings to be stored in NVRAM and applied on boot, while `*INSERT` and `*UNPLUG` commands provide ROM management capabilities. These features are currently available only in Electron AP6 builds due to NVRAM requirements—the PCF8583 RTC chip provides sufficient free RAM for configuration storage, while the DS3231 RTC chip used in BBC Micro and basic Electron builds has no user-accessible RAM. The build system has been updated to disable configure features for BBC and Electron builds, keeping them enabled only for Electron AP6 builds. Additionally, the `*I2CTEST` command has been implemented to provide comprehensive automated testing of I2C functionality across all target platforms. For more information on the test framework, see the [Test Framework *I2CTEST](#test-framework-i2ctest) section below.
+This release introduces significant enhancements including integration with the Time & Config ROM for configuration management and ROM control features. The `*CONFIGURE` and `*STATUS` commands enable system configuration settings to be stored in NVRAM and applied on boot, while `*INSERT` and `*UNPLUG` commands provide ROM management capabilities. These features are currently available only in Electron AP6 builds due to NVRAM requirements—the PCF8583 RTC chip provides sufficient free RAM for configuration storage, while the DS3231 RTC chip used in BBC Micro and basic Electron builds has no user-accessible RAM. The build system has been updated to disable configure features for BBC and Electron builds, keeping them enabled only for Electron AP6 builds. Additionally, the `*I2CTEST` command has been implemented to provide comprehensive automated testing of I2C functionality across all target platforms (on real hardware). Automated ROM unit tests run during `./bin/build.sh`; see [ROM unit testing](#rom-unit-testing). For on-machine I2C tests, see the [Test Framework *I2CTEST](#test-framework-i2ctest) section below.
 
 Status - BeebAsm Migration Complete (Sep 2025)
 ----------------------------------------------
@@ -77,6 +77,56 @@ Building
 --------
 
 Build with `./bin/build.sh` and this will copmile using using BeebAsm. This will compile all three targets for BBC Micro, Acorn Electron and Acorn Electron Plus 1 AP6 in `/dist`. It will also update `/dev/eap6` and `/dev/roms` these folders work with virtual file systems such as the one in b-em - and supported by UPURSFS. The later use of UPURSFS allows compilation output to be directly loaded and test on a target machine.
+
+Unless you pass `--skip-testing`, the build also runs the automated ROM unit tests described below.
+
+ROM workspace (memory used)
+------------------------------
+
+Fixed RAM the ROM uses for storage (see [`src/I2CBeeb.asm`](src/I2CBeeb.asm)). MOS star-command scratch at `&A8–&AF` may be overwritten during any `*` command; do not rely on it across `OSCLI`. The ROM does not use `&0234–&0235` (`INDV3`).
+
+| Range | Role |
+|-------|------|
+| `&A8–&AF` | Star-command scratch — parser temps, command table pointer, I²C flags during `*` handlers |
+| `&02E0–&02EA` | I²C transaction state (device address, register, byte count, status, EEPROM helpers) |
+| `&0380–&0392` | RTC time/date scratch (`buf00`–`buf06`, `buf12` ToB, temp bytes on DS3231) |
+| `&0A00–&0AFF` | I²C Tx/Rx buffer and `*NOW$` output |
+| `&E4–&E5` | Configure builds only — Time-Config string pointer (`STR_PrintString`) |
+
+Persistent settings on AP6 are stored in **NVRAM on the board** (PCF8583/FRAM), not in these RAM areas.
+
+ROM unit testing
+----------------
+
+Each `./bin/build.sh` run (unless `--skip-testing` is passed) exercises the **real assembled ROM binaries** against a simulated 6502, with MOS calls stubbed out so tests can run quickly on a modern machine without a Beeb attached. This is separate from the on-machine `*I2CTEST` command documented [further down](#test-framework-i2ctest)—those tests need hardware and an I2C bus.
+
+The tests are mainly about **sideways-ROM good manners**: behaving correctly when the MOS hands you a `*` command, and not trampling memory the rest of the system expects to keep.
+
+**What we check (ROM conventions and expectations)**
+
+- **Star-command dispatch** — unknown `*` commands are handled through the normal service entry; handlers are reached without repurposing the language indirection vector at `&0234` (`INDV3`).
+- **Zero-page workspace** — MOS star-command scratch at `&A8–&AF` may be used freely during a `*` handler (the same convention used by ROMs such as JGH’s ROM Manager). The rest of zero page should be left alone across a command. Configure builds may also use `&E4–&E5` for Time-Config string output.
+- **`*HELP`** — title and extended help output follow Acorn-style expectations (including not adding an extra blank line before the banner on global `*HELP`).
+- **Time and date commands** — `*TIME`, `*DATE`, `*NOW`, and related paths produce sensible output when the RTC is mocked.
+- **Time-on-Break (`*TBRK`) and boot (service 1)** — toggle and boot-header behaviour against a mocked RTC.
+- **Configure builds (Electron AP6)** — `*CONFIGURE` and `*STATUS` read and write NVRAM as expected; dot-abbreviated command forms work; bad parameters are rejected without corrupting stored settings.
+
+**Coverage (high level)**
+
+Tests run against the main configure-less ROM variants built into `/dist` (BBC, Electron, and Electron AP6). Configure-specific cases run on the AP6 configure build. They validate ROM logic and MOS integration, **not** real I2C electrical behaviour—that remains the job of `*I2CTEST` on real hardware.
+
+**Where the tests live**
+
+| Location | Purpose |
+|----------|---------|
+| [`src/tests/vitest/`](src/tests/vitest/) | Test cases (`help`, `datetime`, `tbrk`, `config`, `boot`, etc.) |
+| [`bin/rom-unittest/`](bin/rom-unittest/) | Test harness, MOS/RTC/NVRAM mocks, workspace guards |
+
+To run the unit tests on their own after a build:
+
+    cd bin/rom-unittest && npm test
+
+The AP6 amalgam build runs an additional composite test pass when `./bin/buildap6/build.sh` completes (see that script’s help for flags to skip testing).
 
 Some Year Testing
 -----------------

@@ -23,6 +23,10 @@ export const ZP = {
   OSW_Y: 0xf1,
 } as const;
 
+/** I2CBeeb low-RAM workspace (see i2cwrk in I2CBeeb.asm). */
+export const I2CWRK_ADDRESS = 0x02e0;
+export const I2C_BYTE_ADDRESS = I2CWRK_ADDRESS + 10;
+
 export const ROM_BASE = 0x8000;
 export const ROM_SIZE = 0x4000;
 

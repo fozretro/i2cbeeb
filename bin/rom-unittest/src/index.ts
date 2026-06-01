@@ -1,4 +1,4 @@
-export { MOS, ROM_BASE, ROM_SIZE, ZP } from "./bbc/mos.js";
+export { MOS, ROM_BASE, ROM_SIZE, ZP, I2CWRK_ADDRESS, I2C_BYTE_ADDRESS } from "./bbc/mos.js";
 export type { MosVector } from "./bbc/mos.js";
 export {
   createJsbeebCpu,
@@ -24,12 +24,28 @@ export {
   INDV3_ADDRESS,
   MOS_COMMAND_SCRATCH_START,
   MOS_COMMAND_SCRATCH_BYTES,
+  ZERO_PAGE_SIZE,
+  DEFAULT_ZERO_PAGE_EXEMPT,
+  DEFAULT_CRITICAL_RAM_GUARD,
+  DEFAULT_RAM_GUARD_EXEMPT,
   StarCommandWorkspaceError,
+  assertWorkspaceGuard,
+  compareWorkspaceGuard,
+  isAddressInRegions,
+  MOS_ERROR_PTR_ADDRESS,
+  snapshotWorkspaceGuard,
   assertStarCommandWorkspace,
   compareStarCommandWorkspace,
   poisonStarCommandWorkspace,
 } from "./harness/workspace-guard.js";
-export type { GuardedWorkspace, WorkspaceGuardViolation, WorkspaceRegion } from "./harness/workspace-guard.js";
+export type {
+  GuardedWorkspace,
+  MemoryRegion,
+  WorkspaceGuardOptions,
+  WorkspaceGuardViolation,
+  WorkspaceRegion,
+  WorkspaceSnapshot,
+} from "./harness/workspace-guard.js";
 export {
   loadBeebAsmLabels,
   parseBeebAsmLabels,

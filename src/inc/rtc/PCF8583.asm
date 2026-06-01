@@ -3,8 +3,12 @@
 \ The code below respects DS3231 data layout assumptions in the main code so there is
 \ is no impact the to the main structure of the code regardless of RTC used.
 \ The PCF8583 is fitted to an Acorn Electron AP6 expansion for the Plus 1
+\
+\ I2C transaction workspace (i2cdev, i2creg, i2cbyte, temp2, htextl) is defined
+\ in I2CBeeb.asm — not hardcoded zero-page addresses. temp2/htextl are reused as
+\ register-valid and stop-inhibit flags during internal cmd3/cmd4/cmd6 calls.
 
-RTC			=	$50		\AP6 RTC I2C Slave Address (PCF8583 Build) 
+RTC			=	$50		\AP6 RTC I2C Slave Address (PCF8583 Build)
 RTC_TEMP	=	0		\no tempurate support for this RTC
 RTC_TEST_REG	=	$12		\Register offset for testing byte transmission (free RAM - unused by ROM)
 
@@ -28,12 +32,12 @@ RTC_TEST_REG	=	$12		\Register offset for testing byte transmission (free RAM - u
 	LDX	#HI(i2cbuf)
 	STX	bufloc+1		\set up rxd call to fetch all RTC data				
 	LDA	#RTC			\PCF8583 RTC device id
-	STA	$68
+	STA	i2cdev
 	LDA	#0				\register number - start at 0 (control)
-	STA	$69
+	STA	i2creg
 	LDA	#18				\number of bytes to fetch (addr $00-$11)
-	STA	$6A
-	STA	$6C				\reg-valid flag to non-zero
+	STA	i2cbyte
+	STA	temp2				\reg-valid flag to non-zero
 	JSR	cmd6			\and make the rxd(go) call
 	JSR	fromPCF8583		\update t&d data (bufXX) from I2C buffer ($A00)
 	RTS					\and return
@@ -53,13 +57,13 @@ RTC_TEST_REG	=	$12		\Register offset for testing byte transmission (free RAM - u
 	STA	&A01			\hundredths register: 0
 	\ Now write all 18 bytes (00h-11h) including initialized control register
 	LDA	#RTC			\set up txd call
-	STA	$68				\slave address
+	STA	i2cdev				\slave address
 	LDA	#0				\start from 0h reg in PCF8583
-	STA	$69				\start register
-	STA	$6D				\no stop inhibit
+	STA	i2creg				\start register
+	STA	htextl				\no stop inhibit
 	LDA	#18
-	STA	$6A				\18 bytes to tx (from 00h>11h)
-	STA	$6C				\non-zero = $69 register valid
+	STA	i2cbyte				\18 bytes to tx (from 00h>11h)
+	STA	temp2				\non-zero = i2creg register valid
 	JSR	cmd4			\perform the write via txd(go)
 	RTS					\and return
 
@@ -67,26 +71,26 @@ RTC_TEST_REG	=	$12		\Register offset for testing byte transmission (free RAM - u
 \ writes the toggle state for *TBRK
 \ the PCF8583 has free ram, and so we can use some of that to store the toggle state
 \ in this case in reg 11h, this contains last written year and the toggle state
-\ On calling this subscrounte &6A arrives with (bit 0) 0 or 1 depending on toggle state
-\ On returning the caller expects &6A to be untouched
+\ On calling this subscrounte i2cbyte arrives with (bit 0) 0 or 1 depending on toggle state
+\ On returning the caller expects i2cbyte to be untouched
 
 .wtbrk	
-	LDA &6A				\toggle value 0 or 1
-	PHA					\stores to return &6A back to caller in orignal state
+	LDA i2cbyte			\toggle value 0 or 1
+	PHA					\stores to return i2cbyte back to caller in orignal state
 	STA	buf12			\copy toggle value to DS3231 buffer
 	JSR	toPCF8583		\calculate PCF8583 register values from bufXX values
 	LDA	&A11			\transfer calculated value for register 11h (combo of toggle and last year)
-	STA	&6A				\to new single byte value to be written
+	STA	i2cbyte			\to new single byte value to be written
 	LDA	#RTC			\target i2c device id
-	STA	$68
-	STA	$6C				\$6C<>0 mean register specified in $69
+	STA	i2cdev
+	STA	temp2				\temp2<>0 mean register specified in i2creg
 	LDA	#17				\start register = 17 (11h) free frame 
-	STA	$69
+	STA	i2creg
 	LDA	#0
-	STA	$6D				\$6D=0 means Stop after txb
+	STA	htextl				\htextl=0 means Stop after txb
 	JSR	cmd3			\and send the byte via txb(go)
-	PLA					\restore &68 value
-	STA	&6A				\caller expects 0 or 1 
+	PLA					\restore i2cbyte value
+	STA	i2cbyte			\caller expects 0 or 1 
 	RTS
 
 \-------------------------------------------------------------------------------
@@ -169,14 +173,14 @@ RTC_TEST_REG	=	$12		\Register offset for testing byte transmission (free RAM - u
     ORA &A13                \ Combine with the current clock year (bits 7-6)
     STA &A11                \ Store back the updated last year and toggle state value          
         					\ Send updated 11h register storing Last Year + Boot Message Toggle to device
-	STA	&6A					\ To new single byte value to be written
+	STA	i2cbyte					\ To new single byte value to be written
 	LDA	#RTC				\ Target i2c device id
-	STA	$68
-	STA	$6C					\ $6C<>0 mean register specified in $69
+	STA	i2cdev
+	STA	temp2					\ temp2<>0 mean register specified in i2creg
 	LDA	#17					\ Start register = 17 (11h) free frame 
-	STA	$69
+	STA	i2creg
 	LDA	#0
-	STA	$6D					\ $6D=0 means Stop after txb
+	STA	htextl					\ htextl=0 means Stop after txb
 	JSR	cmd3				\ Send the byte via txb(go)
 	\ The year changed, so check for 4 year overlfow, by checking if the last year is now greater than current year?
 	LDA &A12				\ Load extracted last set year (bits 7-6 only)
@@ -189,14 +193,14 @@ RTC_TEST_REG	=	$12		\Register offset for testing byte transmission (free RAM - u
     STA &A10				\ Store updated offset
     CLD						\ Disabled BCD mode
 							\ Send updated 10h register storing Year Offset to device
-	STA	&6A					\ To new single byte value to be written
+	STA	i2cbyte					\ To new single byte value to be written
 	LDA	#RTC				\ Target i2c device id
-	STA	$68
-	STA	$6C					\ $6C<>0 mean register specified in $69
+	STA	i2cdev
+	STA	temp2					\ temp2<>0 mean register specified in i2creg
 	LDA	#16					\ Start register = 16 (10h) free frame 
-	STA	$69
+	STA	i2creg
 	LDA	#0
-	STA	$6D					\ $6D=0 means Stop after txb
+	STA	htextl					\ htextl=0 means Stop after txb
 	JSR	cmd3				\ Send the byte via txb(go)
 .noChange  
 	RTS

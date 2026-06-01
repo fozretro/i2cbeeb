@@ -1,4 +1,5 @@
 import type { JsbeebCpu } from "../cpu/types.js";
+import { I2C_BYTE_ADDRESS } from "../bbc/mos.js";
 import { DEFAULT_RTC_MOCK_STATE, BLANK_RTC_MOCK_STATE, mergeRtcMockState, type PartialRtcMockState } from "./defaults.js";
 
 /** DS3231-shaped RTC scratch (see `src/I2CBeeb.asm` buf00–buf06, buf12). */
@@ -130,7 +131,7 @@ export class RtcMock {
     cpu.writemem(address, 0x60);
     this.wtbrkHook = cpu.debugInstruction.add((addr) => {
       if (addr !== address) return false;
-      this.state.tbrk = cpu.readmem(0x6a) & 0x0f;
+      this.state.tbrk = cpu.readmem(I2C_BYTE_ADDRESS) & 0x0f;
       return false;
     });
   }

@@ -5,6 +5,10 @@
 \ Each test is registered in the test table and returns:
 \   Carry Clear = PASS
 \   Carry Set = FAIL
+\
+\ Test table pointer in ZP but NOT htextl/htexth — test 09 reuses those as I2C flags.
+testptrl	=	mos_scratch+3
+testptrh	=	mos_scratch+4
 
 \-------------------------------------------------------------------------------
 \ Test Table
@@ -664,16 +668,15 @@
 \-------------------------------------------------------------------------------
 .runtests
 	\ Set up pointer to test table (handles page boundaries)
-	\ Use eeplo/eephi instead of htextl/htexth to avoid conflicts with test code
 	LDA	#LO(testtab)
-	STA	eeplo
+	STA	testptrl
 	LDA	#HI(testtab)
-	STA	eephi
+	STA	testptrh
 	LDY	#0
 	
 .testloop
 	\ Check for end of table
-	LDA	(eeplo),Y
+	LDA	(testptrl),Y
 	CMP	#$FF
 	BNE	test_not_done
 	JMP	testsdone
@@ -683,36 +686,36 @@
 	LDX	#0
 .printdesc
 	LDY	#0
-	LDA	(eeplo),Y
+	LDA	(testptrl),Y
 	BEQ	descprinted
 	JSR	OSASCI
-	INC	eeplo
+	INC	testptrl
 	BNE	desc_no_wrap
-	INC	eephi
+	INC	testptrh
 .desc_no_wrap
 	INX
 	BNE	printdesc
 	
 .descprinted
 	\ Skip null terminator
-	INC	eeplo
+	INC	testptrl
 	BNE	desc_skip_done
-	INC	eephi
+	INC	testptrh
 .desc_skip_done
 	
 	\ Get test routine address (temp1=LO, temp2=HI)
 	LDY	#0
-	LDA	(eeplo),Y
+	LDA	(testptrl),Y
 	STA	temp1
-	INC	eeplo
+	INC	testptrl
 	BNE	addr_lo_done
-	INC	eephi
+	INC	testptrh
 .addr_lo_done
-	LDA	(eeplo),Y
+	LDA	(testptrl),Y
 	STA	temp2
-	INC	eeplo
+	INC	testptrl
 	BNE	addr_hi_done
-	INC	eephi
+	INC	testptrh
 .addr_hi_done
 	\ Save X (description length) before calling test
 	TXA
