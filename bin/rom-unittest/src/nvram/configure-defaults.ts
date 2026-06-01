@@ -3,10 +3,21 @@ import { mergeNvramImage } from "./defaults.js";
 
 /** NVRAM addresses from `src/configure/Settings.asm`. */
 export const NVR_VDUSettings = 10;
+export const NVR_DefaultRoms = 5;
+export const NVR_KeyRptDelay = 12;
+export const NVR_TubeSerialPrint = 15;
 export const NVR_NVRSize = 255;
 
 /** Screen mode is stored in NVR_VDUSettings bits 0–2. */
 export const NVR_MODE_MASK = 0x07;
+
+/** LANG / FILE share NVR_DefaultRoms (high / low nibble per CON_DataTable). */
+export const NVR_LANG_MASK = 0xf0;
+export const NVR_FILE_MASK = 0x0f;
+
+/** Baud rate index is in NVR_TubeSerialPrint bits 2–4 (displayed as index + 1). */
+export const NVR_BAUD_SHIFT = 2;
+export const NVR_BAUD_MASK = 0x1c;
 
 /**
  * Default NVRAM bytes written by `SET_Reset` (`SET_DefaultsTable` in Settings.asm).
@@ -40,4 +51,17 @@ export function createDefaultConfigureNvramImage(): NvramImage {
 
 export function nvramMode(image: NvramImage): number {
   return image[NVR_VDUSettings]! & NVR_MODE_MASK;
+}
+
+export function nvramLang(image: NvramImage): number {
+  return (image[NVR_DefaultRoms]! & NVR_LANG_MASK) >> 4;
+}
+
+export function nvramFile(image: NvramImage): number {
+  return image[NVR_DefaultRoms]! & NVR_FILE_MASK;
+}
+
+/** MOS-reported baud rate (1–8), from stored index in NVRAM. */
+export function nvramBaudRate(image: NvramImage): number {
+  return ((image[NVR_TubeSerialPrint]! & NVR_BAUD_MASK) >> NVR_BAUD_SHIFT) + 1;
 }

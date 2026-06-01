@@ -41,10 +41,18 @@ export { NvramMock, createDefaultNvramImage, createBlankNvramImage, mergeNvramIm
 export type { NvramImage, PartialNvramImage } from "./nvram/nvram-mock.js";
 export {
   DEFAULT_CONFIGURE_NVRAM,
+  NVR_DefaultRoms,
+  NVR_FILE_MASK,
+  NVR_KeyRptDelay,
+  NVR_LANG_MASK,
   NVR_MODE_MASK,
   NVR_NVRSize,
+  NVR_TubeSerialPrint,
   NVR_VDUSettings,
   createDefaultConfigureNvramImage,
+  nvramBaudRate,
+  nvramFile,
+  nvramLang,
   nvramMode,
 } from "./nvram/configure-defaults.js";
 export {

@@ -1,8 +1,12 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import {
+  NVR_KeyRptDelay,
   NVR_VDUSettings,
   NVR_MODE_MASK,
   RomTestHarness,
+  nvramBaudRate,
+  nvramFile,
+  nvramLang,
   nvramMode,
   requireConfigureRomVariants,
 } from "../../../bin/rom-unittest/src/index.js";
@@ -85,6 +89,71 @@ describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
       expect(result.reason).toBe("return");
       expect(harness.registers().a).toBe(4);
       expect(harness.getNvramImage()[NVR_VDUSettings]! & NVR_MODE_MASK).toBe(0);
+    });
+
+    describe("*CONFIGURE numeric literals (decimal and hex)", () => {
+      it("accepts decimal for MODE, BAUD, and DELAY", () => {
+        // When — decimal literals on help7 / help8 / help255 terms
+        expect(harness.invokeCommand({ commandText: "CONFIGURE MODE 2\r" }).reason).toBe("return");
+        expect(harness.invokeCommand({ commandText: "CONFIGURE BAUD 5\r" }).reason).toBe("return");
+        expect(harness.invokeCommand({ commandText: "CONFIGURE DELAY 40\r" }).reason).toBe("return");
+
+        // Then — NVRAM holds parsed values
+        const nvram = harness.getNvramImage();
+        expect(nvramMode(nvram)).toBe(2);
+        expect(nvramBaudRate(nvram)).toBe(5);
+        expect(nvram[NVR_KeyRptDelay]).toBe(40);
+        expect(harness.mos.unexpected).toHaveLength(0);
+
+        harness.mos.resetCaptures();
+
+        // When / Then — *STATUS echoes decimal forms
+        for (const [term, pattern] of [
+          ["MODE", /MODE\s+2/],
+          ["BAUD", /BAUD\s+5/],
+          ["DELAY", /DELAY\s+40/],
+        ] as const) {
+          harness.mos.resetCaptures();
+          const status = harness.invokeCommand({ commandText: `STATUS ${term}\r` });
+          expect(status.reason).toBe("return");
+          expect(harness.mos.getOutputText()).toMatch(pattern);
+        }
+      });
+
+      it("accepts hexadecimal for LANG and FILE (ROM-slot terms)", () => {
+        // When — single hex digit per STR_ParseHex (helpRom terms)
+        expect(harness.invokeCommand({ commandText: "CONFIGURE LANG C\r" }).reason).toBe("return");
+        expect(harness.invokeCommand({ commandText: "CONFIGURE FILE 3\r" }).reason).toBe("return");
+
+        // Then — high / low nibbles of NVR_DefaultRoms updated (C = slot 12, 3 = slot 3)
+        const nvram = harness.getNvramImage();
+        expect(nvramLang(nvram)).toBe(0x0c);
+        expect(nvramFile(nvram)).toBe(3);
+        expect(harness.mos.unexpected).toHaveLength(0);
+
+        harness.mos.resetCaptures();
+
+        // When / Then — *STATUS prints helpRom terms as a single hex digit
+        const langStatus = harness.invokeCommand({ commandText: "STATUS LANG\r" });
+        expect(langStatus.reason).toBe("return");
+        expect(harness.mos.getOutputText()).toMatch(/LANG\s+C/);
+
+        harness.mos.resetCaptures();
+        const fileStatus = harness.invokeCommand({ commandText: "STATUS FILE\r" });
+        expect(fileStatus.reason).toBe("return");
+        expect(harness.mos.getOutputText()).toMatch(/FILE\s+3/);
+      });
+
+      it("rejects out-of-range decimal MODE", () => {
+        // Given — default mode 0
+        expect(nvramMode(harness.getNvramImage())).toBe(0);
+
+        // When — MODE 8 exceeds help7 range (0–7)
+        harness.invokeCommand({ commandText: "CONFIGURE MODE 8\r" });
+
+        // Then — NVRAM unchanged (bad parameter path)
+        expect(nvramMode(harness.getNvramImage())).toBe(0);
+      });
     });
   });
 });
