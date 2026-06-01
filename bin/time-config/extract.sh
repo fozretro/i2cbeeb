@@ -13,10 +13,10 @@ CONFIGURE_DIR="./src/configure"
 
 # Anchor to specific commit for reproducible builds
 # Update this when you want to use a newer version of Time-Config
-# Commit: c8acf228d64423d19735a18bd4e2e59b0c6277a4
-# Date: 2025-09-11 13:02:42 +0100
-# Message: Fixed config print 4 bug
-TIMECONFIG_COMMIT="c8acf228d64423d19735a18bd4e2e59b0c6277a4"
+# Commit: e29478cc1a0c585b27f7190000a58bba4cb5dbb6
+# Date: 2026-05-18 17:37:27 +0100
+# Message: Fixed a bug printing unset date & time.
+TIMECONFIG_COMMIT="e29478cc1a0c585b27f7190000a58bba4cb5dbb6"
 
 # Clone Time-Config repo if it doesn't exist
 if [ ! -d "$TIMECONFIG_DIR/.git" ]; then

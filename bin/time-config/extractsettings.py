@@ -4,8 +4,10 @@ Extract Settings.asm from Time-Config repository with selective removals.
 
 Removes:
 - Hard break flag setting (LDX OS_ROMNum, LDA #&80, STA OS_RomBytes,X)
-- unplugRoms calls (2 calls with 6 lines total)
+- unplugRoms calls after .notMissing (2 calls with 6 lines total)
 - unplugRoms function (entire function)
+
+Preserves upstream .notRKey / .notMissing FRAM detection (Time-Config e29478c+).
 
 Adds closing brace for SET_Startup after removing unplugRoms function.
 """
@@ -30,8 +32,13 @@ def extract_settings(input_file, output_file):
         line = lines[i]
         stripped = line.strip()
         
-        # Remove unplugRoms calls (lines 149-154)
+        # Remove unplugRoms calls (after .notMissing in current Time-Config)
         if stripped == '.notRKey':
+            output_lines.append(line)
+            i += 1
+            continue
+
+        if stripped == '.notMissing':
             output_lines.append(line)
             skip_unplug_calls = True
             i += 1
