@@ -21,6 +21,16 @@ export {
 } from "./harness/rom-test-harness.js";
 export type { CommandCallOptions, RomHarnessOptions, ServiceCallOptions } from "./harness/rom-test-harness.js";
 export {
+  INDV3_ADDRESS,
+  MOS_COMMAND_SCRATCH_START,
+  MOS_COMMAND_SCRATCH_BYTES,
+  StarCommandWorkspaceError,
+  assertStarCommandWorkspace,
+  compareStarCommandWorkspace,
+  poisonStarCommandWorkspace,
+} from "./harness/workspace-guard.js";
+export type { GuardedWorkspace, WorkspaceGuardViolation, WorkspaceRegion } from "./harness/workspace-guard.js";
+export {
   loadBeebAsmLabels,
   parseBeebAsmLabels,
   requireSymbolAddress,

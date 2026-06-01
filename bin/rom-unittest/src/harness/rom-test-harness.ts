@@ -24,6 +24,11 @@ import { createDefaultConfigureNvramImage } from "../nvram/configure-defaults.js
 import { createBlankNvramImage } from "../nvram/defaults.js";
 import { BLANK_RTC_MOCK_STATE } from "../rtc/defaults.js";
 import { ReadKeySwitchesStub } from "../nvram/configure-stubs.js";
+import {
+  assertStarCommandWorkspace,
+  poisonStarCommandWorkspace,
+  type GuardedWorkspace,
+} from "./workspace-guard.js";
 
 export interface RomHarnessOptions {
   /** Path to a sideways ROM image. */
@@ -35,6 +40,12 @@ export interface RomHarnessOptions {
   ramFill?: number;
   cpuFactory?: CpuFactory;
   mos?: MosMock;
+  /**
+   * After each {@link invokeService} / {@link invokeCommand} / {@link invokeBoot},
+   * assert `&0234–&0235` (INDV3) and `&A8–&AF` were not modified (#12).
+   * Default true.
+   */
+  workspaceGuard?: boolean;
 }
 
 export interface CommandCallOptions {
@@ -83,8 +94,10 @@ export class RomTestHarness {
   private readonly readKeySwitchesStub = new ReadKeySwitchesStub();
   private rtcMockEnabled = false;
   private configureMockEnabled = false;
+  private readonly workspaceGuardEnabled: boolean;
 
   constructor(options: RomHarnessOptions) {
+    this.workspaceGuardEnabled = options.workspaceGuard !== false;
     this.romBase = options.romBase ?? ROM_BASE;
     this.rom = loadRomImage(options.romPath);
     this.symbols = loadBeebAsmLabels(options.labelsPath);
@@ -211,6 +224,7 @@ export class RomTestHarness {
 
   /** Invoke the sideways ROM service entry (JMP target from the ROM header). */
   invokeService(options: ServiceCallOptions): RunResult {
+    const workspaceExpected = this.poisonWorkspaceIfEnabled();
     const cmdAddr = options.commandLine ?? 0x0900;
     const text = options.commandText ?? "\r";
     writeCommandLine(this.cpu, cmdAddr, text);
@@ -222,7 +236,7 @@ export class RomTestHarness {
       y = Math.max(0, text.length - 1);
     }
 
-    return this.run({
+    const result = this.run({
       pc: this.serviceEntry,
       a: options.serviceType & 0xff,
       x: options.x ?? 0,
@@ -230,6 +244,8 @@ export class RomTestHarness {
       returnAddress: this.returnTrampoline,
       flags: { i: true },
     });
+    this.assertWorkspaceIfEnabled(workspaceExpected);
+    return result;
   }
 
   /** Run from an arbitrary address (direct routine tests). */
@@ -278,6 +294,22 @@ export class RomTestHarness {
     if (this.rtcMockEnabled) {
       this.rtcMock.install(this.cpu, this.getrtcEntry, this.writetdEntry, this.wtbrkEntry);
     }
+  }
+
+  private poisonWorkspaceIfEnabled(): GuardedWorkspace | null {
+    if (!this.workspaceGuardEnabled) {
+      return null;
+    }
+    return poisonStarCommandWorkspace((address, value) => {
+      this.writeMemory(address, value);
+    });
+  }
+
+  private assertWorkspaceIfEnabled(expected: GuardedWorkspace | null): void {
+    if (expected === null) {
+      return;
+    }
+    assertStarCommandWorkspace((address) => this.readMemory(address), expected);
   }
 
   private reinstallConfigureMock(): void {

@@ -133,7 +133,6 @@ OSBYTEA	=	$EF			\A at time of unknown OSBYTE call
 OSBYTEX	=	$F0			\X at time of unknown OSBYTE call
 OSBYTEY	=	$F1			\Y at time of unknown OSBYTE call
 	ENDIF
-COMVEC	=	$0234		\command execution vector (IND3V)
 cli		=	$F2			\command line pointer - use (cli),Y
 ivars	=	$0400		\BASIC integer % variable base address
 bufloc	=	$CE			\zp,y pointer to i2c buffer for RxB..
@@ -444,19 +443,25 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	JMP	comm_a1			\and do it all again
 .comm_a3	
 	STY	comdata			\save Y which points to any user data
+	PLA					\restore original MOS value of Y (decremented on entry)
+	TAY
+	INY
+	PHA					\re-save for handler exit (PLA/TAY/PLA/TAX)
 	LDA	(htextl,X)		\get command exeHi from comtab.. (X=0)
-	STA	COMVEC+1		\..and place in vector
+	STA	temp1
 	INC	htextl			\point pointer at next address byte
 	BNE	comm_a3_cont	\no page wrap
 	INC	htexth			\handle page boundary
 .comm_a3_cont
 	LDA	(htextl,X)		\get command exeLo from comtab.. (X=0)
-	STA	COMVEC			\..and place in vector
-	PLA					\restore original MOS value of Y
-	TAY					\which was decremented on entry
-	INY
-	PHA					\re-save on stack
-	JMP	(COMVEC)		\and execute the command!
+	SEC
+	SBC	#1				\RTS return address is (stack)+1
+	STA	temp2
+	LDA	temp1
+	PHA					\push handler-1 (hi, lo) for RTS dispatch
+	LDA	temp2
+	PHA
+	RTS					\dispatch to handler without touching INDV3
 .comm_a4	PLA			\wasn't one of our commands so..
 	TAY
 	INY					\restore Y to it's MOS value
