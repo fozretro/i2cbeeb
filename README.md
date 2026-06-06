@@ -11,9 +11,9 @@ The project builds multiple ROM variants for each target platform:
 
 | Filename (/dist) | Filename (.ssd) | Platform | RTC Type | I2C Core | Plus *CONFIGURE | Plus Test |
 |------------------|-----------------|----------|----------|----------|------------------|-----------|
-| `i2cb.rom` | `I2CB` | BBC Micro | DS3231 | ✓ | | |
-| `i2cbc.rom` | `C.I2CB` | BBC Micro | DS3231 | ✓ | | |
-| `i2cbt.rom` | `T.I2CB` | BBC Micro | DS3231 | ✓ | | ✓ |
+| `i2cb.rom` | `I2CB` | BBC Micro* | DS3231 | ✓ | | |
+| `i2cbc.rom` | `C.I2CB` | BBC Micro* | DS3231 | ✓ | | |
+| `i2cbt.rom` | `T.I2CB` | BBC Micro* | DS3231 | ✓ | | ✓ |
 | `i2ce.rom` | `I2CE` | Electron | DS3231 | ✓ | | |
 | `i2cec.rom` | `C.I2CE` | Electron | DS3231 | ✓ | | |
 | `i2cet.rom` | `T.I2CE` | Electron | DS3231 | ✓ | | ✓ |
@@ -22,7 +22,13 @@ The project builds multiple ROM variants for each target platform:
 | `i2ceap6t.rom` | `T.I2CEAP6` | Electron AP6 | PCF8583 | ✓ | ✓ | ✓ |
 | `ap6.rom` | `AP6` | Electron AP6 Support ROM | PCF8583 | ✓ | ✓ | |
 
-**Note:** The configuration commands are only available in Electron AP6 builds (see table above). This limitation exists because the Time & Config feature requires NVRAM (Non-Volatile RAM) to store configuration settings, and the PCF8583 RTC chip used in Electron AP6 builds has sufficient free RAM for this purpose, while the DS3231 RTC chip used in BBC Micro and basic Electron builds has no user-accessible RAM. In the future, if EEPROM I2C devices are detected on the bus, they could be dynamically used to provide NVRAM storage, enabling these features on all platforms.
+**BBC Micro\*** — the `I2CB` / `C.I2CB` / `T.I2CB` rows are one sideways-ROM profile for **BBC Model B**, **B+**, **Master**, and **Master Compact** (not separate Master builds). The I²C core (`*I2C…`, RTC/time commands, `*I2CTEST`) is expected to work on all of them; bus access is via the **user port**, the same attachment path on Model B and Master-class machines.
+
+**Note (Plus *CONFIGURE*):** `*CONFIGURE`, `*STATUS`, and related Time-Config features appear only in **Electron AP6** builds (tick in that column). They require **NVRAM**; the AP6 **PCF8583** has free RAM for persisted settings. Typical **DS3231** modules on **Model B, B+**, and basic **Electron** have **no user-accessible RAM**. **Master** machines already provide their own persisted configuration—so those commands are omitted from all BBC-family ROMs by design. Detected **EEPROM** devices on the I²C bus could provide NVRAM on other targets in future.
+
+**I²C addresses (7-bit):** BBC Micro* and Electron builds talk to a **DS3231** at **`&68`** (`RTC` in `src/inc/rtc/DS3231.asm`). Electron **AP6** builds (and production AP-class boards with the on-board RTC) use a **PCF8583** at **`&50`** (`RTC` in `src/inc/rtc/PCF8583.asm`) — the same address used in the `*I2CRXB 50 …` examples in [Usage with AP6](#usage-with-ap6) below. Dave’s planned cartridge RTC is expected to stay on **`&50`** so it matches AP6 without a rebuild.
+
+Star commands take the address in **decimal** (`50` = `&50`). On AP6, **`&50` registers `10h`–`11h`** are reserved by this ROM; **`12h`+** holds configure NVRAM. Other devices on the AP6 header must not clash with **`&50`**. Use `*I2CQUERY` / `*I2CTEST` on hardware to confirm.
 
 This project also includes support for building the AP6 Support ROM (`ap6.rom`) which combines the I2C ROM with other AP6 ROMs (AP1Plus, ROMManager, TUBEelk, AP6Count) into a single 16KB ROM image. The build process is handled by [`/bin/buildap6/build.sh`](bin/buildap6/build.sh) and uses SMJoin compatibility to enable ROM relocation and chaining. For detailed technical information about the AP6 Support ROM build process, see the [SMJoin Compatibility Implementation](#smjoin-compatibility-implementation-sept-2025) section below.
 
@@ -35,7 +41,7 @@ The Time & Config integration code is dynamically pulled from the [Time & Config
 Status - Release v3.3 In Progress - Test Framework and Configure Support (Jan 2026)
 ----------------------------------------------------------------------------------
 
-This release introduces significant enhancements including integration with the Time & Config ROM for configuration management and ROM control features. The `*CONFIGURE` and `*STATUS` commands enable system configuration settings to be stored in NVRAM and applied on boot, while `*INSERT` and `*UNPLUG` commands provide ROM management capabilities. These features are currently available only in Electron AP6 builds due to NVRAM requirements—the PCF8583 RTC chip provides sufficient free RAM for configuration storage, while the DS3231 RTC chip used in BBC Micro and basic Electron builds has no user-accessible RAM. The build system has been updated to disable configure features for BBC and Electron builds, keeping them enabled only for Electron AP6 builds. Additionally, the `*I2CTEST` command has been implemented to provide comprehensive automated testing of I2C functionality across all target platforms (on real hardware). Automated ROM unit tests run during `./bin/build.sh`; see [ROM unit testing](#rom-unit-testing). For on-machine I2C tests, see the [Test Framework *I2CTEST](#test-framework-i2ctest) section below.
+This release introduces significant enhancements including integration with the Time & Config ROM for configuration management and ROM control features. The `*CONFIGURE` and `*STATUS` commands enable system configuration settings to be stored in NVRAM and applied on boot, while `*INSERT` and `*UNPLUG` commands provide ROM management capabilities. These features are currently available only in Electron AP6 builds due to NVRAM requirements—the PCF8583 RTC chip provides sufficient free RAM for configuration storage, while the DS3231 RTC chip used in BBC Micro* and basic Electron builds has no user-accessible RAM. The build system has been updated to disable configure features for BBC and Electron builds, keeping them enabled only for Electron AP6 builds. Additionally, the `*I2CTEST` command has been implemented to provide comprehensive automated testing of I2C functionality across all target platforms (on real hardware). Automated ROM unit tests run during `./bin/build.sh`; see [ROM unit testing](#rom-unit-testing). For on-machine I2C tests, see the [Test Framework *I2CTEST](#test-framework-i2ctest) section below.
 
 Status - BeebAsm Migration Complete (Sep 2025)
 ----------------------------------------------
