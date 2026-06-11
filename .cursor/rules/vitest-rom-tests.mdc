@@ -1,0 +1,35 @@
+---
+description: Vitest ROM unit test layout, fixture resolvers, and Given/When/Then narrative style in src/tests/vitest
+globs: src/tests/vitest/**/*.test.ts
+alwaysApply: false
+---
+
+# Vitest ROM unit tests
+
+Tests live under `src/tests/vitest/` and run from `bin/rom-unittest/`. Folder path selects the fixture — not `describe.skipIf` or env vars inside test files.
+
+| Folder | ROM | Resolver |
+|--------|-----|----------|
+| `standalone/` | `i2cbc`, `i2cec`, `i2ceap6c` | `requireConfiglessRomVariants()` |
+| `configure/` | INC_CONFIG EAP6 | `requireConfigureRomVariants()` |
+| `fixtures/ap6/` | `dist/ap6.rom` + `ap6-i2c.labels` (embedded I²C) | `requireCompositeRomVariants()` |
+| `fixtures/ap6-classic/` | `dist/ap6-classic.rom` (TreeCopy, no I²C) | `requireClassicCompositeVariants()` |
+
+See `src/tests/vitest/README.md` for Vitest project → npm script mapping.
+
+## Given / When / Then comments (required)
+
+Keep narrative **`// Given —`**, **`// When —`**, and **`// Then —`** comments on sequence and policy tests — especially under `fixtures/`.
+
+- **Given** — setup and preconditions (harness, session state, NVRAM store / PCF8583, `beforeEach` context).
+- **When** — the action under test (`invokeCommand`, `invokeCtrlBreak`, `invokePowerOn`, NVRAM store setup on classic via `writeNVRAMStore` / `writeClassicServ7TubeEnabled`, etc.).
+- **Then** — assertions that prove the policy or outcome.
+
+Do **not** strip these when moving, splitting, or refactoring tests. Do **not** hide star-command steps in helpers when the test is meant to read as a Dave-style sequence — call `invokeCommand` (or explicit NVRAM store setup on classic) in the test body.
+
+Reference style: `fixtures/ap6/lang-tube-amalgam.test.ts`, `fixtures/ap6-classic/lang-tube-amalgam.test.ts`, `standalone/tbrk.test.ts`.
+
+## Fixture-specific behaviour
+
+- **`fixtures/ap6/`** — real `*CONFIGURE` via embedded I²C; amalgam `$8003` for ROM Manager / Plus 1.
+- **`fixtures/ap6-classic/`** — no `*CONFIGURE` in ROM; use `writeNVRAMStore` / `writeClassicServ7TubeEnabled` for **NVRAM store** setup; narrative says “NVRAM store”, not “Serv7”.

@@ -125,14 +125,14 @@ Tests run against the main configure-less ROM variants built into `/dist` (BBC, 
 
 | Location | Purpose |
 |----------|---------|
-| [`src/tests/vitest/`](src/tests/vitest/) | Test cases (`help`, `datetime`, `tbrk`, `config`, `boot`, etc.) |
+| [`src/tests/vitest/`](src/tests/vitest/) | Test cases — `standalone/`, `configure/`, `fixtures/ap6/`, `fixtures/ap6-classic/` (see **`src/tests/vitest/README.md`**) |
 | [`bin/rom-unittest/`](bin/rom-unittest/) | Test harness, MOS/RTC/NVRAM mocks, workspace guards |
 
 To run the unit tests on their own after a build:
 
     cd bin/rom-unittest && npm test
 
-The AP6 amalgam build runs an additional composite test pass when `./bin/buildap6/build.sh` completes (see that script’s help for flags to skip testing).
+`./bin/build.sh` runs standalone Vitest, then `./bin/buildap6/build.sh` for the i2c layout (composite Vitest on **`dist/ap6.rom`**) and builds **`dist/ap6-classic.rom`**, then runs **`npm run test:classic-only`** (7 LANG/TUBE tests). See **`bin/rom-unittest/README.md`**.
 
 Some Year Testing
 -----------------

@@ -30,9 +30,10 @@ ver$="1.34":date$="04 Jan 2021"
 REM              Removed pre-v1.337 code
 :
 ver$="1.341":date$="12 Feb 2026"
-REM              *INSERT/*UNPLUG/*LANG/*TUBE call NVRAM OSBYTEs
-REM              Local copy of settings read via NVRAM calls.
-REM              Bugfix: OSBYTE 162,15 wasn't setting TUBE setting.
+REM              *INSERT/*UNPLUG use NVRAM OSBYTEs
+REM              *LANG/*TUBE update L0D6D only, not NVRAM
+REM              Serv10 power-on reloads LANG/TUBE from NVRAM
+REM              Bugfix: *LANG no longer writes NVRAM via OSBYTE 162
 :
 :
 REM Base addresses
@@ -313,13 +314,8 @@ OPT FNendif                       :\ A=LANG, CY=TUBE
 \ ===============================
 .Serv1
 TYA:PHA                  :\ Save current workspace address
-OPT FNif(VAL ver$<1.341)
 LDA L0D6D:ASL A:ASL A    :\ Get TUBE Enable from bit 5
 BPL Serv1a               :\ bit 5 = 0, not disabled
-OPT FNelse
-JSR GetTubeAndLang       :\ Get TUBE enable and LANG
-BCC Serv1a               :\ Not disabled
-OPT FNendif
 LDA #0:STA &027A         :\ Disable Tube
 LDA &FFB7:STA &A8        :\ Point to default vectors
 LDA &FFB8:STA &A9        :\ Reset EVENTV and BRKV
@@ -414,9 +410,7 @@ OPT FNif(TARGET%<3)
 \      =10xxrrrr - non-6502 BASIC ROM
 \      =11xxxxxx - no BASIC
 LDA &024B              :\ Get BASIC ROM number
-.Serv10SetLang
-EOR L0D6D:AND #&CF     :\ Clear and merge LANG bits
-EOR L0D6D:STA L0D6D    :\ Default language = BASIC
+JSR Serv10SetLang      :\ Set as default language
 OPT FNendif
 OPT FNif(VALver$>=1.341)
 JSR GetTubeAndLang     :\ Let NVRAM override our setting
@@ -917,19 +911,10 @@ OPT FNendif
 RTS
 .TubeOn
 .TubeOff
-OPT FNif(VALver$<1.341)
 EOR #8:AND #8:ASL A:ASL A :\ Move ON/OFF to bit 5
 EOR L0D6D:AND #&20        :\ Clear and merge TUBE bit
 EOR L0D6D:STA L0D6D       :\ Should only do on non-Master
 RTS
-OPT FNelse
-EOR #8:AND #8:CMP #8:PHP  :\ Cy=TUBE OFF
-LDA #161:JSR TubeNVRAM    :\ Read TUBE from NVRAM or from ourselves
-TYA:LSR A:PLP:ROL A:TAY   :\ Copy into NVRAM value
-LDA #162                  :\ Write it back to NVRAM or to ourselves
-.TubeNVRAM
-LDX #15:JMP OSBYTE        :\ Read/Write NVRAM location 15
-OPT FNendif
 
 
 \ ********************
@@ -975,24 +960,15 @@ RTS
 \ Doesn't enter selected language, just configures it.
 \ If no <rom>, no default, allows MOS to select default
 .LANG
-OPT FNif(VALver$<1.341)
 JSR L8CA5              :\ Scan for ROM number
 BCC P%+4:LDA #&FF      :\ If no <rom>, set no default
-PHA:JMP Serv10SetLang  :\ Set as default language
-OPT FNelse
-JSR L8CA5              :\ Scan for ROM number
-BCC P%+4:LDA #&08:PHA  :\ If no <rom>, set no default
-LDA #161:JSR LANGnvram :\ Read from NVRAM or ourselves
-PLA:STA &F5            :\ Get <rom> back
-TYA:ASL A:ASL A:ASL A  :\ Push LANG out of A
-ASL A:LDX #4
-.LANGlp
-ROR &F5:ROR A          :\ Rotate <rom> into A
-DEX:BNE LANGlp
-TAY:LDA #162           :\ Write back to NVRAM or to ourselves
-.LANGnvram
-LDX #5:JMP OSBYTE
-OPT FNendif
+PHA:JSR Serv10SetLang  :\ Set as default language
+PLA:RTS
+
+.Serv10SetLang
+EOR L0D6D:AND #&CF     :\ Clear and merge LANG bits
+EOR L0D6D:STA L0D6D    :\ Default language = BASIC
+RTS
 
 
 \ Is ROM X unplugged?

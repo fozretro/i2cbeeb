@@ -5,9 +5,11 @@
   "type": "module",
   "description": "BBC sideways ROM unit tests using the jsbeeb 6502 core with mocked MOS APIs",
   "scripts": {
-    "test": "vitest run",
-    "test:composite": "vitest run --config vitest.composite.config.ts",
-    "test:all-fixtures": "I2CBEEB_TEST_COMPOSITE=append vitest run",
+    "test": "vitest run --project standalone",
+    "test:composite": "vitest run --project composite",
+    "test:classic-composite": "vitest run --project classic-composite",
+    "test:classic-only": "vitest run --project classic-only",
+    "test:all-fixtures": "vitest run --project standalone --project composite --project classic-only",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },

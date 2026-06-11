@@ -56,10 +56,13 @@ export const CONFIGURE_ROM_VARIANTS: RomVariant[] = [
   },
 ];
 
+/** Electron AP6 I²C *CONFIGURE ROM (PCF8583 NVRAM) — sole entry in {@link CONFIGURE_ROM_VARIANTS}. */
+export const EAP6_CONFIGURE_ROM_ID = CONFIGURE_ROM_VARIANTS[0]!.id;
+
 /** Composite AP6 support ROM with embedded I²C slice (requires `./bin/buildap6/build.sh`). */
 export const COMPOSITE_ROM_VARIANTS: RomVariant[] = [
   {
-    id: "ap6-composite",
+    id: "ap6",
     label: "AP6 amalgam / embedded I²C",
     buildPath: "dist/ap6.rom",
     buildLabelsPath: "dist/ap6-i2c.labels",
@@ -69,12 +72,36 @@ export const COMPOSITE_ROM_VARIANTS: RomVariant[] = [
   },
 ];
 
+/** Classic AP6 amalgam (TreeCopy, no I²C) for ROM Manager / Plus 1 tests. */
+export interface ClassicCompositeRomVariant {
+  id: string;
+  label: string;
+  buildPath: string;
+  distPath: string;
+}
+
+export const CLASSIC_COMPOSITE_ROM_VARIANTS: ClassicCompositeRomVariant[] = [
+  {
+    id: "ap6-classic-composite",
+    label: "AP6 classic amalgam (TreeCopy, no I²C)",
+    buildPath: "dist/ap6-classic.rom",
+    distPath: "dist/ap6-classic.rom",
+  },
+];
+
+export type ClassicCompositeTestMode = "off" | "only";
+
+/** `off` — classic amalgam tests skipped. `only` — ap6-classic-composite tests run. */
+export function classicCompositeTestMode(): ClassicCompositeTestMode {
+  return process.env.I2CBEEB_TEST_AP6_CLASSIC === "only" ? "only" : "off";
+}
+
 /** How the AP6 amalgam fixture participates in Vitest variant lists. */
 export type CompositeTestMode = "off" | "append" | "only";
 
 /**
  * `off` — standalone fixtures only (default `npm test`).
- * `only` — **`ap6-composite`** only (`npm run test:composite`, buildap6 Step 4a).
+ * `only` — **`ap6`** amalgam only (`npm run test:composite`, buildap6 Step 4a).
  * `append` — standalone plus composite (manual full matrix).
  */
 export function compositeTestMode(): CompositeTestMode {
@@ -86,11 +113,6 @@ export function compositeTestMode(): CompositeTestMode {
     return "append";
   }
   return "off";
-}
-
-/** @deprecated Prefer {@link compositeTestMode}. */
-export function compositeTestsEnabled(): boolean {
-  return compositeTestMode() !== "off";
 }
 
 export interface ResolvedRomVariant extends RomVariant {
@@ -125,21 +147,19 @@ function resolveRomVariant(variant: RomVariant, repoRoot: string): ResolvedRomVa
   }
   if (missing.length > 0) {
     const buildHint =
-      variant.id === "ap6-composite"
+      variant.id === "ap6"
         ? "Run ./bin/buildap6/build.sh from the repo root."
-        : "Run ./bin/build.sh from the repo root.";
+        : variant.id === "ap6-classic-composite"
+          ? "Run ./bin/buildap6/build.sh --layout classic from the repo root."
+          : "Run ./bin/build.sh from the repo root.";
     throw new Error(`${variant.id}: missing ${missing.join(" and ")}. ${buildHint}`);
   }
 
   return { ...variant, path: path!, labelsPath: labelsPath! };
 }
 
-/** All configure-less ROM variants — throws if any ROM or labels file is absent. */
-export function requireRomVariants(repoRoot = repoRootFromFramework()): ResolvedRomVariant[] {
-  if (compositeTestMode() === "only") {
-    return requireCompositeRomVariants(repoRoot);
-  }
-
+/** Standalone configure-less ROM variants (`i2cbc`, `i2cec`, `i2ceap6c`). */
+export function requireConfiglessRomVariants(repoRoot = repoRootFromFramework()): ResolvedRomVariant[] {
   const errors: string[] = [];
   const resolved: ResolvedRomVariant[] = [];
 
@@ -155,15 +175,16 @@ export function requireRomVariants(repoRoot = repoRootFromFramework()): Resolved
     throw new Error(`ROM unit tests require a full build.\n${errors.join("\n")}`);
   }
 
-  return appendCompositeWhenEnabled(resolved, repoRoot);
+  return resolved;
+}
+
+/** @deprecated Use {@link requireConfiglessRomVariants} in standalone tests; fixture folders select ROM set. */
+export function requireRomVariants(repoRoot = repoRootFromFramework()): ResolvedRomVariant[] {
+  return appendCompositeWhenEnabled(requireConfiglessRomVariants(repoRoot), repoRoot);
 }
 
 /** Configure ROM variants — throws if any ROM or labels file is absent. */
 export function requireConfigureRomVariants(repoRoot = repoRootFromFramework()): ResolvedRomVariant[] {
-  if (compositeTestMode() === "only") {
-    return requireCompositeRomVariants(repoRoot);
-  }
-
   const errors: string[] = [];
   const resolved: ResolvedRomVariant[] = [];
 
@@ -179,7 +200,22 @@ export function requireConfigureRomVariants(repoRoot = repoRootFromFramework()):
     throw new Error(`Configure ROM unit tests require a full build.\n${errors.join("\n")}`);
   }
 
-  return appendCompositeWhenEnabled(resolved, repoRoot);
+  return resolved;
+}
+
+/** Resolve one configure ROM variant by {@link RomVariant.id}. */
+export function requireConfigureRomVariant(
+  id: string,
+  repoRoot = repoRootFromFramework(),
+): ResolvedRomVariant {
+  const match = requireConfigureRomVariants(repoRoot).find((v) => v.id === id);
+  if (!match) {
+    const available = requireConfigureRomVariants(repoRoot)
+      .map((v) => v.id)
+      .join(", ");
+    throw new Error(`Configure ROM variant "${id}" not found. Available: ${available}`);
+  }
+  return match;
 }
 
 function appendCompositeWhenEnabled(
@@ -210,4 +246,43 @@ export function requireCompositeRomVariants(repoRoot = repoRootFromFramework()):
   }
 
   return resolved;
+}
+
+/** Classic AP6 amalgam — throws if ap6-classic.rom is absent. */
+export interface ResolvedClassicCompositeVariant extends ClassicCompositeRomVariant {
+  path: string;
+}
+
+export function requireClassicCompositeVariants(
+  repoRoot = repoRootFromFramework(),
+): ResolvedClassicCompositeVariant[] {
+  const errors: string[] = [];
+  const resolved: ResolvedClassicCompositeVariant[] = [];
+
+  for (const variant of CLASSIC_COMPOSITE_ROM_VARIANTS) {
+    try {
+      resolved.push(resolveClassicCompositeVariant(variant, repoRoot));
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Classic composite ROM unit tests require an AP6 classic build.\n${errors.join("\n")}`);
+  }
+
+  return resolved;
+}
+
+function resolveClassicCompositeVariant(
+  variant: ClassicCompositeRomVariant,
+  repoRoot: string,
+): ResolvedClassicCompositeVariant {
+  const path = resolveFirstExisting(repoRoot, [variant.buildPath, variant.distPath]);
+  if (!path) {
+    throw new Error(
+      `${variant.id}: missing ROM (${variant.buildPath} or ${variant.distPath}). Run ./bin/buildap6/build.sh --layout classic from the repo root.`,
+    );
+  }
+  return { ...variant, path };
 }

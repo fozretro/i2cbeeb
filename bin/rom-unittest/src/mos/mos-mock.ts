@@ -38,6 +38,7 @@ export class MosMock {
   readonly oswrch: number[] = [];
   readonly oscli: string[] = [];
   readonly unexpected: MosVector[] = [];
+  readonly osbyteLog: MosByteCall[] = [];
 
   private readonly osbyteHandlers = new Map<number, OsbyteHandler>();
   private osbyteDefault?: OsbyteHandler;
@@ -112,6 +113,14 @@ export class MosMock {
     this.oswrch.length = 0;
     this.oscli.length = 0;
     this.unexpected.length = 0;
+    this.osbyteLog.length = 0;
+  }
+
+  getOsbyteCalls(code?: number): readonly MosByteCall[] {
+    if (code === undefined) {
+      return this.osbyteLog;
+    }
+    return this.osbyteLog.filter((call) => call.a === (code & 0xff));
   }
 
   getOutputText(): string {
@@ -160,6 +169,7 @@ export class MosMock {
       x: cpu.x & 0xff,
       y: cpu.y & 0xff,
     };
+    this.osbyteLog.push({ ...call });
     const handler = this.osbyteHandlers.get(call.a) ?? this.osbyteDefault;
     if (!handler) {
       return this.handleUnexpected(cpu, MOS.OSBYTE);

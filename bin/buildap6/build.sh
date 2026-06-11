@@ -1,8 +1,9 @@
 #!/bin/bash
 set -e # Exit immediately if a command exits with a non-zero status.
 
-# Configuration file for SMJoin
+# Configuration file for SMJoin (layout selected via AP6_SMJOIN_LAYOUT)
 SMJOIN_CONFIG="bin/buildap6/config/smjoin-create-config.js"
+AP6_LAYOUT="i2c"
 OUTPUT_ROM="dist/ap6.rom"
 
 # Parse command line arguments
@@ -39,9 +40,15 @@ while [[ $# -gt 0 ]]; do
             SKIP_EMULATOR_TESTS=true
             shift
             ;;
+        --layout)
+            AP6_LAYOUT="$2"
+            shift 2
+            ;;
         -h|--help)
-            echo "Usage: $0 [--skip-i2c-build] [--nokill-romserver] [--testFilter ROM1,ROM2,...] [--verbose] [--skip-testing] [--skip-emulator-tests]"
-            echo "  --skip-i2c-build       Skip I2C ROM compilation, use existing files"
+            echo "Usage: $0 [--layout i2c|classic] [--skip-i2c-build] [--nokill-romserver] [--testFilter ROM1,ROM2,...] [--verbose] [--skip-testing] [--skip-emulator-tests]"
+            echo "  --layout i2c|classic  SMJoin ROM list: i2c (default, I²C replaces TreeCopy) or"
+            echo "                         classic (TreeCopy, no I²C → dist/ap6-classic.rom)"
+            echo "  --skip-i2c-build       Skip I2C ROM compilation, use existing files (i2c layout only)"
             echo "  --nokill-romserver     Keep ROM server running after tests complete"
             echo "  --testFilter           Comma-separated list of ROM names to test (e.g., AP6.rom,I2C.rom)"
             echo "                         Available ROMs: AP6.rom, LatestAP6.rom, I2C.rom, LatestI2C.rom"
@@ -58,6 +65,21 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+case "$AP6_LAYOUT" in
+    i2c)
+        OUTPUT_ROM="dist/ap6.rom"
+        ;;
+    classic)
+        OUTPUT_ROM="dist/ap6-classic.rom"
+        ;;
+    *)
+        echo "❌ Unknown --layout '$AP6_LAYOUT' (use i2c or classic)"
+        exit 1
+        ;;
+esac
+
+export AP6_SMJOIN_LAYOUT="$AP6_LAYOUT"
+
 echo "🚀 Build Node.js Tools"
 echo "============================="
 pushd ./bin/buildap6
@@ -66,6 +88,10 @@ popd
 
 echo "🚀 AP6 Complete Build Pipeline"
 echo "============================="
+echo "  -> Layout: $AP6_LAYOUT ($OUTPUT_ROM)"
+if [ "$AP6_LAYOUT" = "classic" ]; then
+    echo "  -> Classic AP6 (TreeCopy, no I²C pre-build)"
+fi
 if [ "$SKIP_I2C_BUILD" = true ]; then
     echo "  -> Skipping I2C build (using existing files)"
 fi
@@ -77,51 +103,60 @@ if [ "$SKIP_EMULATOR_TESTS" = true ]; then
 fi
 echo ""
 
-# Clear tmp folder when not skipping I2C build
-if [ "$SKIP_I2C_BUILD" = false ]; then
-    echo "🧹 Clearing temporary build files..."
-    rm -rf bin/buildap6/tmp/*
-    echo "✅ Temporary files cleared"
+if [ "$AP6_LAYOUT" = "i2c" ]; then
+    # Clear tmp folder when not skipping I2C build
+    if [ "$SKIP_I2C_BUILD" = false ]; then
+        echo "🧹 Clearing temporary build files..."
+        rm -rf bin/buildap6/tmp/*
+        echo "✅ Temporary files cleared"
+        echo ""
+    fi
+
+    if [ "$SKIP_I2C_BUILD" = false ]; then
+        echo "📦 Step 1: Building I2C EAP6 Join ROM..."
+        ./bin/buildap6/smjoin-build-i2c-rom.sh
+        if [ $? -ne 0 ]; then
+            echo "❌ I2C EAP6 Join build failed!"
+            exit 1
+        fi
+        echo "✅ I2C EAP6 Join build completed successfully"
+    else
+        echo "📦 Step 1: Skipping I2C EAP6 Join ROM build..."
+        if [ ! -f "./bin/buildap6/tmp/i2c-8000.rom" ] || [ ! -f "./bin/buildap6/tmp/i2c-8100.rom" ]; then
+            echo "❌ Required I2C ROM files not found. Run without --skip-i2c-build first."
+            exit 1
+        fi
+        echo "✅ Using existing I2C ROM files"
+    fi
+    echo ""
+
+    echo "🔗 Step 2: Creating relocation ROM..."
+    pushd bin/buildap6 > /dev/null
+
+    # Remove existing i2c-reloc.rom if it exists
+    if [ -f "tmp/i2c-reloc.rom" ]; then
+        echo "🧹 Removing existing i2c-reloc.rom..."
+        rm -f tmp/i2c-reloc.rom
+        echo "✅ Existing i2c-reloc.rom removed"
+    fi
+
+    node smjoin-reloc.js tmp/8000/I2CEAP6 tmp/8100/I2CEAP6 tmp/i2c-reloc.rom
+    popd > /dev/null
+    if [ $? -ne 0 ]; then
+        echo "❌ Relocation ROM creation failed!"
+        exit 1
+    fi
+    echo "✅ Relocation ROM created successfully"
+    echo ""
+else
+    echo "📦 Steps 1–2: Skipped (classic layout — no I²C relocation)"
+    if [ ! -f "roms/TreeROM-v1.62.rom" ] && [ ! -f "roms/TreeCopy-v1.61.rom" ]; then
+        echo "❌ No TreeCopy ROM found (roms/TreeROM-v1.62.rom or roms/TreeCopy-v1.61.rom)."
+        exit 1
+    fi
+    echo "✅ TreeCopy ROM found"
     echo ""
 fi
-
-if [ "$SKIP_I2C_BUILD" = false ]; then
-    echo "📦 Step 1: Building I2C EAP6 Join ROM..."
-    ./bin/buildap6/smjoin-build-i2c-rom.sh
-    if [ $? -ne 0 ]; then
-        echo "❌ I2C EAP6 Join build failed!"
-        exit 1
-    fi
-    echo "✅ I2C EAP6 Join build completed successfully"
-else
-    echo "📦 Step 1: Skipping I2C EAP6 Join ROM build..."
-    if [ ! -f "./bin/buildap6/tmp/i2c-8000.rom" ] || [ ! -f "./bin/buildap6/tmp/i2c-8100.rom" ]; then
-        echo "❌ Required I2C ROM files not found. Run without --skip-i2c-build first."
-        exit 1
-    fi
-    echo "✅ Using existing I2C ROM files"
-fi
-echo ""
-
-
-echo "🔗 Step 2: Creating relocation ROM..."
-pushd bin/buildap6 > /dev/null
-
-# Remove existing i2c-reloc.rom if it exists
-if [ -f "tmp/i2c-reloc.rom" ]; then
-    echo "🧹 Removing existing i2c-reloc.rom..."
-    rm -f tmp/i2c-reloc.rom
-    echo "✅ Existing i2c-reloc.rom removed"
-fi
-
-node smjoin-reloc.js tmp/8000/I2CEAP6 tmp/8100/I2CEAP6 tmp/i2c-reloc.rom
-popd > /dev/null
-if [ $? -ne 0 ]; then
-    echo "❌ Relocation ROM creation failed!"
-    exit 1
-fi
-echo "✅ Relocation ROM created successfully"
-echo ""
 
 echo "🔗 Step 3: Combining ROMs with SMJoin..."
 # Add bin/buildap6 to PATH so we can run the script directly
@@ -151,7 +186,11 @@ if [ -f "$OUTPUT_ROM" ]; then
     echo ""
     echo "📋 Step 5: Copying ROM to /dev/eap6..."
     EAP6_DIR="dev/eap6"
-    ROM_NAME="AP6"
+    if [ "$AP6_LAYOUT" = "classic" ]; then
+        ROM_NAME="AP6-classic"
+    else
+        ROM_NAME="AP6"
+    fi
     
     # Copy ROM file
     cp "$OUTPUT_ROM" "$EAP6_DIR/$ROM_NAME"
@@ -215,18 +254,35 @@ if [ "$SKIP_TESTING" = true ]; then
     echo "🧪 Step 4: Skipping ROM tests..."
     echo "✅ Testing step skipped"
 else
-    echo "🧪 Step 4a: Running AP6 composite fixture Vitest (ap6-composite only)..."
-    pushd bin/rom-unittest > /dev/null
-    npm install --silent 2>/dev/null || npm install
-    npm run test:composite
-    if [ $? -ne 0 ]; then
+    if [ "$AP6_LAYOUT" = "i2c" ]; then
+        echo "🧪 Step 4a: Running AP6 amalgam Vitest (fixtures/ap6 only)..."
+        pushd bin/rom-unittest > /dev/null
+        npm install --silent 2>/dev/null || npm install
+        npm run test:composite
+        if [ $? -ne 0 ]; then
+            popd > /dev/null
+            echo "❌ Composite ROM unit tests failed!"
+            exit 1
+        fi
         popd > /dev/null
-        echo "❌ Composite ROM unit tests failed!"
-        exit 1
+        echo "✅ Composite Vitest passed"
+        echo ""
+    else
+        echo "🧪 Step 4a: Skipped (classic layout — composite Vitest targets ap6.rom / I²C slice)"
+        echo ""
+        echo "🧪 Step 4a-classic: Running AP6 classic amalgam Vitest..."
+        pushd bin/rom-unittest > /dev/null
+        npm install --silent 2>/dev/null || npm install
+        npm run test:classic-composite
+        if [ $? -ne 0 ]; then
+            popd > /dev/null
+            echo "❌ Classic composite ROM unit tests failed!"
+            exit 1
+        fi
+        popd > /dev/null
+        echo "✅ Classic composite Vitest passed"
+        echo ""
     fi
-    popd > /dev/null
-    echo "✅ Composite Vitest passed"
-    echo ""
 
     if [ "$SKIP_EMULATOR_TESTS" = true ]; then
         echo "🧪 Step 4b: Skipping SMJoin browser smoke tests (--skip-emulator-tests)"

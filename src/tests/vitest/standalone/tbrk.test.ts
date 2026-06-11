@@ -1,15 +1,15 @@
 import { describe, expect, it, beforeEach } from "vitest";
-import { RomTestHarness, requireRomVariants } from "../../../bin/rom-unittest/src/index.js";
+import { I2CBeebRomTestHarness, requireConfiglessRomVariants } from "../../../../bin/rom-unittest/src/index.js";
 
-const romVariants = requireRomVariants();
+const romVariants = requireConfiglessRomVariants();
 
 describe("Time-on-Break (*TBRK) and boot service (A=1)", () => {
   describe.each(romVariants)("$label ($id)", (variant) => {
-    let harness: RomTestHarness;
+    let harness: I2CBeebRomTestHarness;
 
     beforeEach(() => {
       // Given — real ROM + labels; MOS mocked; RTC/NVRAM mocks at valid defaults
-      harness = new RomTestHarness({
+      harness = new I2CBeebRomTestHarness({
         romPath: variant.path,
         labelsPath: variant.labelsPath,
       });

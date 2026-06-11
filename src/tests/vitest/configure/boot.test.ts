@@ -3,10 +3,10 @@ import {
   DEFAULT_CONFIGURE_NVRAM,
   NVR_NVRSize,
   NVR_VDUSettings,
-  RomTestHarness,
+  I2CBeebRomTestHarness,
   nvramMode,
   requireConfigureRomVariants,
-} from "../../../bin/rom-unittest/src/index.js";
+} from "../../../../bin/rom-unittest/src/index.js";
 
 const configureVariants = requireConfigureRomVariants();
 
@@ -18,10 +18,10 @@ const NVR_TUBE_SERIAL_PRINT = 15;
 
 describe("service 1 boot with blank / factory-reset NVRAM", () => {
   describe.each(configureVariants)("$label ($id)", (variant) => {
-    let harness: RomTestHarness;
+    let harness: I2CBeebRomTestHarness;
 
     beforeEach(() => {
-      harness = new RomTestHarness({
+      harness = new I2CBeebRomTestHarness({
         romPath: variant.path,
         labelsPath: variant.labelsPath,
       });

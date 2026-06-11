@@ -16,8 +16,8 @@ while [[ $# -gt 0 ]]; do
             ;;
         -h|--help)
             echo "Usage: $0 [--skip-testing] [--skip-ap6]"
-            echo "  --skip-testing  Skip ROM unit tests (standalone and AP6 composite)"
-            echo "  --skip-ap6      Skip AP6 support ROM amalgam (bin/buildap6/build.sh)"
+            echo "  --skip-testing  Skip ROM unit tests (standalone, AP6 i2c composite, and AP6 classic)"
+            echo "  --skip-ap6      Skip AP6 support ROM amalgams (i2c and classic buildap6)"
             exit 0
             ;;
         *)
@@ -269,12 +269,12 @@ cp ./src/out/configap6c/C.I2CEAP6 ./dist/i2ceap6c.rom
 cp ./src/out/C.I2CEAP6.labels ./dist/i2ceap6c.labels
 
 ############################################################
-# AP6 support ROM amalgam (dist/ap6.rom)
+# AP6 support ROM amalgams (dist/ap6.rom, dist/ap6-classic.rom)
 ############################################################
 
 if [ "$SKIP_AP6" = false ]; then
     echo ""
-    echo "*** Building AP6 support ROM (SMJoin) ***"
+    echo "*** Building AP6 support ROMs (SMJoin) ***"
     for prereq in \
         "bin/buildplus1support/out/AP1v131:./bin/buildplus1support/build.sh" \
         "bin/buildrommanager/out/AP6v134:./bin/buildrommanager/build.sh"; do
@@ -289,7 +289,20 @@ if [ "$SKIP_AP6" = false ]; then
     if [ "$SKIP_TESTING" = true ]; then
         AP6_ARGS+=(--skip-testing)
     fi
+    echo ""
+    echo "  -> i2c layout (dist/ap6.rom)"
     ./bin/buildap6/build.sh "${AP6_ARGS[@]}"
+    echo ""
+    echo "  -> classic layout (dist/ap6-classic.rom)"
+    CLASSIC_BUILD_ARGS=(--layout classic --skip-emulator-tests --skip-testing)
+    ./bin/buildap6/build.sh "${CLASSIC_BUILD_ARGS[@]}"
+    if [ "$SKIP_TESTING" = false ]; then
+        echo ""
+        echo "*** Running AP6 classic amalgam Vitest ***"
+        pushd ./bin/rom-unittest >/dev/null
+        npm run test:classic-only
+        popd >/dev/null
+    fi
 fi
 
 ################################################################################

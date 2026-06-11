@@ -550,11 +550,13 @@ INX:CPX #&10:BCC L831F
 LDA &0D68:AND #&FB:STA &0D68 :\ Set 'ROM table not moved'
 .L832A
 OPT FNif(VALver$>=1.312)
-LDA L0D6D                   :\ Get internal default value
-ASL A:ASL A:ASL A:ASL A:TAY :\ Use this if NVRAM doesn't respond
-LDX #5:LDA #161:JSR OSBYTE  :\ See if NVRAM can provide a language
-\ Y is now either our value, or replaced with NVRAM value
-\ Can no longer have 'default' setting, as only four bits available
+LDA &028D
+BEQ LangFromSession
+LDX #5:LDA #161:JSR OSBYTE
+TYA:JMP LangFromY
+.LangFromSession
+LDA L0D6D:ASL A:ASL A:ASL A:ASL A:TAY
+.LangFromY
 TYA:LSR A:LSR A:LSR A:LSR A :\ A=ROM number
 TAX:LDA ROMtable,X          :\ Get ROM byte
 ASL A:BMI LangRomFound      :\ It's a language ROM, return it

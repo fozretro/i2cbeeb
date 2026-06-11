@@ -1,24 +1,24 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import {
-  RomTestHarness,
+  I2CBeebRomTestHarness,
   parseServiceEntry,
   rtcHookAddresses,
   serviceEntryAddress,
   createJsbeebCpu,
   run6502,
   snapshotRegisters,
-  requireRomVariants,
-} from "../../../bin/rom-unittest/src/index.js";
+  requireConfiglessRomVariants,
+} from "../../../../bin/rom-unittest/src/index.js";
 
-const romVariants = requireRomVariants();
+const romVariants = requireConfiglessRomVariants();
 
 describe("configure-less I2C ROM variants", () => {
   describe.each(romVariants)("$label ($id)", (variant) => {
-    let harness: RomTestHarness;
+    let harness: I2CBeebRomTestHarness;
 
     beforeEach(() => {
       // Given — real ROM binary + BeebAsm labels; MOS vectors mocked; CPU RAM cleared
-      harness = new RomTestHarness({
+      harness = new I2CBeebRomTestHarness({
         romPath: variant.path,
         labelsPath: variant.labelsPath,
       });

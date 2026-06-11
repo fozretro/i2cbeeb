@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach } from "vitest";
-import { RomTestHarness, requireRomVariants } from "../../../bin/rom-unittest/src/index.js";
+import { I2CBeebRomTestHarness, requireConfiglessRomVariants } from "../../../../bin/rom-unittest/src/index.js";
 
-const romVariants = requireRomVariants();
+const romVariants = requireConfiglessRomVariants();
 
 /** Split MOS-captured *HELP output into logical lines (CR/LF tolerant). */
 function helpLines(text: string): string[] {
@@ -10,10 +10,10 @@ function helpLines(text: string): string[] {
 
 describe("*HELP output (#22 — extra scaffolding line)", () => {
   describe.each(romVariants)("$label ($id)", (variant) => {
-    let harness: RomTestHarness;
+    let harness: I2CBeebRomTestHarness;
 
     beforeEach(() => {
-      harness = new RomTestHarness({
+      harness = new I2CBeebRomTestHarness({
         romPath: variant.path,
         labelsPath: variant.labelsPath,
       });

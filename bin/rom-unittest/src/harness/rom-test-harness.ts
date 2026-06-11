@@ -32,7 +32,7 @@ import {
   type WorkspaceSnapshot,
 } from "./workspace-guard.js";
 
-export interface RomHarnessOptions {
+export interface I2CBeebRomHarnessOptions {
   /** Path to a sideways ROM image. */
   romPath: string;
   /** BeebAsm `-labels` file for this ROM (`-d -labels`). */
@@ -73,12 +73,12 @@ export interface ServiceCallOptions {
 const RETURN_TRAMPOLINE = 0x0200;
 
 /**
- * Loads a sideways ROM at $8000 and runs tests against the real assembled binary
- * using jsbeeb's 6502 core with mocked MOS entry points.
+ * I2CBeeb sideways ROM (BBC / Electron / AP6 builds) at $8000 — real assembled binary
+ * on jsbeeb's 6502 core with mocked MOS entry points.
  *
- * Requires BeebAsm symbol labels — hook addresses are never guessed from opcodes.
+ * Includes *CONFIGURE / *STATUS when built with INC_CONFIG; stubs FRAM/RTC via labels.
  */
-export class RomTestHarness {
+export class I2CBeebRomTestHarness {
   readonly cpu: JsbeebCpu;
   readonly mos: MosMock;
   readonly romBase: number;
@@ -101,7 +101,7 @@ export class RomTestHarness {
   private readonly workspaceGuardEnabled: boolean;
   private readonly workspaceGuardOptions: WorkspaceGuardOptions;
 
-  constructor(options: RomHarnessOptions) {
+  constructor(options: I2CBeebRomHarnessOptions) {
     this.workspaceGuardEnabled = options.workspaceGuard !== false;
     this.workspaceGuardOptions = options.workspaceGuardOptions ?? {};
     this.romBase = options.romBase ?? ROM_BASE;

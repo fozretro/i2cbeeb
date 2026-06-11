@@ -1,63 +1,22 @@
 /**
- * Configuration for SMJoin ROM combination
- * Builds AP6v134t replacement ROM with I2C instead of TreeCopy
- * 
- * Original AP6v134t.rom contains:
- * - Plus 1 1.34 (22 Jun 2018) + Plus 1 Support 1.31 (22 Jun 2018)
- * - ROM Manager & File Utils 1.34 (01 Jan 2021) 
- * - Electron TUBE HOST 1.10 (01 Jan 1990)
- * - RAMCountAP6 0.05 (20 May 2016)
- * - TreeCopy 1.62 (08 Feb 2017)
- * 
- * Our replacement contains:
- * - Plus 1 1.34 (22 Jun 2018) + Plus 1 Support 1.31 (22 Jun 2018)
- * - ROM Manager & File Utils 1.34 (01 Jan 2021)
- * - Electron TUBE HOST 1.10 (01 Jan 1990) 
- * - RAMCountAP6 0.05 (20 May 2016)
- * - I2C (custom ROM) - replaces TreeCopy
+ * SMJoin layout selector for AP6 amalgam builds.
+ *
+ * Set AP6_SMJOIN_LAYOUT (or pass --layout to bin/buildap6/build.sh):
+ *   i2c      — I²CBeeb replaces TreeCopy → dist/ap6.rom (default)
+ *   classic  — original TreeCopy slot, no I²C → dist/ap6-classic.rom
  */
 
-module.exports = {
-    // ROM files to combine (in order)
-    romFiles: [
-        {
-            path: "../../bin/buildplus1support/out/AP1v131",
-            name: "AP1Plus"
-        },
-        {
-            path: "tmp/i2c-reloc.rom",
-            name: "I2C",
-            pageAlignment: true 
-        },
-        {
-            path: "../../bin/buildrommanager/out/AP6v134",
-            name: "ROMManager",
-            pageAlignment: false
-        },
-        {
-            path: "../../roms/TUBEelk-v1.10.rom",
-            name: "TUBEelk", 
-            pageAlignment: false
-        },
-        {
-            path: "../../roms/AP6Count-v0.05.rom",
-            name: "AP6Count",
-            pageAlignment: false
-        }
-    ],
-    
-    // Output configuration
-    output: {
-        path: "../../dist/ap6.rom",
-        name: "AP6v134t-I2C ROM (TreeCopy replaced with I2C)"
-    },
-
-    // I²C BeebAsm labels relocated for rom-unittest composite fixture (#29)
-    i2cLabels: {
-        source: "tmp/C.I2CEAP6.labels",
-        output: "../../dist/ap6-i2c.labels",
-        manifest: "../../dist/ap6-i2c.manifest.json",
-        moduleName: "I2C",
-        romBase: 0x8000,
-    },
+const layouts = {
+    i2c: require("./layouts/i2c.js"),
+    classic: require("./layouts/classic.js"),
 };
+
+const layoutId = process.env.AP6_SMJOIN_LAYOUT || "i2c";
+const layout = layouts[layoutId];
+
+if (!layout) {
+    const available = Object.keys(layouts).join(", ");
+    throw new Error(`Unknown AP6_SMJOIN_LAYOUT "${layoutId}". Available: ${available}`);
+}
+
+module.exports = layout;

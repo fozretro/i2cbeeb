@@ -5,20 +5,21 @@ Fast, deterministic unit tests for sideways ROM binaries using the **[jsbeeb](ht
 ## Prerequisites
 
 - Node.js 18+
-- `./bin/build.sh` — produces each configure-less ROM **and** matching BeebAsm `-labels` file
+- **`./bin/build.sh`** — standalone I²C ROMs + labels; also runs **`./bin/buildap6/build.sh`** (i2c then classic) unless **`--skip-ap6`**
+- **`./bin/buildap6/build.sh --layout classic`** — classic layout only (same as the second AP6 step in **`./bin/build.sh`**)
 
 ## Quick start
 
 ```bash
-./bin/build.sh          # or --skip-testing to build only
+./bin/build.sh          # standalone Vitest (72) + composite (18) + classic (7)
 cd bin/rom-unittest
 npm install
-npm test                # fails loudly if ROM/labels artefacts are missing
+npm test                # standalone fixtures only — fails if ROM/labels absent
 ```
 
 ## Symbol labels
 
-Hook addresses (`service`, `getrtc`, `writetd`) come **only** from BeebAsm `-d -labels` output. The harness does not scan ROM opcodes or skip missing builds.
+Hook addresses (`service`, `getrtc`, `writetd`, FRAM hooks) come **only** from BeebAsm `-d -labels` output (standalone ROMs) or **`dist/ap6-i2c.labels`** (relocated I²C slice in the amalgam). The harness does not scan ROM opcodes or skip missing builds.
 
 | Module | Role |
 |--------|------|
@@ -26,6 +27,8 @@ Hook addresses (`service`, `getrtc`, `writetd`) come **only** from BeebAsm `-d -
 | `src/cpu/jsbeeb-cpu.ts` | jsbeeb `fake6502` wrapper, flat 64 KiB map, RTS stack helpers |
 | `src/mos/mos-mock.ts` | MOS vectors patched with `RTS`; hooks capture/stub calls before RTS runs |
 | `src/harness/rom-test-harness.ts` | Load ROM at `$8000`, invoke service entry, run until return/BRK/limit |
+| `src/harness/ap6-classic-amalgam.ts` | Shared CPU for **`ap6-classic.rom`**; composite **`$8003`** entry |
+| `src/harness/classic-serv7-osbyte.ts` | OSBYTE 161/162 shadow store for classic LANG/TUBE tests |
 
 ### MOS mocking
 
@@ -47,9 +50,9 @@ Vectors at `$FFE0`–`$FFF7` are patched to `RTS` ($60). `debugInstruction` hook
 ## Example usage
 
 ```typescript
-import { RomTestHarness } from "./src/index.js";
+import { I2CBeebRomTestHarness } from "./src/index.js";
 
-const harness = new RomTestHarness({
+const harness = new I2CBeebRomTestHarness({
   romPath: "dist/i2cbc.rom",
   labelsPath: "dist/i2cbc.labels",
 });
@@ -57,22 +60,45 @@ const harness = new RomTestHarness({
 
 ## Tests
 
-ROM unit tests live in **`src/tests/vitest/`** as `*.test.ts`. On-target BASIC and assembly tests are in **`src/tests/native/`**. Run Vitest from here via `npm test`.
+ROM unit tests live in **`src/tests/vitest/`** — see **`src/tests/vitest/README.md`** for folder layout. On-target BASIC and assembly tests are in **`src/tests/native/`**. Run Vitest from **`bin/rom-unittest`**.
 
-| Command | Scope |
-|---------|--------|
-| `npm test` | Standalone sideways ROMs — run by `./bin/build.sh` before the AP6 amalgam step |
-| `npm run test:composite` | **`ap6-composite` fixture only** — same test files, one variant; run by `buildap6` Step 4a |
-| `npm run test:all-fixtures` | Standalone **plus** composite in one run (optional local matrix) |
+Vitest **projects** in **`vitest.config.ts`** select which folders run (no env-based `skipIf` in test files).
 
-Set `I2CBEEB_TEST_COMPOSITE=only` or `append` to control variant lists (see `rom-variants.ts`).
+| Command | Vitest project | Fixture(s) | Typical count |
+|---------|----------------|------------|---------------|
+| `npm test` | `standalone` | `i2cbc`, `i2cec`, `i2ceap6c` + configure ROM | **72** |
+| `npm run test:composite` | `composite` | **`ap6`** (`fixtures/ap6/`) | **18** |
+| `npm run test:classic-composite` | `classic-composite` | standalone + **`ap6-classic`** | **79** |
+| `npm run test:classic-only` | `classic-only` | **`ap6-classic`** only | **7** |
+| `npm run test:all-fixtures` | standalone + composite + classic-only | full matrix (no duplicate classic-composite) | **97** |
 
-### Standalone vs composite fixtures
+**Build pipeline mapping**
 
-- **Standalone** — `i2cbc`, `i2cec`, `i2ceap6c` load a single sideways I²C image at `$8000` with matching BeebAsm labels.
-- **Composite** — `ap6-composite` loads the full AP6 amalgam (`dist/ap6.rom`) and uses relocated I²C hook labels (`dist/ap6-i2c.labels`). The harness calls the embedded I²C `service` entry directly (not the composite ROM header at `$8003`). One datetime test skips the header-JMP check for embedded slices.
+| Build step | Vitest command |
+|------------|----------------|
+| `./bin/build.sh` (before AP6) | `npm test` |
+| `./bin/buildap6/build.sh` (i2c, default) | `npm run test:composite` |
+| `./bin/buildap6/build.sh --layout classic` | `npm run test:classic-composite` |
+| `./bin/build.sh` (full) | `npm test` + `test:composite` + `test:classic-only` |
+
+Variant lists: **`src/rom-variants.ts`**. Each test file calls the resolver matching its folder (`requireConfiglessRomVariants`, `requireCompositeRomVariants`, etc.).
+
+### Test folder layout
+
+| Folder | ROM fixture |
+|--------|-------------|
+| `standalone/` | `i2cbc`, `i2cec`, `i2ceap6c` |
+| `configure/` | INC_CONFIG EAP6 configure ROM |
+| `fixtures/ap6/` | `dist/ap6.rom` + `dist/ap6-i2c.labels` |
+| `fixtures/ap6-classic/` | `dist/ap6-classic.rom` |
+
+### Fixture behaviour
+
+- **Standalone** — single sideways I²C image at `$8000` + BeebAsm labels (`help`, `datetime`, `tbrk`).
+- **`fixtures/ap6/`** — `configure-nvram.test.ts` (relocated I²C `service` / FRAM hooks) and `lang-tube-amalgam.test.ts` (real `*CONFIGURE` via embedded I²C + amalgam `$8003`). Rebuild **`dist/ap6.rom`** after ROM Manager changes.
+- **`fixtures/ap6-classic/`** — no `*CONFIGURE` in ROM; use **`writeNVRAMStore`** / **`writeClassicServ7TubeEnabled`** for NVRAM store setup.
 
 ## Notes
 
 - jsbeeb **RTS adds one** to the stacked return address (correct 6502 JSR/RTS semantics). `pushReturnAddress()` accounts for this.
-- Electron/AP6 variants are covered by the same test matrix (`bin/rom-unittest/src/rom-variants.ts`); each variant requires its ROM **and** `.labels` file.
+- Electron/AP6 standalone variants require ROM **and** `.labels` file (`rom-variants.ts`). Classic composite requires **`dist/ap6-classic.rom`** only.

@@ -59,4 +59,4 @@ Our `src/mos/mos-mock.ts` already follows this pattern for `OSASCI` / `OSNEWL` /
 - MOS constants: `src/bbc/mos.ts`
 - Stub implementation: `src/mos/mos-mock.ts`
 - Harness: `src/harness/rom-test-harness.ts`
-- Examples: `src/tests/vitest/datetime.test.ts` (imports this framework from `bin/rom-unittest/`)
+- Examples: `src/tests/vitest/standalone/datetime.test.ts` (imports this framework from `bin/rom-unittest/`)

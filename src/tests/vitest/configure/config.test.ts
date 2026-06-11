@@ -3,23 +3,23 @@ import {
   NVR_KeyRptDelay,
   NVR_VDUSettings,
   NVR_MODE_MASK,
-  RomTestHarness,
+  I2CBeebRomTestHarness,
   nvramBaudRate,
   nvramFile,
   nvramLang,
   nvramMode,
   requireConfigureRomVariants,
-} from "../../../bin/rom-unittest/src/index.js";
+} from "../../../../bin/rom-unittest/src/index.js";
 
 const configureVariants = requireConfigureRomVariants();
 
 describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
   describe.each(configureVariants)("$label ($id)", (variant) => {
-    let harness: RomTestHarness;
+    let harness: I2CBeebRomTestHarness;
 
     beforeEach(() => {
       // Given — configure ROM; RTC/NVRAM mocks at SET_DefaultsTable factory defaults
-      harness = new RomTestHarness({
+      harness = new I2CBeebRomTestHarness({
         romPath: variant.path,
         labelsPath: variant.labelsPath,
       });

@@ -14,12 +14,12 @@ export type { CpuFactory, CpuRegisters, JsbeebCpu, RunOptions, RunResult } from 
 export { MosMock, isMosVector } from "./mos/mos-mock.js";
 export type { MosByteCall, MosWordCall, OsbyteHandler, OscliHandler, OswordHandler, OswrchHandler } from "./mos/mos-mock.js";
 export {
-  RomTestHarness,
+  I2CBeebRomTestHarness,
   loadRomImage,
   parseServiceEntry,
   writeCommandLine,
 } from "./harness/rom-test-harness.js";
-export type { CommandCallOptions, RomHarnessOptions, ServiceCallOptions } from "./harness/rom-test-harness.js";
+export type { CommandCallOptions, I2CBeebRomHarnessOptions, ServiceCallOptions } from "./harness/rom-test-harness.js";
 export {
   INDV3_ADDRESS,
   MOS_COMMAND_SCRATCH_START,
@@ -68,6 +68,18 @@ export type {
 export { NvramMock, createDefaultNvramImage, createBlankNvramImage, mergeNvramImage, installConfigureWorkspaceStubs } from "./nvram/nvram-mock.js";
 export type { NvramImage, PartialNvramImage } from "./nvram/nvram-mock.js";
 export {
+  RomManagerTestHarness,
+  ROM_MANAGER_L0D6D,
+  MOS_BREAK_TYPE,
+  MOS_TUBE_ENABLE,
+} from "./harness/rom-manager-harness.js";
+export type { RomManagerHarnessOptions } from "./harness/rom-manager-harness.js";
+export {
+  Plus1SupportTestHarness,
+  MOS_LANG_ROM_TYPE,
+} from "./harness/plus1-support-harness.js";
+export type { Plus1SupportHarnessOptions } from "./harness/plus1-support-harness.js";
+export {
   DEFAULT_CONFIGURE_NVRAM,
   NVR_DefaultRoms,
   NVR_FILE_MASK,
@@ -82,16 +94,38 @@ export {
   nvramFile,
   nvramLang,
   nvramMode,
+  nvramTubeEnabled,
 } from "./nvram/configure-defaults.js";
 export {
   CONFIGLESS_ROM_VARIANTS,
   CONFIGURE_ROM_VARIANTS,
+  EAP6_CONFIGURE_ROM_ID,
   COMPOSITE_ROM_VARIANTS,
+  requireConfiglessRomVariants,
   requireRomVariants,
   requireConfigureRomVariants,
+  requireConfigureRomVariant,
   requireCompositeRomVariants,
-  compositeTestsEnabled,
+  requireClassicCompositeVariants,
   compositeTestMode,
+  classicCompositeTestMode,
   repoRootFromFramework,
 } from "./rom-variants.js";
-export type { ResolvedRomVariant, RomVariant, CompositeTestMode } from "./rom-variants.js";
+export type {
+  ResolvedRomVariant,
+  ResolvedClassicCompositeVariant,
+  RomVariant,
+  CompositeTestMode,
+  ClassicCompositeTestMode,
+} from "./rom-variants.js";
+export { Ap6ClassicAmalgamSession } from "./harness/ap6-classic-amalgam.js";
+export {
+  writeNVRAMStore,
+  writeClassicServ7TubeEnabled,
+  readNVRAMStore,
+} from "./harness/classic-serv7-osbyte.js";
+export {
+  expectByte,
+  expectNvramByte,
+} from "./assertions/expect-byte.js";
+export type { ExpectByteOptions, MemoryReader } from "./assertions/expect-byte.js";

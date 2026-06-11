@@ -65,3 +65,7 @@ export function nvramFile(image: NvramImage): number {
 export function nvramBaudRate(image: NvramImage): number {
   return ((image[NVR_TubeSerialPrint]! & NVR_BAUD_MASK) >> NVR_BAUD_SHIFT) + 1;
 }
+
+export function nvramTubeEnabled(image: NvramImage): boolean {
+  return (image[NVR_TubeSerialPrint]! & 0x01) !== 0;
+}
