@@ -3,7 +3,7 @@
  *
  * Set AP6_SMJOIN_LAYOUT (or pass --layout to bin/buildap6/build.sh):
  *   i2c      — I²CBeeb replaces TreeCopy → dist/ap6.rom (default)
- *   classic  — original TreeCopy slot, no I²C → dist/ap6-classic.rom
+ *   classic  — original TreeCopy slot, no I²C → bin/buildap6/out/ap6-classic.rom
  */
 
 const layouts = {

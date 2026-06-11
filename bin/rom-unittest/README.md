@@ -90,7 +90,7 @@ Variant lists: **`src/rom-variants.ts`**. Each test file calls the resolver matc
 | `standalone/` | `i2cbc`, `i2cec`, `i2ceap6c` |
 | `configure/` | INC_CONFIG EAP6 configure ROM |
 | `fixtures/ap6/` | `dist/ap6.rom` + `dist/ap6-i2c.labels` |
-| `fixtures/ap6-classic/` | `dist/ap6-classic.rom` |
+| `fixtures/ap6-classic/` | `bin/buildap6/out/ap6-classic.rom` |
 
 ### Fixture behaviour
 
@@ -101,4 +101,4 @@ Variant lists: **`src/rom-variants.ts`**. Each test file calls the resolver matc
 ## Notes
 
 - jsbeeb **RTS adds one** to the stacked return address (correct 6502 JSR/RTS semantics). `pushReturnAddress()` accounts for this.
-- Electron/AP6 standalone variants require ROM **and** `.labels` file (`rom-variants.ts`). Classic composite requires **`dist/ap6-classic.rom`** only.
+- Electron/AP6 standalone variants require ROM **and** `.labels` file (`rom-variants.ts`). Classic composite requires **`bin/buildap6/out/ap6-classic.rom`** only.

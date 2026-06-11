@@ -47,7 +47,7 @@ while [[ $# -gt 0 ]]; do
         -h|--help)
             echo "Usage: $0 [--layout i2c|classic] [--skip-i2c-build] [--nokill-romserver] [--testFilter ROM1,ROM2,...] [--verbose] [--skip-testing] [--skip-emulator-tests]"
             echo "  --layout i2c|classic  SMJoin ROM list: i2c (default, I²C replaces TreeCopy) or"
-            echo "                         classic (TreeCopy, no I²C → dist/ap6-classic.rom)"
+            echo "                         classic (TreeCopy, no I²C → bin/buildap6/out/ap6-classic.rom)"
             echo "  --skip-i2c-build       Skip I2C ROM compilation, use existing files (i2c layout only)"
             echo "  --nokill-romserver     Keep ROM server running after tests complete"
             echo "  --testFilter           Comma-separated list of ROM names to test (e.g., AP6.rom,I2C.rom)"
@@ -70,7 +70,7 @@ case "$AP6_LAYOUT" in
         OUTPUT_ROM="dist/ap6.rom"
         ;;
     classic)
-        OUTPUT_ROM="dist/ap6-classic.rom"
+        OUTPUT_ROM="bin/buildap6/out/ap6-classic.rom"
         ;;
     *)
         echo "❌ Unknown --layout '$AP6_LAYOUT' (use i2c or classic)"
@@ -156,6 +156,10 @@ else
     fi
     echo "✅ TreeCopy ROM found"
     echo ""
+fi
+
+if [ "$AP6_LAYOUT" = "classic" ]; then
+    mkdir -p bin/buildap6/out
 fi
 
 echo "🔗 Step 3: Combining ROMs with SMJoin..."

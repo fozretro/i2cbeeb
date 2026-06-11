@@ -36,7 +36,7 @@ module.exports = {
         // AP6Count omitted: TreeROM 1.62 leaves no room (8291-byte TreeCopy 1.61 fits with AP6Count).
     ],
     output: {
-        path: "../../dist/ap6-classic.rom",
+        path: "out/ap6-classic.rom",
         name: "AP6v134t classic (TreeCopy, no I2C)",
     },
 };

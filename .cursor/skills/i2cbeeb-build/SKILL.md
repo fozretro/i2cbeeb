@@ -10,9 +10,9 @@ Assume repo root `$REPO`; run shells from `$REPO` unless noted.
 ## Main I2CBeeb ROM pipeline
 
 1. `./bin/time-config/extract.sh` pulls **Barney Hilken — Time‑Config.** from Codeberg into **`refs/Time-Config`** (gitignored **`/refs`**), pins commit in `TIMECONFIG_COMMIT`, copies/strips into **`src/configure/`**. **Requires:** `git`, `python3`, **network on first clone**.
-2. **`./bin/build.sh`** runs that extract then BeebAsm compiles **`src/I2CBeeb.asm`** for BBC / Electron / EAP6 and test/configure variants into **`src/out/`**, runs **standalone ROM unit tests** (`npm test`, 72 tests on `i2cbc` / `i2cec` / `i2ceap6c`), packages **`dist/`**, then runs **`./bin/buildap6/build.sh`** twice (unless **`--skip-ap6`**) for **`dist/ap6.rom`** (i2c + composite Vitest, 18 tests) and **`dist/ap6-classic.rom`** followed by **`npm run test:classic-only`** (7 LANG/TUBE tests on **`ap6-classic.rom`**). Auto-builds Plus 1 Support / ROM Manager if their **`bin/build*/out/`** artefacts are missing. Pass **`--skip-testing`** to omit Vitest and AP6 smoke tests. **Uses:** `./bin/beebasm`, `./bin/mmbutils/beeb`, **`node`/`npm`** for tests.
+2. **`./bin/build.sh`** runs that extract then BeebAsm compiles **`src/I2CBeeb.asm`** for BBC / Electron / EAP6 and test/configure variants into **`src/out/`**, runs **standalone ROM unit tests** (`npm test`, 72 tests on `i2cbc` / `i2cec` / `i2ceap6c`), packages **`dist/`**, then runs **`./bin/buildap6/build.sh`** twice (unless **`--skip-ap6`**) for **`dist/ap6.rom`** (i2c + composite Vitest, 18 tests) and **`bin/buildap6/out/ap6-classic.rom`** followed by **`npm run test:classic-only`** (7 LANG/TUBE tests). Auto-builds Plus 1 Support / ROM Manager if their **`bin/build*/out/`** artefacts are missing. Pass **`--skip-testing`** to omit Vitest and AP6 smoke tests. **Uses:** `./bin/beebasm`, `./bin/mmbutils/beeb`, **`node`/`npm`** for tests.
 
-**Smoke check:** from `$REPO`, run `./bin/build.sh`; expect exits `0` and SSD/ROM artefacts updated under **`dist/`** (including **`ap6.rom`** and **`ap6-classic.rom`**) and **`dev/`** staging described in **`README.md`**.
+**Smoke check:** from `$REPO`, run `./bin/build.sh`; expect exits `0` and SSD/ROM artefacts updated under **`dist/`** (including **`ap6.rom`**) and **`dev/`** staging described in **`README.md`**. Classic amalgam test fixture under **`bin/buildap6/out/`** (gitignored).
 
 ## Electron AP6 support ROM amalgam
 
@@ -31,7 +31,7 @@ Layout selected by **`--layout`** on **`./bin/buildap6/build.sh`** (or **`AP6_SM
 ### Classic layout — second AP6 step in `./bin/build.sh`
 
 - TreeCopy slot uses **`roms/TreeROM-v1.62.rom`** (relocatable). **AP6Count omitted** — 1.62 does not fit in 16 KiB with the other modules (1.61 + AP6Count fits; see layout comment).
-- Writes **`dist/ap6-classic.rom`** and **`dev/eap6/AP6-classic`** (no I²C pre-build; steps 1–2 skipped).
+- Writes **`bin/buildap6/out/ap6-classic.rom`** and **`dev/eap6/AP6-classic`** (no I²C pre-build; steps 1–2 skipped). Output is a test fixture only — not copied to **`dist/`**.
 - Step 4a-classic: **`npm run test:classic-composite`** — Vitest project **`classic-composite`** (standalone + **`fixtures/ap6-classic/`**, 79 tests). **`./bin/build.sh`** uses **`npm run test:classic-only`** instead (7 tests only — standalone already ran).
 - Also invoked by **`./bin/buildap6/build.sh --layout classic`** alone.
 

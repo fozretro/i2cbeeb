@@ -1,5 +1,5 @@
 /**
- * ROM Manager / Plus 1 LANG/TUBE persistence on ap6-classic (`dist/ap6-classic.rom`).
+ * ROM Manager / Plus 1 LANG/TUBE persistence on ap6-classic (`bin/buildap6/out/ap6-classic.rom`).
  * Persistent LANG/TUBE via NVRAM store shadow (OSBYTE 161/162) — no *CONFIGURE star command in ROM.
  * Run via `npm run test:classic-only` or `test:classic-composite`.
  */

@@ -132,7 +132,7 @@ To run the unit tests on their own after a build:
 
     cd bin/rom-unittest && npm test
 
-`./bin/build.sh` runs standalone Vitest, then `./bin/buildap6/build.sh` for the i2c layout (composite Vitest on **`dist/ap6.rom`**) and builds **`dist/ap6-classic.rom`**, then runs **`npm run test:classic-only`** (7 LANG/TUBE tests). See **`bin/rom-unittest/README.md`**.
+`./bin/build.sh` runs standalone Vitest, then `./bin/buildap6/build.sh` for the i2c layout (composite Vitest on **`dist/ap6.rom`**) and builds **`bin/buildap6/out/ap6-classic.rom`** (test fixture, not shipped in **`dist/`**), then runs **`npm run test:classic-only`** (7 LANG/TUBE tests). See **`bin/rom-unittest/README.md`**.
 
 Some Year Testing
 -----------------

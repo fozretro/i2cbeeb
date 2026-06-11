@@ -24,6 +24,7 @@ __pycache__/
 src/out/
 bin/buildrommanager/out/
 bin/buildplus1support/out/
+bin/buildap6/out/
 
 # Temporary build files
 out.ssd

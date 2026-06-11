@@ -269,7 +269,7 @@ cp ./src/out/configap6c/C.I2CEAP6 ./dist/i2ceap6c.rom
 cp ./src/out/C.I2CEAP6.labels ./dist/i2ceap6c.labels
 
 ############################################################
-# AP6 support ROM amalgams (dist/ap6.rom, dist/ap6-classic.rom)
+# AP6 support ROM amalgams (dist/ap6.rom; classic test fixture under bin/buildap6/out/)
 ############################################################
 
 if [ "$SKIP_AP6" = false ]; then
@@ -293,7 +293,7 @@ if [ "$SKIP_AP6" = false ]; then
     echo "  -> i2c layout (dist/ap6.rom)"
     ./bin/buildap6/build.sh "${AP6_ARGS[@]}"
     echo ""
-    echo "  -> classic layout (dist/ap6-classic.rom)"
+    echo "  -> classic layout (bin/buildap6/out/ap6-classic.rom)"
     CLASSIC_BUILD_ARGS=(--layout classic --skip-emulator-tests --skip-testing)
     ./bin/buildap6/build.sh "${CLASSIC_BUILD_ARGS[@]}"
     if [ "$SKIP_TESTING" = false ]; then

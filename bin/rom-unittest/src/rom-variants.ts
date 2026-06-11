@@ -84,8 +84,8 @@ export const CLASSIC_COMPOSITE_ROM_VARIANTS: ClassicCompositeRomVariant[] = [
   {
     id: "ap6-classic-composite",
     label: "AP6 classic amalgam (TreeCopy, no I²C)",
-    buildPath: "dist/ap6-classic.rom",
-    distPath: "dist/ap6-classic.rom",
+    buildPath: "bin/buildap6/out/ap6-classic.rom",
+    distPath: "bin/buildap6/out/ap6-classic.rom",
   },
 ];
 
