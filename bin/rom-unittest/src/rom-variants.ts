@@ -183,6 +183,17 @@ export function requireRomVariants(repoRoot = repoRootFromFramework()): Resolved
   return appendCompositeWhenEnabled(requireConfiglessRomVariants(repoRoot), repoRoot);
 }
 
+/**
+ * `configure/` folder — standalone project uses INC_CONFIG EAP6 ROM;
+ * composite project (`I2CBEEB_TEST_COMPOSITE=only` in `vitest.config.ts`) uses `dist/ap6.rom`.
+ */
+export function requireConfigureFolderVariants(repoRoot = repoRootFromFramework()): ResolvedRomVariant[] {
+  if (compositeTestMode() === "only") {
+    return requireCompositeRomVariants(repoRoot);
+  }
+  return requireConfigureRomVariants(repoRoot);
+}
+
 /** Configure ROM variants — throws if any ROM or labels file is absent. */
 export function requireConfigureRomVariants(repoRoot = repoRootFromFramework()): ResolvedRomVariant[] {
   const errors: string[] = [];

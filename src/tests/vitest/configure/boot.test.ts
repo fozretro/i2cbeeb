@@ -5,10 +5,10 @@ import {
   NVR_VDUSettings,
   I2CBeebRomTestHarness,
   nvramMode,
-  requireConfigureRomVariants,
+  requireConfigureFolderVariants,
 } from "../../../../bin/rom-unittest/src/index.js";
 
-const configureVariants = requireConfigureRomVariants();
+const configureVariants = requireConfigureFolderVariants();
 
 /** NVRAM addresses from `src/configure/Settings.asm`. */
 const NVR_KEY_RPT_DELAY = 12;

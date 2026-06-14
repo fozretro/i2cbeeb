@@ -104,6 +104,7 @@ export {
   requireConfiglessRomVariants,
   requireRomVariants,
   requireConfigureRomVariants,
+  requireConfigureFolderVariants,
   requireConfigureRomVariant,
   requireCompositeRomVariants,
   requireClassicCompositeVariants,

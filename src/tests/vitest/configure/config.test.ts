@@ -8,10 +8,10 @@ import {
   nvramFile,
   nvramLang,
   nvramMode,
-  requireConfigureRomVariants,
+  requireConfigureFolderVariants,
 } from "../../../../bin/rom-unittest/src/index.js";
 
-const configureVariants = requireConfigureRomVariants();
+const configureVariants = requireConfigureFolderVariants();
 
 describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
   describe.each(configureVariants)("$label ($id)", (variant) => {

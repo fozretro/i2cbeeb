@@ -11,7 +11,7 @@ Fast, deterministic unit tests for sideways ROM binaries using the **[jsbeeb](ht
 ## Quick start
 
 ```bash
-./bin/build.sh          # standalone Vitest (72) + composite (18) + classic (7)
+./bin/build.sh          # standalone Vitest (73) + composite (28) + classic (7)
 cd bin/rom-unittest
 npm install
 npm test                # standalone fixtures only — fails if ROM/labels absent
@@ -66,11 +66,11 @@ Vitest **projects** in **`vitest.config.ts`** select which folders run (no env-b
 
 | Command | Vitest project | Fixture(s) | Typical count |
 |---------|----------------|------------|---------------|
-| `npm test` | `standalone` | `i2cbc`, `i2cec`, `i2ceap6c` + configure ROM | **72** |
-| `npm run test:composite` | `composite` | **`ap6`** (`fixtures/ap6/`) | **18** |
+| `npm test` | `standalone` | `i2cbc`, `i2cec`, `i2ceap6c` + configure ROM | **73** |
+| `npm run test:composite` | `composite` | **`ap6`** (`fixtures/ap6/` + `configure/`) | **28** |
 | `npm run test:classic-composite` | `classic-composite` | standalone + **`ap6-classic`** | **79** |
 | `npm run test:classic-only` | `classic-only` | **`ap6-classic`** only | **7** |
-| `npm run test:all-fixtures` | standalone + composite + classic-only | full matrix (no duplicate classic-composite) | **97** |
+| `npm run test:all-fixtures` | standalone + composite + classic-only | full matrix (no duplicate classic-composite) | **108** |
 
 **Build pipeline mapping**
 
@@ -88,7 +88,7 @@ Variant lists: **`src/rom-variants.ts`**. Each test file calls the resolver matc
 | Folder | ROM fixture |
 |--------|-------------|
 | `standalone/` | `i2cbc`, `i2cec`, `i2ceap6c` |
-| `configure/` | INC_CONFIG EAP6 configure ROM |
+| `configure/` | INC_CONFIG EAP6 configure ROM (standalone) or `dist/ap6.rom` (composite) |
 | `fixtures/ap6/` | `dist/ap6.rom` + `dist/ap6-i2c.labels` |
 | `fixtures/ap6-classic/` | `bin/buildap6/out/ap6-classic.rom` |
 

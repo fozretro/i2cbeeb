@@ -1,11 +1,15 @@
 import { defineConfig } from "vitest/config";
 
 const frameworkTests = ["src/**/*.test.ts"];
+const configureTests = ["../../src/tests/vitest/configure/**/*.test.ts"];
 const standaloneTests = [
   "../../src/tests/vitest/standalone/**/*.test.ts",
-  "../../src/tests/vitest/configure/**/*.test.ts",
+  ...configureTests,
 ];
-const compositeTests = ["../../src/tests/vitest/fixtures/ap6/**/*.test.ts"];
+const compositeTests = [
+  "../../src/tests/vitest/fixtures/ap6/**/*.test.ts",
+  ...configureTests,
+];
 const classicTests = ["../../src/tests/vitest/fixtures/ap6-classic/**/*.test.ts"];
 
 const shared = {
@@ -35,6 +39,9 @@ export default defineConfig({
         test: {
           name: "composite",
           include: [...compositeTests, ...frameworkTests],
+          env: {
+            I2CBEEB_TEST_COMPOSITE: "only",
+          },
           ...shared,
         },
       },
