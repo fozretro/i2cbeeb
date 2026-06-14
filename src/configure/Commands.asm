@@ -64,10 +64,7 @@ ENDIF
 	EQUS "DELAY", help255 - helpBase
 	EQUS "FDRIVE", help7 - helpBase
 	EQUS "FILE", helpRom - helpBase
-	EQUS "IGNORE", help255 - helpBase
 	EQUS "LANG", helpRom - helpBase
-	EQUS "LOUD", helpAlt - helpBase
-	EQUS "QUIET", &FF
 	EQUS "MODE", help7 - helpBase
 	EQUS "TUBE", helpAlt - helpBase
 	EQUS "NOTUBE", &FF

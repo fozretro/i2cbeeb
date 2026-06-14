@@ -103,6 +103,9 @@ describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
       expect(text).not.toMatch(/\bTV\b/);
       expect(text).not.toMatch(/\bPRINT\b/);
       expect(text).not.toMatch(/\bDATA\b/);
+      expect(text).not.toMatch(/\bLOUD\b/);
+      expect(text).not.toMatch(/\bQUIET\b/);
+      expect(text).not.toMatch(/\bIGNORE\b/);
       expect(text).toMatch(new RegExp(`MODE\\s+${defaultMode}`));
       expect(text).toMatch(/NOBOOT/);
       expect(text).toMatch(/\bCAPS\b/);

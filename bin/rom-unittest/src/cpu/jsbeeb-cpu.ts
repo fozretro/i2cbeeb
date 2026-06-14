@@ -74,7 +74,13 @@ export function run6502(cpu: JsbeebCpu, options: RunOptions): RunResult {
   let instructions = 0;
   let cycles = 0;
   let reason: RunResult["reason"] = "halted";
-  const chunk = 4096;
+  // jsbeeb's executeInternal() skips the debugInstruction hook on the FIRST
+  // instruction of every execute() call (see `!first` in 6502.js). The MOS mock
+  // captures OSWRCH/OSBYTE/etc via that hook, so any chunk boundary that lands on
+  // a $FFxx MOS-vector RTS stub silently drops the interception (e.g. a lost
+  // character in *STATUS output). Run the whole budget in one execute() call so
+  // only the harmless entry instruction is ever skipped.
+  const chunk = maxCycles;
 
   const stepHook = cpu.debugInstruction.add((addr) => {
     instructions++;

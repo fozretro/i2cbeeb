@@ -10,10 +10,7 @@
 .fdriveIndex
 	EQUB 11+&80, %11111000,	%00110000		\\ FDRIVE -- read keyboard switches for default
 	EQUB 5,		%11110000,	%00001111		\\ FILE
-	EQUB 14,	0,			&0				\\ IGNORE
 	EQUB 5,		%00001111,	%11110000		\\ LANG
-	EQUB 16,	%11111101,	%00000010		\\ LOUD
-	EQUB 16,	%11111101,	%00000000		\\ QUIET
 .modeIndex
 	EQUB 10+&80, %11111000,	%00000111		\\ MODE -- read keyboard switches for default         
 	EQUB 15,	%11111110,	%00000001		\\ TUBE
