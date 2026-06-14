@@ -26,9 +26,23 @@ The project builds multiple ROM variants for each target platform:
 
 **Note (Plus *CONFIGURE*):** `*CONFIGURE`, `*STATUS`, and related Time-Config features appear only in **Electron AP6** builds (tick in that column). They require **NVRAM**; the AP6 **PCF8583** has free RAM for persisted settings. Typical **DS3231** modules on **Model B, B+**, and basic **Electron** have **no user-accessible RAM**. **Master** machines already provide their own persisted configuration—so those commands are omitted from all BBC-family ROMs by design. Detected **EEPROM** devices on the I²C bus could provide NVRAM on other targets in future.
 
+**Factory reset and first-boot init (AP6 *CONFIGURE* builds):** Persisted settings live in PCF8583 NVRAM (logical addresses **0–16**; see [NVRAM layout](#usage-with-ap6) below). On every boot (Ctrl+Break or power-on), the configure ROM runs `SET_Startup` and applies those bytes to MOS.
+
+| Trigger | What happens |
+|---------|----------------|
+| **Hold `R` during break** | Factory reset — `SET_Reset` writes default `*CONFIGURE` values (same as a fresh init table). Does not reset the RTC chip. |
+| **Uninitialised NVRAM** (logical byte **17** = 0) | Automatic factory reset on that boot — intended for a new or blank FRAM image. After init, byte **17** is set to **255** so later breaks do not re-init. |
+| **Normal break** (byte **17** ≠ 0, `R` not held) | Apply saved settings from NVRAM; no full reset. |
+
+Logical **17** is the init marker (chip register **`23h`**). Time-Config upstream used byte **255**, which on AP6 aliases RTC register **`11h`** (year / `*TBRK`) and is not used here. To simulate an uninitialised store for testing:
+
+    A%=0
+    *I2CTXB 50 #23 A%
+    REM then Ctrl+Break or cold boot — expect factory *STATUS (e.g. MODE 6)
+
 **I²C addresses (7-bit):** BBC Micro* and Electron builds talk to a **DS3231** at **`&68`** (`RTC` in `src/inc/rtc/DS3231.asm`). Electron **AP6** builds (and production AP-class boards with the on-board RTC) use a **PCF8583** at **`&50`** (`RTC` in `src/inc/rtc/PCF8583.asm`) — the same address used in the `*I2CRXB 50 …` examples in [Usage with AP6](#usage-with-ap6) below. Dave’s planned cartridge RTC is expected to stay on **`&50`** so it matches AP6 without a rebuild.
 
-Star commands take the address in **decimal** (`50` = `&50`). On AP6, **`&50` registers `10h`–`11h`** are reserved by this ROM; **`12h`+** holds configure NVRAM. Other devices on the AP6 header must not clash with **`&50`**. Use `*I2CQUERY` / `*I2CTEST` on hardware to confirm.
+Star commands take the address in **decimal** (`50` = `&50`). On AP6, **`&50` registers `10h`–`11h`** are reserved by the RTC layer (year offset, year copy, `*TBRK`); **configure NVRAM uses logical addresses `0`–`17`** (chip `12h`–`23h`: settings **0–16**, init marker at logical **17** = chip **`23h`**). Logical **238+** wraps into the clock region — do not use. Other devices on the AP6 header must not clash with **`&50`**. Use `*I2CQUERY` / `*I2CTEST` on hardware to confirm.
 
 This project also includes support for building the AP6 Support ROM (`ap6.rom`) which combines the I2C ROM with other AP6 ROMs (AP1Plus, ROMManager, TUBEelk, AP6Count) into a single 16KB ROM image. The build process is handled by [`/bin/buildap6/build.sh`](bin/buildap6/build.sh) and uses SMJoin compatibility to enable ROM relocation and chaining. For detailed technical information about the AP6 Support ROM build process, see the [SMJoin Compatibility Implementation](#smjoin-compatibility-implementation-sept-2025) section below.
 
@@ -41,7 +55,7 @@ The Time & Config integration code is dynamically pulled from the [Time & Config
 Status - Release v3.3 In Progress - Test Framework and Configure Support (Jan 2026)
 ----------------------------------------------------------------------------------
 
-This release introduces significant enhancements including integration with the Time & Config ROM for configuration management and ROM control features. The `*CONFIGURE` and `*STATUS` commands enable system configuration settings to be stored in NVRAM and applied on boot, while `*INSERT` and `*UNPLUG` commands provide ROM management capabilities. These features are currently available only in Electron AP6 builds due to NVRAM requirements—the PCF8583 RTC chip provides sufficient free RAM for configuration storage, while the DS3231 RTC chip used in BBC Micro* and basic Electron builds has no user-accessible RAM. The build system has been updated to disable configure features for BBC and Electron builds, keeping them enabled only for Electron AP6 builds. Additionally, the `*I2CTEST` command has been implemented to provide comprehensive automated testing of I2C functionality across all target platforms (on real hardware). Automated ROM unit tests run during `./bin/build.sh`; see [ROM unit testing](#rom-unit-testing). For on-machine I2C tests, see the [Test Framework *I2CTEST](#test-framework-i2ctest) section below.
+This release introduces significant enhancements including integration with the Time & Config ROM for configuration management and ROM control features. The `*CONFIGURE` and `*STATUS` commands enable system configuration settings to be stored in NVRAM and applied on boot, while `*INSERT` and `*UNPLUG` commands provide ROM management capabilities. **Factory reset** (hold **`R`** on break) and **automatic init** when NVRAM byte **17** is blank are described [above](#factory-reset-and-first-boot-init-ap6-configure-builds). These features are currently available only in Electron AP6 builds due to NVRAM requirements—the PCF8583 RTC chip provides sufficient free RAM for configuration storage, while the DS3231 RTC chip used in BBC Micro* and basic Electron builds has no user-accessible RAM. The build system has been updated to disable configure features for BBC and Electron builds, keeping them enabled only for Electron AP6 builds. Additionally, the `*I2CTEST` command has been implemented to provide comprehensive automated testing of I2C functionality across all target platforms (on real hardware). Automated ROM unit tests run during `./bin/build.sh`; see [ROM unit testing](#rom-unit-testing). For on-machine I2C tests, see the [Test Framework *I2CTEST](#test-framework-i2ctest) section below.
 
 Status - BeebAsm Migration Complete (Sep 2025)
 ----------------------------------------------
@@ -65,7 +79,7 @@ Usage with AP6
 
 You need a Plus 1 with the AP6 expansion board fitted and a battery installed for the RTC chip to retain time and data. Download and install/load the ROM above. All the commands, `*TSET, *DSET, *NOW, *DATE, *TIME` etc work as per documentation on Martins [thread](https://stardot.org.uk/forums/viewtopic.php?t=10966). There is one notable exception that the `*TEMP` command outputs `Not Available`, because the PCF8583 RTC does not support this.
 
-What the PCF8583 does have though is storage! Meaning you can do things like this to store information and have it retained. Note that the PCF8583 free ram starts at address `10h`, however the ROM uses `10h` and `11h` locations so please consider these reserved, anything above `12h` is fine! Note that, `50` used in the commands below is the device ID for the installed PCF8583.
+What the PCF8583 does have though is storage! Meaning you can do things like this to store information and have it retained. The ROM reserves chip registers **`10h`** (year offset) and **`11h`** (year copy and `*TBRK` toggle). **Configure NVRAM** uses logical bytes **0–17** (chip **`12h`–`23h`**: settings **0–16**, initialised marker at logical **17** = chip **`23h`**). Spare logical addresses **18–237** map to chip **`24h`–`FFh`**. Do not use `*I2CTXB`/`I2CRXB` on chip regs below **`12h`** except for RTC debugging. Note that **`50`** in the commands below is the device ID for the installed PCF8583.
 
     *I2CQUERY
     *I2CRXB 50 #12 A%

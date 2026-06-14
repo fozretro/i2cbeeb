@@ -1,10 +1,14 @@
 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 \ NVRAM Abstraction Layer
 \ Uses PCF8583 RTC free RAM (registers 12h onwards) for NVRAM storage
+\\
+\ Logical NVRAM 0-17: configure ROM (0-16 = SET_DefaultsTable, 17 = init marker)
+\ Logical 18-237: spare (chip 2Ah-FFh). Logical 238+ wraps into clock / RTC 10h-11h.
+\ Chip 10h-11h: RTC year offset / year copy + *TBRK — not configure logical addresses.
 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 \ PCF8583 free RAM starts at register 12h (18 decimal)
-\ NVRAM address (0-255) maps to PCF8583 register (12h + NVRAM address)
+\ NVRAM address (0-255) maps to PCF8583 register (12h + NVRAM address, low 8 bits)
 PCF8583_NVRAM_BASE = $12
 
 \ Temporary buffer for single-byte NVRAM operations

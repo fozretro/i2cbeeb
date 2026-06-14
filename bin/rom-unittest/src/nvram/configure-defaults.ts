@@ -8,7 +8,11 @@ export const NVR_Roms07Status = 6;
 export const NVR_Roms8FStatus = 7;
 export const NVR_KeyRptDelay = 12;
 export const NVR_TubeSerialPrint = 15;
-export const NVR_NVRSize = 255;
+/** Initialised marker — logical 17 (PCF8583 reg 23h); 0 = blank, 255 = OK. */
+export const NVR_InitMarker = 17;
+
+/** @deprecated Use {@link NVR_InitMarker}. Time-Config used 255 (aliases RTC reg 11h on AP6). */
+export const NVR_NVRSize = NVR_InitMarker;
 
 /** Screen mode is stored in NVR_VDUSettings bits 0–2. */
 export const NVR_MODE_MASK = 0x07;
@@ -23,7 +27,7 @@ export const NVR_BAUD_MASK = 0x1c;
 
 /**
  * Default NVRAM bytes written by `SET_Reset` (`SET_DefaultsTable` in Settings.asm).
- * Address 255 must be non-zero so `SET_Startup` treats NVRAM as initialised.
+ * Address 17 must be non-zero so `SET_Startup` treats NVRAM as initialised.
  */
 export const DEFAULT_CONFIGURE_NVRAM: PartialNvramImage = {
   0: 0x01,
@@ -43,7 +47,7 @@ export const DEFAULT_CONFIGURE_NVRAM: PartialNvramImage = {
   14: 0x0a,
   15: 0x3b,
   16: 0xa2,
-  [NVR_NVRSize]: 0xff,
+  [NVR_InitMarker]: 0xff,
 };
 
 /** NVRAM image matching a factory-reset configure store. */

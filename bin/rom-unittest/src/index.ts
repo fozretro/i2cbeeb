@@ -87,6 +87,7 @@ export {
   NVR_KeyRptDelay,
   NVR_LANG_MASK,
   NVR_MODE_MASK,
+  NVR_InitMarker,
   NVR_NVRSize,
   NVR_TubeSerialPrint,
   NVR_VDUSettings,

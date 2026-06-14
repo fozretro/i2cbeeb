@@ -170,7 +170,7 @@ export class I2CBeebRomTestHarness {
   }
 
   /**
-   * Enable NVRAM mock with a blank store (byte 255 = 0).
+   * Enable NVRAM mock with a blank store (NVR 17 = 0).
    * `SET_Startup` takes the `resetEverything` path on service 1 boot.
    */
   mockConfigureBlank(): void {

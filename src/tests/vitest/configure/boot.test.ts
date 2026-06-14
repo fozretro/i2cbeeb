@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import {
   DEFAULT_CONFIGURE_NVRAM,
-  NVR_NVRSize,
+  NVR_InitMarker,
   NVR_VDUSettings,
   I2CBeebRomTestHarness,
   nvramMode,
@@ -30,10 +30,10 @@ describe("service 1 boot with blank / factory-reset NVRAM", () => {
     });
 
     it("boot with blank NVRAM runs SET_Reset and *STATUS shows factory defaults", () => {
-      // Given — blank RTC/NVRAM (NVR 255 = 0); SET_Startup takes resetEverything
+      // Given — blank RTC/NVRAM (NVR 17 = 0); SET_Startup takes resetEverything
       harness.mockBlankRtc();
       harness.mockConfigureBlank();
-      expect(harness.getNvramImage()[NVR_NVRSize]).toBe(0);
+      expect(harness.getNvramImage()[NVR_InitMarker]).toBe(0);
 
       // When — MOS service 1 (boot) runs SET_Startup then returns
       const boot = harness.invokeBoot();
@@ -41,7 +41,7 @@ describe("service 1 boot with blank / factory-reset NVRAM", () => {
       // Then — boot completes; NVRAM initialised marker written
       expect(boot.reason).toBe("return");
       expect(harness.registers().a).toBe(1);
-      expect(harness.getNvramImage()[NVR_NVRSize]).toBe(0xff);
+      expect(harness.getNvramImage()[NVR_InitMarker]).toBe(0xff);
       expect(harness.mos.unexpected).toHaveLength(0);
 
       const nvram = harness.getNvramImage();
@@ -71,7 +71,7 @@ describe("service 1 boot with blank / factory-reset NVRAM", () => {
     it("boot with R held runs SET_Reset and *STATUS shows factory MODE", () => {
       // Given — initialised NVRAM with non-default MODE; R key stubbed during SET_Startup
       harness.mockRtc();
-      harness.mockConfigure({ [NVR_NVRSize]: 0xff, [NVR_VDUSettings]: 0x02 });
+      harness.mockConfigure({ [NVR_InitMarker]: 0xff, [NVR_VDUSettings]: 0x02 });
       expect(nvramMode(harness.getNvramImage())).toBe(2);
       harness.mockRKeyPressed();
 

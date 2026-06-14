@@ -16,6 +16,10 @@ AP6 factory-reset defaults (SET_Reset / SET_DefaultsTable):
 - NVR 10: MODE 6
 - NVR 11: FDRIVE 0 (CAPS bits unchanged)
 - NVR 16: NOBOOT (%10100010 — boot bit clear; CON_ReadKeySwitches must return &08 on AP6)
+
+AP6 init marker (SET_Startup blank-NVRAM gate):
+- NVR_InitMarker = 17 (PCF8583 reg 23h = &12+17). Time-Config uses 255, which aliases RTC reg 11h
+  (year copy + *TBRK) on 8-bit I2C register addressing.
 """
 
 import sys
@@ -41,6 +45,21 @@ def apply_ap6_reset_patches(lines):
                 "\tLDY #1\t\t\t\t\t\t\\\\ AP6: default Econet station 1\n"
             )
             continue
+        out.append(line)
+    return out
+
+
+def apply_init_marker_patch(lines):
+    """Use logical NVRAM 17 for initialised marker (255 aliases PCF8583 RTC reg 11h)."""
+    out = []
+    for line in lines:
+        if "NVR_NVRSize" in line and "= 255" in line:
+            out.append(
+                "NVR_InitMarker\t\t= 17\t\t\t\\\\ AP6: initialised flag (PCF8583 reg 23h)\n"
+            )
+            continue
+        line = line.replace("NVR_NVRSize", "NVR_InitMarker")
+        line = line.replace("*FX 161,255", "*FX 161,17")
         out.append(line)
     return out
 
@@ -184,6 +203,7 @@ def extract_settings(input_file, output_file):
         i += 1
     
     output_lines = apply_ap6_reset_patches(output_lines)
+    output_lines = apply_init_marker_patch(output_lines)
 
     # Write output
     with open(output_file, 'w') as f:

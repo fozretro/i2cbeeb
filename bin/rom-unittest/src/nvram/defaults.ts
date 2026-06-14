@@ -9,7 +9,7 @@ export function createDefaultNvramImage(): NvramImage {
   return new Uint8Array(256);
 }
 
-/** Blank NVRAM (all zero) — `SET_Startup` treats byte 255 = 0 as uninitialised. */
+/** Blank NVRAM (all zero) — `SET_Startup` treats NVR 17 = 0 as uninitialised. */
 export function createBlankNvramImage(): NvramImage {
   return new Uint8Array(256);
 }
