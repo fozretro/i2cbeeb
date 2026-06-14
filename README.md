@@ -79,10 +79,36 @@ What the PCF8583 does have though is storage! Meaning you can do things like thi
 
 Finally, note that the AP6, has I2C headers on board, meaning you can attach easily other I2C devices and access them using the above commands. Please be careful attaching new devices and observe the correct pin out, then run `*I2CQUERY`.
 
+COLD — simulated power-on reset (Electron AP6 dev)
+-------------------------------------------------
+
+Testing `*CONFIGURE LANG` (and other NVRAM settings applied on boot) needs a **true power-on** (`&028D = 1`). Ctrl+Break and `JMP (&FFFC)` do not reload configure from NVRAM—they are soft or hard breaks, not cold start.
+
+The **`COLD`** utility fakes a power-on reset in software so you can repeat configure tests without mains off/on. It is based on [hoglet’s assembler recipe](https://stardot.org.uk/forums/viewtopic.php?t=20240) on Stardot (same thread as JGH’s `.ResetElk` variant, which uses `&FFFC + 25` instead of a fixed jump).
+
+**Source:** [`src/utils/COLD.asm`](src/utils/COLD.asm) — hoglet’s `.power_up_reset` routine, assembled at `&0B00`.
+
+**Build integration:** At the end of [`src/I2CBeeb.asm`](src/I2CBeeb.asm), after `SAVE romstart, romend`, BeebAsm `INCLUDE`s `COLD.asm` and `SAVE`s a separate DFS executable onto each build SSD (`SAVE "COLD", &0B00, *`). This does **not** modify the sideways ROM image (`I2CEAP6`, `dist/ap6.rom`, etc.)—only adds a disc file alongside the ROM and other `PUTBASIC` utilities. `./bin/build.sh` extracts it from the AP6 SSD into `src/out/ap6/` and copies [`dev/eap6/COLD`](dev/eap6/COLD) (+ `.inf`) for hardware, UPURSFS, or b-em.
+
+**Usage** (with `COLD` on the default DFS drive):
+
+    *CONFIGURE LANG 5
+    *STATUS LANG
+    *COLD
+
+Or `*RUN COLD`. Load and exec are both `&0B00` (see `dev/eap6/COLD.inf`).
+
+After reboot, check power-on path and session LANG:
+
+    PRINT ~?&028D    : REM expect 1 (power-on)
+    PRINT ~?&0D6D    : REM LANG in low nibble after GetTubeAndLang
+
+**Caveats:** Electron **MOS 1.00** only—the `JMP &D8EB` target is hard-coded for that revision. Other MOS versions need a different entry (JGH’s `RESET + 25` via `&FFFC` may suit some boards better). This is not a hardware reset: sideways ROM and ULA state may differ from mains off/on. For final verification, power-cycle the machine.
+
 Building
 --------
 
-Build with `./bin/build.sh` and this will copmile using using BeebAsm. This will compile all three targets for BBC Micro, Acorn Electron and Acorn Electron Plus 1 AP6 in `/dist`. It will also update `/dev/eap6` and `/dev/roms` these folders work with virtual file systems such as the one in b-em - and supported by UPURSFS. The later use of UPURSFS allows compilation output to be directly loaded and test on a target machine.
+Build with `./bin/build.sh` and this will compile using BeebAsm all three targets for BBC Micro, Acorn Electron and Acorn Electron Plus 1 AP6 in `/dist`. It will also update `/dev/eap6` and `/dev/roms`; these folders work with virtual file systems such as the one in b-em and are supported by UPURSFS, so build output can be loaded and tested on a target machine. The `dev/eap6` folder also receives dev utilities from the AP6 build SSD: `COLD` (6502 executable from `COLD.asm`) and tokenised BASIC files `NVList`, `RTCTest`, and `RTCRead` (via `PUTBASIC`). See [COLD](#cold--simulated-power-on-reset-electron-ap6-dev).
 
 Unless you pass `--skip-testing`, the build also runs the automated ROM unit tests described below.
 

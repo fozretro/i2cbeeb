@@ -158,6 +158,12 @@ else
     echo ""
 fi
 
+echo "📦 Step 2b: Building Plus 1 Support and ROM Manager slices..."
+./bin/buildplus1support/build.sh
+./bin/buildrommanager/build.sh
+echo "✅ Plus 1 Support (AP1v131) and ROM Manager (AP6v134) built"
+echo ""
+
 if [ "$AP6_LAYOUT" = "classic" ]; then
     mkdir -p bin/buildap6/out
 fi

@@ -212,5 +212,21 @@ describe("LANG/TUBE persistence (ROM Manager / Plus 1 in ap6 amalgam)", () => {
       expect(plus1.hasNvramLangRead()).toBe(true);
       expect(plus1.mos.unexpected).toHaveLength(0);
     });
+
+    it("Plus1 L831C uses session L0D6D on hard BREAK (&028D=2)", () => {
+      romManager.invokeCommand({ commandText: "CONFIGURE LANG A\r", y: 0 });
+      plus1.setLanguageRom(10, MOS_LANG_ROM_TYPE);
+      plus1.setLanguageRom(11, MOS_LANG_ROM_TYPE);
+      plus1.setSessionLang(11);
+      expect(nvramLang(session.getNvramImage())).toBe(10);
+
+      plus1.setBreakType(2);
+      plus1.mos.resetCaptures();
+      const hardBreak = plus1.invokeRestoreRomTableLang();
+      expect(hardBreak.reason).toBe("return");
+      expect(plus1.getSelectedLangRom()).toBe(11);
+      expect(plus1.hasNvramLangRead()).toBe(false);
+      expect(plus1.mos.unexpected).toHaveLength(0);
+    });
   });
 });

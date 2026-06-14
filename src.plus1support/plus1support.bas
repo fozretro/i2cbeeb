@@ -551,11 +551,14 @@ LDA &0D68:AND #&FB:STA &0D68 :\ Set 'ROM table not moved'
 .L832A
 OPT FNif(VALver$>=1.312)
 LDA &028D
-BEQ LangFromSession
+CMP #&01               :\ Power-on only, use NVRAM LANG
+BEQ LangFromNVRAM
+.LangFromSession       :\ Soft or hard BREAK, session L0D6D
+LDA L0D6D:ASL A:ASL A:ASL A:ASL A:TAY
+JMP LangFromY
+.LangFromNVRAM
 LDX #5:LDA #161:JSR OSBYTE
 TYA:JMP LangFromY
-.LangFromSession
-LDA L0D6D:ASL A:ASL A:ASL A:ASL A:TAY
 .LangFromY
 TYA:LSR A:LSR A:LSR A:LSR A :\ A=ROM number
 TAX:LDA ROMtable,X          :\ Get ROM byte

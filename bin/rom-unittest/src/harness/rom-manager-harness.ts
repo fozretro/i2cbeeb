@@ -9,7 +9,7 @@ import {
   type Ap6SidecarHarnessOptions,
 } from "./ap6-sidecar-harness.js";
 
-export { MOS_BREAK_TYPE, MOS_TUBE_ENABLE, ROM_MANAGER_L0D6D } from "./ap6-sidecar-harness.js";
+export { MOS_BREAK_TYPE, MOS_LANGUAGE_ROM_NUMBER, MOS_TUBE_ENABLE, ROM_MANAGER_L0D6D } from "./ap6-sidecar-harness.js";
 export type { Ap6SidecarHarnessOptions as RomManagerHarnessOptions, Ap6AmalgamModuleBinding };
 
 export class RomManagerTestHarness extends Ap6SidecarHarness {

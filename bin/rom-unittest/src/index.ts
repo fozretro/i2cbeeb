@@ -71,6 +71,7 @@ export {
   RomManagerTestHarness,
   ROM_MANAGER_L0D6D,
   MOS_BREAK_TYPE,
+  MOS_LANGUAGE_ROM_NUMBER,
   MOS_TUBE_ENABLE,
 } from "./harness/rom-manager-harness.js";
 export type { RomManagerHarnessOptions } from "./harness/rom-manager-harness.js";

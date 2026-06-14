@@ -275,16 +275,6 @@ cp ./src/out/C.I2CEAP6.labels ./dist/i2ceap6c.labels
 if [ "$SKIP_AP6" = false ]; then
     echo ""
     echo "*** Building AP6 support ROMs (SMJoin) ***"
-    for prereq in \
-        "bin/buildplus1support/out/AP1v131:./bin/buildplus1support/build.sh" \
-        "bin/buildrommanager/out/AP6v134:./bin/buildrommanager/build.sh"; do
-        path="${prereq%%:*}"
-        script="${prereq#*:}"
-        if [ ! -f "$path" ]; then
-            echo "  -> Missing $path — running $script"
-            $script
-        fi
-    done
     AP6_ARGS=(--skip-emulator-tests)
     if [ "$SKIP_TESTING" = true ]; then
         AP6_ARGS+=(--skip-testing)
@@ -355,6 +345,8 @@ cp ./src/out/ap6/RTCRead ./dev/eap6/ 2>/dev/null || true
 cp ./src/out/ap6/RTCRead.inf ./dev/eap6/ 2>/dev/null || true
 cp ./src/out/ap6/NVList ./dev/eap6/ 2>/dev/null || true
 cp ./src/out/ap6/NVList.inf ./dev/eap6/ 2>/dev/null || true
+cp ./src/out/ap6/COLD ./dev/eap6/ 2>/dev/null || true
+cp ./src/out/ap6/COLD.inf ./dev/eap6/ 2>/dev/null || true
 
 # Copy configure-less ROMs to dev/eap6 for hardware testing
 echo ""
