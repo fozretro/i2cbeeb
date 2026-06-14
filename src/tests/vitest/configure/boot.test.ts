@@ -11,6 +11,8 @@ import {
 const configureVariants = requireConfigureFolderVariants();
 
 /** NVRAM addresses from `src/configure/Settings.asm`. */
+const NVR_BELL_BS_FORMAT = 16;
+const NVR_BOOT_BIT = 0x10;
 const NVR_KEY_RPT_DELAY = 12;
 const NVR_KEY_RPT_RATE = 13;
 const NVR_PRINTER_IGNORE = 14;
@@ -47,11 +49,13 @@ describe("service 1 boot with blank / factory-reset NVRAM", () => {
       expect(nvram[NVR_KEY_RPT_RATE]).toBe(DEFAULT_CONFIGURE_NVRAM[NVR_KEY_RPT_RATE]);
       expect(nvram[NVR_PRINTER_IGNORE]).toBe(DEFAULT_CONFIGURE_NVRAM[NVR_PRINTER_IGNORE]);
       expect(nvram[NVR_TUBE_SERIAL_PRINT]).toBe(DEFAULT_CONFIGURE_NVRAM[NVR_TUBE_SERIAL_PRINT]);
-      expect(nvramMode(nvram)).toBe(0);
+      expect(nvramMode(nvram)).toBe(6);
+      expect(nvram[NVR_BELL_BS_FORMAT]! & NVR_BOOT_BIT).toBe(0);
 
       // When / Then — *STATUS reads SET_DefaultsTable values (non-zero where applicable)
       for (const { term, pattern } of [
-        { term: "MODE", pattern: /MODE\s+0/ },
+        { term: "MODE", pattern: /MODE\s+6/ },
+        { term: "NOBOOT", pattern: /NOBOOT/ },
         { term: "DELAY", pattern: /DELAY\s+50/ },
         { term: "REPEAT", pattern: /REPEAT\s+8/ },
         { term: "IGNORE", pattern: /IGNORE\s+10/ },
@@ -77,7 +81,8 @@ describe("service 1 boot with blank / factory-reset NVRAM", () => {
       // Then — boot completes; MODE reset to factory default in NVRAM
       expect(boot.reason).toBe("return");
       expect(harness.registers().a).toBe(1);
-      expect(nvramMode(harness.getNvramImage())).toBe(0);
+      expect(nvramMode(harness.getNvramImage())).toBe(6);
+      expect(harness.getNvramImage()[NVR_BELL_BS_FORMAT]! & NVR_BOOT_BIT).toBe(0);
       expect(harness.mos.unexpected).toHaveLength(0);
 
       // Given — MOS output cleared
@@ -86,9 +91,13 @@ describe("service 1 boot with blank / factory-reset NVRAM", () => {
       // When — *STATUS MODE reads back factory value
       const status = harness.invokeCommand({ commandText: "STATUS MODE\r" });
 
-      // Then — printed status shows MODE 0
+      // Then — printed status shows MODE 6 and factory NOBOOT
       expect(status.reason).toBe("return");
-      expect(harness.mos.getOutputText()).toMatch(/MODE\s+0/);
+      expect(harness.mos.getOutputText()).toMatch(/MODE\s+6/);
+      harness.mos.resetCaptures();
+      const bootStatus = harness.invokeCommand({ commandText: "STATUS NOBOOT\r" });
+      expect(bootStatus.reason).toBe("return");
+      expect(harness.mos.getOutputText()).toMatch(/NOBOOT/);
       expect(harness.mos.unexpected).toHaveLength(0);
     });
   });

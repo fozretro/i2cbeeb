@@ -137,7 +137,7 @@ awk '
 # Copy Configure.asm with selective removal of TIMEZONE and SUMMERTIME jump table entries
 echo "*** Extracting Configure.asm (removing TIMEZONE/SUMMERTIME) ***"
 awk '
-    BEGIN { in_con_configure = 0; con_configure_line = 0 }
+    BEGIN { in_con_configure = 0; con_configure_line = 0; in_read_key_switches = 0 }
     
     # Remove CON_Timezone-1 and CON_DST-1 from jump table (lines 26-27)
     # These are on lines like: EQUB 0: EQUW CON_Timezone-1 \ TIMEZONE
@@ -185,6 +185,27 @@ awk '
             in_con_configure = 0
             next
         }
+    }
+
+    # Electron/AP6: no BBC Master keyboard dip switches at system VIA
+    /^[[:space:]]*\.CON_ReadKeySwitches[[:space:]]*$/ {
+        print ".CON_ReadKeySwitches"
+        print "{"
+        print "\tLDA #8\t\t\t\t\t\\\\ AP6: no dips; bit 3 set => SET_Reset leaves NOBOOT"
+        print "\tRTS"
+        print "}"
+        in_read_key_switches = 1
+        next
+    }
+    in_read_key_switches == 1 && /^[[:space:]]*\{/ {
+        in_read_key_switches = 2
+        next
+    }
+    in_read_key_switches == 2 {
+        if (/^[[:space:]]*\}[[:space:]]*$/) {
+            in_read_key_switches = 0
+        }
+        next
     }
     
     # Print all other lines

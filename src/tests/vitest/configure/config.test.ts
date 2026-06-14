@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import {
+  DEFAULT_CONFIGURE_NVRAM,
   NVR_KeyRptDelay,
   NVR_VDUSettings,
   NVR_MODE_MASK,
@@ -12,6 +13,7 @@ import {
 } from "../../../../bin/rom-unittest/src/index.js";
 
 const configureVariants = requireConfigureFolderVariants();
+const defaultMode = DEFAULT_CONFIGURE_NVRAM[10]! & NVR_MODE_MASK;
 
 describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
   describe.each(configureVariants)("$label ($id)", (variant) => {
@@ -27,23 +29,23 @@ describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
       harness.mockConfigure();
     });
 
-    it("*STATUS MODE reports default screen mode 0 from NVRAM", () => {
-      // Given — NVR_VDUSettings holds SET_DefaultsTable mode bits (0)
-      expect(nvramMode(harness.getNvramImage())).toBe(0);
+    it("*STATUS MODE reports default screen mode from NVRAM", () => {
+      // Given — NVR_VDUSettings holds SET_DefaultsTable mode bits (AP6: 6)
+      expect(nvramMode(harness.getNvramImage())).toBe(defaultMode);
 
       // When — MOS service 4 dispatches *STATUS MODE
       const result = harness.invokeCommand({ commandText: "STATUS MODE\r" });
 
-      // Then — ROM prints MODE 0 from NVRAM address 10 (A=0)
+      // Then — ROM prints factory MODE from NVRAM address 10 (A=0)
       expect(result.reason).toBe("return");
-      expect(harness.mos.getOutputText()).toMatch(/MODE\s+0/);
+      expect(harness.mos.getOutputText()).toMatch(new RegExp(`MODE\\s+${defaultMode}`));
       expect(harness.registers().a).toBe(0);
       expect(harness.mos.unexpected).toHaveLength(0);
     });
 
     it("*CONFIGURE MODE 2 stores mode 2 and *STATUS MODE confirms it", () => {
-      // Given — default NVRAM has mode 0
-      expect(nvramMode(harness.getNvramImage())).toBe(0);
+      // Given — default NVRAM has factory mode
+      expect(nvramMode(harness.getNvramImage())).toBe(defaultMode);
 
       // When — MOS service 4 dispatches *CONFIGURE MODE 2
       const configure = harness.invokeCommand({ commandText: "CONFIGURE MODE 2\r" });
@@ -88,7 +90,7 @@ describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
       // Then — ROM does not claim the command (passes to other ROMs)
       expect(result.reason).toBe("return");
       expect(harness.registers().a).toBe(4);
-      expect(harness.getNvramImage()[NVR_VDUSettings]! & NVR_MODE_MASK).toBe(0);
+      expect(harness.getNvramImage()[NVR_VDUSettings]! & NVR_MODE_MASK).toBe(defaultMode);
     });
 
     it("bare *STATUS lists all factory-default config terms", () => {
@@ -99,7 +101,8 @@ describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
       expect(harness.registers().a).toBe(0);
       const text = harness.mos.getOutputText();
       expect(text).toMatch(/BAUD\s+7/);
-      expect(text).toMatch(/MODE\s+0/);
+      expect(text).toMatch(new RegExp(`MODE\\s+${defaultMode}`));
+      expect(text).toMatch(/NOBOOT/);
       expect(text).toMatch(/DELAY\s+50/);
       expect(text).toMatch(/REPEAT\s+8/);
       expect(text).not.toMatch(/CONFIGURE/);
@@ -160,14 +163,14 @@ describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
       });
 
       it("rejects out-of-range decimal MODE", () => {
-        // Given — default mode 0
-        expect(nvramMode(harness.getNvramImage())).toBe(0);
+        // Given — factory default mode
+        expect(nvramMode(harness.getNvramImage())).toBe(defaultMode);
 
         // When — MODE 8 exceeds help7 range (0–7)
         const result = harness.invokeCommand({ commandText: "CONFIGURE MODE 8\r" });
 
         // Then — NVRAM unchanged (bad parameter path)
-        expect(nvramMode(harness.getNvramImage())).toBe(0);
+        expect(nvramMode(harness.getNvramImage())).toBe(defaultMode);
       });
     });
   });

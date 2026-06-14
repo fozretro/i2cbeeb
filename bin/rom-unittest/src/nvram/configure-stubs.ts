@@ -1,6 +1,6 @@
 import type { JsbeebCpu } from "../cpu/types.js";
 
-/** Stub `CON_ReadKeySwitches` so SET_Reset sees no keyboard switches (MODE 0). */
+/** Stub `CON_ReadKeySwitches`: A=&08 so SET_Reset keeps NOBOOT (bit 3 = no boot on Master dips). */
 export class ReadKeySwitchesStub {
   private hook: { remove(): void } | null = null;
   private address: number | null = null;
@@ -13,7 +13,7 @@ export class ReadKeySwitchesStub {
     cpu.writemem(entry, 0x60);
     this.hook = cpu.debugInstruction.add((addr) => {
       if (addr !== entry) return false;
-      cpu.a = 0;
+      cpu.a = 0x08;
       return false;
     });
   }

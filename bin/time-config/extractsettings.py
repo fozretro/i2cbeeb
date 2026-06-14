@@ -10,10 +10,39 @@ Removes:
 Preserves upstream .notRKey / .notMissing FRAM detection (Time-Config e29478c+).
 
 Adds closing brace for SET_Startup after removing unplugRoms function.
+
+AP6 factory-reset defaults (SET_Reset / SET_DefaultsTable):
+- NVR 0 (Econet station): 1 (no &FE18 jumper read on Electron)
+- NVR 10: MODE 6
+- NVR 11: FDRIVE 0 (CAPS bits unchanged)
+- NVR 16: NOBOOT (%10100010 — boot bit clear; CON_ReadKeySwitches must return &08 on AP6)
 """
 
 import sys
 import re
+
+
+def apply_ap6_reset_patches(lines):
+    """Electron AP6 factory defaults for SET_Reset (R-key and blank NVRAM)."""
+    out = []
+    for line in lines:
+        if "address 10: MODE" in line:
+            out.append(
+                "\tEQUB %00000110\t\t\t\\\\ address 10: MODE & TV (AP6: MODE 6)\n"
+            )
+            continue
+        if "address 11: FDRIVE" in line:
+            out.append(
+                "\tEQUB %11000000\t\t\t\\\\ address 11: FDRIVE & CAPS (AP6: FDRIVE 0)\n"
+            )
+            continue
+        if "LDY EconetIDreg" in line and "read Econet" in line:
+            out.append(
+                "\tLDY #1\t\t\t\t\t\t\\\\ AP6: default Econet station 1\n"
+            )
+            continue
+        out.append(line)
+    return out
 
 
 def extract_settings(input_file, output_file):
@@ -154,6 +183,8 @@ def extract_settings(input_file, output_file):
         output_lines.append(line)
         i += 1
     
+    output_lines = apply_ap6_reset_patches(output_lines)
+
     # Write output
     with open(output_file, 'w') as f:
         f.writelines(output_lines)

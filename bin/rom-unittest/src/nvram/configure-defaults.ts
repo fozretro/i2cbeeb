@@ -24,7 +24,7 @@ export const NVR_BAUD_MASK = 0x1c;
  * Address 255 must be non-zero so `SET_Startup` treats NVRAM as initialised.
  */
 export const DEFAULT_CONFIGURE_NVRAM: PartialNvramImage = {
-  0: 0xfe,
+  0: 0x01,
   1: 0x00,
   2: 0xeb,
   3: 0x00,
@@ -34,8 +34,8 @@ export const DEFAULT_CONFIGURE_NVRAM: PartialNvramImage = {
   7: 0xff,
   8: 0x00,
   9: 0x00,
-  10: 0x00,
-  11: 0xe0,
+  10: 0x06,
+  11: 0xc0,
   12: 0x32,
   13: 0x08,
   14: 0x0a,
