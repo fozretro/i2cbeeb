@@ -6,7 +6,7 @@ import { createDefaultConfigureNvramImage } from "../nvram/configure-defaults.js
 import { ReadKeySwitchesStub } from "../nvram/configure-stubs.js";
 import { NvramMock, installConfigureWorkspaceStubs } from "../nvram/nvram-mock.js";
 import { MosMock } from "../mos/mos-mock.js";
-import { RETURN_TRAMPOLINE } from "./ap6-sidecar-harness.js";
+import { RETURN_TRAMPOLINE, MOS_MACHINE_TYPE } from "./ap6-sidecar-harness.js";
 import {
   createDefaultClassicServ7Store,
   installClassicServ7OsbyteStubs,
@@ -137,6 +137,8 @@ export class Ap6ClassicAmalgamSession {
       this.cpu.writemem(this.romBase + i, this.rom[i]!);
     }
     this.cpu.writemem(RETURN_TRAMPOLINE, 0xea);
+    // Plus 1 Serv1 skips self-disable when &FFB2 = &40 (Electron).
+    this.cpu.writemem(MOS_MACHINE_TYPE, 0x40);
     this.cpu.halted = false;
   }
 }

@@ -19,6 +19,9 @@ export function installNvramServ7OsbyteStubs(mos: MosMock, image: NvramImage): v
       if (addr === NVR_TubeSerialPrint) {
         return { y: nvramTubeEnabled(image) ? 0 : 1, carry: false };
       }
+      if (addr < image.length) {
+        return { y: image[addr]! & 0xff, carry: false };
+      }
       return { y: y & 0xff, carry: false };
     }
 
@@ -29,6 +32,10 @@ export function installNvramServ7OsbyteStubs(mos: MosMock, image: NvramImage): v
       }
       if (addr === NVR_TubeSerialPrint) {
         image[NVR_TubeSerialPrint] = (image[NVR_TubeSerialPrint]! & ~0x01) | (y & 0x01);
+        return { y: y & 0xff, carry: false };
+      }
+      if (addr < image.length) {
+        image[addr] = y & 0xff;
         return { y: y & 0xff, carry: false };
       }
       return { y: y & 0xff, carry: false };

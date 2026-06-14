@@ -4,6 +4,8 @@ import { mergeNvramImage } from "./defaults.js";
 /** NVRAM addresses from `src/configure/Settings.asm`. */
 export const NVR_VDUSettings = 10;
 export const NVR_DefaultRoms = 5;
+export const NVR_Roms07Status = 6;
+export const NVR_Roms8FStatus = 7;
 export const NVR_KeyRptDelay = 12;
 export const NVR_TubeSerialPrint = 15;
 export const NVR_NVRSize = 255;

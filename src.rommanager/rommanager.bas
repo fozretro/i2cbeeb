@@ -32,7 +32,7 @@ REM              Removed pre-v1.337 code
 ver$="1.341":date$="12 Feb 2026"
 REM              *INSERT/*UNPLUG use NVRAM OSBYTEs
 REM              *LANG/*TUBE update L0D6D only, not NVRAM
-REM              Serv10 power-on reloads LANG/TUBE and NVRAM unplug map from NVRAM
+REM              Serv10 break applies unplug; Serv1 after I²C Beeb Serv&01 SET_Startup
 REM              Bugfix: *LANG no longer writes NVRAM via OSBYTE 162
 :
 :
@@ -308,12 +308,35 @@ TYA:LSR A                         :\ CS=TUBE disabled
 PLA:BCC P%+4:ORA #32:STA L0D6D    :\ Update local value
 RTS
 OPT FNendif                       :\ A=LANG, CY=TUBE
+:
+.ApplyPlugMap
+OPT FNif(VALver$>=1.341)
+JSR GetPlugMap           :\ Load unplug bitmap from NVRAM
+LDX #15:LDA L0D6F
+.ApplyPlugMapLp1
+CPX #7:BNE ApplyPlugMapa
+LDA L0D6E
+.ApplyPlugMapa
+ROL A:BCC ApplyPlugMapNext
+PHA:LDA #0:STA ROMTABLE,X:PLA
+.ApplyPlugMapNext
+DEX:BPL ApplyPlugMapLp1
+OPT FNendif
+RTS
 
 
 \ SERVICE 1 - Do Reset processing
 \ ===============================
 .Serv1
 TYA:PHA                  :\ Save current workspace address
+OPT FNif(VALver$>=1.341)
+LDA &028D
+CMP #&01:BNE Serv1SkipPlugMap
+\ Power-on only (break applies unplug on Serv10); after I²C Beeb Serv&01
+\ handler (.boot) has run configure SET_Startup (incl. SET_Reset when R held)
+JSR ApplyPlugMap
+.Serv1SkipPlugMap
+OPT FNendif
 LDA L0D6D:ASL A:ASL A    :\ Get TUBE Enable from bit 5
 BPL Serv1a               :\ bit 5 = 0, not disabled
 LDA #0:STA &027A         :\ Disable Tube
@@ -393,6 +416,8 @@ JMP Serv7RdOk            :\ EOR FF and return
 \ SERVICE &10 - Spool/Exec closing
 \ ================================
 \ Insert/Unplug ROMs
+\ Break applies unplug on Serv10; power-on defers unplug to Serv&01 after
+\ I²C Beeb ROM Serv&01 handler (.boot) has run configure SET_Startup
 \ Needs to be done before Serv1, on BBC/Elk Serv10 before Serv01
 \ Ctrl-CAPS check needs to be done here to enable ROM before Serv01
 \ Check Ctrl-* and jump to *-prompt
@@ -415,21 +440,11 @@ OPT FNendif
 OPT FNif(VALver$>=1.341)
 JSR GetTubeAndLang     :\ Let NVRAM override our setting
 OPT FNendif
+JMP Serv10Keys         :\ Power-on defer unplug to Serv&01 only (see Serv1)
 :
 .X813E
-OPT FNif(VALver$>=1.341)
-JSR GetPlugMap         :\ Load unplug bitmap from NVRAM
-OPT FNendif
-LDX #15:LDA L0D6F      :\ Unplug bitmap for ROMs 8-15
-.Serv10Lp1
-CPX #7:BNE Serv10a
-LDA L0D6E              :\ Unplug bitmap for ROMs 0-7
-.Serv10a
-ROL A:BCC Serv10Next           :\ Leave inserted
-PHA:LDA #0:STA ROMTABLE,X:PLA  :\ Remove from ROM table
-.Serv10Next
-DEX:BPL Serv10Lp1         :\ Loop down to ROM 0
-\.Serv10Done
+JSR ApplyPlugMap       :\ Break path apply NVRAM unplug map
+.Serv10Keys
 LDA #&7A:JSR OSBYTE       :\ Check keys pressed
 CPX #&48:BEQ Serv10Enable :\ *
 CPX #&5B:BEQ Serv10Enable :\ K*

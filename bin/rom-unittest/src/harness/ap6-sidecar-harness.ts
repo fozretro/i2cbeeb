@@ -7,6 +7,8 @@ import { loadRomImage, parseServiceEntry } from "./rom-test-harness.js";
 export const ROM_MANAGER_L0D6D = 0x0d6d;
 /** MOS break type: 1 = power-on, 0 = Ctrl-Break (&0200 page). */
 export const MOS_BREAK_TYPE = 0x028d;
+/** MOS machine type at &FFB2 (&40 = Electron). */
+export const MOS_MACHINE_TYPE = 0xffb2;
 /** MOS current language ROM number (soft BREAK re-enters this). */
 export const MOS_LANGUAGE_ROM_NUMBER = 0x028c;
 /** MOS tube enable flag (0 = tube disabled). */

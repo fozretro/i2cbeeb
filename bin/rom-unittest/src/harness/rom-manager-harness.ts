@@ -45,6 +45,13 @@ export class RomManagerTestHarness extends Ap6SidecarHarness {
   }
 
   installBreakStubs(): void {
+    this.mos.stubOsbyte(0x79, ({ x }) => (x === 0xb3 ? { x: 0x33 } : {}));
+    this.mos.stubOsbyte(0x7a, () => ({ x: 0 }));
+    this.mos.stubOsbyte(0x78, () => ({}));
+  }
+
+  installRKeyStub(): void {
+    this.mos.stubOsbyte(0x79, ({ x }) => (x === 0xb3 ? { x: 0xb3 } : {}));
     this.mos.stubOsbyte(0x7a, () => ({ x: 0 }));
     this.mos.stubOsbyte(0x78, () => ({}));
   }
@@ -58,6 +65,15 @@ export class RomManagerTestHarness extends Ap6SidecarHarness {
     return this.invokeService({ serviceType: 0x10, y: 0, commandText: "\r" });
   }
 
+  invokeHardBreak() {
+    this.installBreakStubs();
+    this.setBreakType(2);
+    this.writeMemory(ZP.OSW_A, 0);
+    this.writeMemory(ZP.OSW_X, 0);
+    this.writeMemory(ZP.OSW_Y, 0);
+    return this.invokeService({ serviceType: 0x10, y: 0, commandText: "\r" });
+  }
+
   invokePowerOn() {
     this.installBreakStubs();
     this.setBreakType(1);
@@ -65,7 +81,25 @@ export class RomManagerTestHarness extends Ap6SidecarHarness {
     this.writeMemory(ZP.OSW_A, 0);
     this.writeMemory(ZP.OSW_X, 0);
     this.writeMemory(ZP.OSW_Y, 0);
-    return this.invokeService({ serviceType: 0x10, y: 0, commandText: "\r" });
+    const serv10 = this.invokeService({ serviceType: 0x10, y: 0, commandText: "\r" });
+    if (serv10.reason !== "return") {
+      return serv10;
+    }
+    return this.invokeServ1();
+  }
+
+  invokePowerOnWithR() {
+    this.installRKeyStub();
+    this.setBreakType(1);
+    this.writeMemory(0x024b, 0x00);
+    this.writeMemory(ZP.OSW_A, 0);
+    this.writeMemory(ZP.OSW_X, 0);
+    this.writeMemory(ZP.OSW_Y, 0);
+    const serv10 = this.invokeService({ serviceType: 0x10, y: 0, commandText: "\r" });
+    if (serv10.reason !== "return") {
+      return serv10;
+    }
+    return this.invokeServ1();
   }
 
   invokeServ1() {

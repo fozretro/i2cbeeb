@@ -228,5 +228,120 @@ describe("LANG/TUBE persistence (ROM Manager / Plus 1 in ap6 amalgam)", () => {
       expect(plus1.hasNvramLangRead()).toBe(false);
       expect(plus1.mos.unexpected).toHaveLength(0);
     });
+
+    it("NVRAM unplug map applied on power-on via Serv1 after Serv10 LANG/TUBE", () => {
+      const ROM_D = 13;
+
+      const unplug = romManager.invokeCommand({ commandText: "UNPLUG D\r", y: 0 });
+      expect(unplug.reason).toBe("return");
+      romManager.writeMemory(romManager.romTable + ROM_D, 0x0b);
+
+      romManager.mos.resetCaptures();
+      const powerOn = romManager.invokePowerOn();
+
+      expect(powerOn.reason).toBe("return");
+      expectByte(romManager, MOS_BREAK_TYPE, 1);
+      expectByte(romManager, romManager.romTable + ROM_D, 0);
+      expect(romManager.mos.unexpected).toHaveLength(0);
+    });
+
+    it("power-on with R held clears unplug map after SET_Reset on Serv1", () => {
+      const ROM_D = 13;
+
+      const unplug = romManager.invokeCommand({ commandText: "UNPLUG D\r", y: 0 });
+      expect(unplug.reason).toBe("return");
+      expectByte(romManager, romManager.romTable + ROM_D, 0);
+      romManager.writeMemory(romManager.romTable + ROM_D, 0x0b);
+
+      romManager.mos.resetCaptures();
+      const powerOnR = romManager.invokePowerOnWithR();
+
+      expect(powerOnR.reason).toBe("return");
+      expectByte(romManager, MOS_BREAK_TYPE, 1);
+      expectByte(romManager, romManager.romTable + ROM_D, 0x0b);
+      expect(romManager.mos.unexpected).toHaveLength(0);
+    });
+
+    it("Ctrl-Break still applies unplug map via Serv10", () => {
+      const ROM_D = 13;
+
+      const unplug = romManager.invokeCommand({ commandText: "UNPLUG D\r", y: 0 });
+      expect(unplug.reason).toBe("return");
+      romManager.writeMemory(romManager.romTable + ROM_D, 0x0b);
+
+      romManager.mos.resetCaptures();
+      const ctrlBreak = romManager.invokeCtrlBreak();
+
+      expect(ctrlBreak.reason).toBe("return");
+      expectByte(romManager, MOS_BREAK_TYPE, 0);
+      expectByte(romManager, romManager.romTable + ROM_D, 0);
+      expect(romManager.mos.unexpected).toHaveLength(0);
+    });
+
+    it("*UNPLUG D then simulated power-on without R then Ctrl-Break keeps ROM D hidden", () => {
+      const ROM_D = 13;
+
+      expect(romManager.invokeCommand({ commandText: "UNPLUG D\r", y: 0 }).reason).toBe("return");
+      romManager.writeMemory(romManager.romTable + ROM_D, 0x0b);
+
+      romManager.mos.resetCaptures();
+      expect(romManager.invokePowerOn().reason).toBe("return");
+      expectByte(romManager, MOS_BREAK_TYPE, 1);
+      expectByte(romManager, romManager.romTable + ROM_D, 0);
+
+      romManager.writeMemory(romManager.romTable + ROM_D, 0x0b);
+      romManager.mos.resetCaptures();
+      expect(romManager.invokeCtrlBreak().reason).toBe("return");
+      expectByte(romManager, MOS_BREAK_TYPE, 0);
+      expectByte(romManager, romManager.romTable + ROM_D, 0);
+      expect(romManager.mos.unexpected).toHaveLength(0);
+    });
+
+    it("*UNPLUG D then simulated power-on with R held then Ctrl-Break keeps ROM D visible", () => {
+      const ROM_D = 13;
+
+      expect(romManager.invokeCommand({ commandText: "UNPLUG D\r", y: 0 }).reason).toBe("return");
+      romManager.writeMemory(romManager.romTable + ROM_D, 0x0b);
+
+      romManager.mos.resetCaptures();
+      expect(romManager.invokePowerOnWithR().reason).toBe("return");
+      expectByte(romManager, MOS_BREAK_TYPE, 1);
+      expectByte(romManager, romManager.romTable + ROM_D, 0x0b);
+
+      romManager.mos.resetCaptures();
+      expect(romManager.invokeCtrlBreak().reason).toBe("return");
+      expectByte(romManager, MOS_BREAK_TYPE, 0);
+      expectByte(romManager, romManager.romTable + ROM_D, 0x0b);
+      expect(romManager.mos.unexpected).toHaveLength(0);
+    });
+
+    it("*UNPLUG D then *INSERT D then simulated power-on without R keeps ROM D visible", () => {
+      const ROM_D = 13;
+
+      expect(romManager.invokeCommand({ commandText: "UNPLUG D\r", y: 0 }).reason).toBe("return");
+      expectByte(romManager, romManager.romTable + ROM_D, 0);
+
+      expect(romManager.invokeCommand({ commandText: "INSERT D\r", y: 0 }).reason).toBe("return");
+      romManager.writeMemory(romManager.romTable + ROM_D, 0x0b);
+
+      romManager.mos.resetCaptures();
+      expect(romManager.invokePowerOn().reason).toBe("return");
+      expectByte(romManager, MOS_BREAK_TYPE, 1);
+      expectByte(romManager, romManager.romTable + ROM_D, 0x0b);
+      expect(romManager.mos.unexpected).toHaveLength(0);
+    });
+
+    it("*UNPLUG D then hard BREAK (&028D=2) applies unplug map via Serv10", () => {
+      const ROM_D = 13;
+
+      expect(romManager.invokeCommand({ commandText: "UNPLUG D\r", y: 0 }).reason).toBe("return");
+      romManager.writeMemory(romManager.romTable + ROM_D, 0x0b);
+
+      romManager.mos.resetCaptures();
+      expect(romManager.invokeHardBreak().reason).toBe("return");
+      expectByte(romManager, MOS_BREAK_TYPE, 2);
+      expectByte(romManager, romManager.romTable + ROM_D, 0);
+      expect(romManager.mos.unexpected).toHaveLength(0);
+    });
   });
 });
