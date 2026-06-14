@@ -84,9 +84,9 @@ COLD — simulated power-on reset (Electron AP6 dev)
 
 Testing `*CONFIGURE LANG` (and other NVRAM settings applied on boot) needs a **true power-on** (`&028D = 1`). Ctrl+Break and `JMP (&FFFC)` do not reload configure from NVRAM—they are soft or hard breaks, not cold start.
 
-The **`COLD`** utility fakes a power-on reset in software so you can repeat configure tests without mains off/on. It is based on [hoglet’s assembler recipe](https://stardot.org.uk/forums/viewtopic.php?t=20240) on Stardot (same thread as JGH’s `.ResetElk` variant, which uses `&FFFC + 25` instead of a fixed jump).
+The **`COLD`** utility fakes a power-on reset in software so you can repeat configure tests without mains off/on. It uses [JGH’s `.ResetElk`](https://stardot.org.uk/forums/viewtopic.php?t=20240) routine from the same Stardot thread as hoglet’s fixed `JMP &D8EB` variant (equivalent on MOS 1.00).
 
-**Source:** [`src/utils/COLD.asm`](src/utils/COLD.asm) — hoglet’s `.power_up_reset` routine, assembled at `&0B00`.
+**Source:** [`src/utils/COLD.asm`](src/utils/COLD.asm) — JGH’s `.ResetElk` (`&FFFC + 25`, then `JMP (&A8)`), assembled at `&0B00`.
 
 **Build integration:** At the end of [`src/I2CBeeb.asm`](src/I2CBeeb.asm), after `SAVE romstart, romend`, BeebAsm `INCLUDE`s `COLD.asm` and `SAVE`s a separate DFS executable onto each build SSD (`SAVE "COLD", &0B00, *`). This does **not** modify the sideways ROM image (`I2CEAP6`, `dist/ap6.rom`, etc.)—only adds a disc file alongside the ROM and other `PUTBASIC` utilities. `./bin/build.sh` extracts it from the AP6 SSD into `src/out/ap6/` and copies [`dev/eap6/COLD`](dev/eap6/COLD) (+ `.inf`) for hardware, UPURSFS, or b-em.
 
@@ -103,7 +103,7 @@ After reboot, check power-on path and session LANG:
     PRINT ~?&028D    : REM expect 1 (power-on)
     PRINT ~?&0D6D    : REM LANG in low nibble after GetTubeAndLang
 
-**Caveats:** Electron **MOS 1.00** only—the `JMP &D8EB` target is hard-coded for that revision. Other MOS versions need a different entry (JGH’s `RESET + 25` via `&FFFC` may suit some boards better). This is not a hardware reset: sideways ROM and ULA state may differ from mains off/on. For final verification, power-cycle the machine.
+**Caveats:** Entry is derived from the MOS reset vector (`&FFFC + 25`), so it tracks the ROM layout rather than a fixed address. This is not a hardware reset: sideways ROM and ULA state may differ from mains off/on. For final verification, power-cycle the machine.
 
 Building
 --------

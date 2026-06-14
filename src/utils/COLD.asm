@@ -1,11 +1,18 @@
-\ Electron power-on reset (hoglet / Stardot t=20240)
+\ Electron power-on reset (JGH .ResetElk / Stardot t=20240)
 \ https://stardot.org.uk/forums/viewtopic.php?t=20240
-\ MOS 1.00: JMP &D8EB after reset prefix. Not a hardware reset.
+\ RESET+25 via &FFFC; not a hardware reset.
 \ DFS executable: load/exec &0B00 — run with *COLD or *RUN COLD
 
 ORG &0B00
 
-.power_up_reset
+.ResetElk
+	CLC
+	LDA &FFFC
+	ADC #25
+	STA &A8
+	LDA &FFFD
+	ADC #0
+	STA &A9
 	LDA #&40
 	STA &0D00
 	SEI
@@ -17,7 +24,7 @@ ORG &0B00
 	STX &028D
 	LDA #&F8
 	STA &FE05
-	LDA #&02
-	JMP &D8EB
+	LDA #2
+	JMP (&A8)
 
 SAVE "COLD", &0B00, *
