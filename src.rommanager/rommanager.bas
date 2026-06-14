@@ -32,7 +32,7 @@ REM              Removed pre-v1.337 code
 ver$="1.341":date$="12 Feb 2026"
 REM              *INSERT/*UNPLUG use NVRAM OSBYTEs
 REM              *LANG/*TUBE update L0D6D only, not NVRAM
-REM              Serv10 power-on reloads LANG/TUBE from NVRAM
+REM              Serv10 power-on reloads LANG/TUBE and NVRAM unplug map from NVRAM
 REM              Bugfix: *LANG no longer writes NVRAM via OSBYTE 162
 :
 :
@@ -415,11 +415,10 @@ OPT FNendif
 OPT FNif(VALver$>=1.341)
 JSR GetTubeAndLang     :\ Let NVRAM override our setting
 OPT FNendif
-PLA:RTS
 :
 .X813E
 OPT FNif(VALver$>=1.341)
-JSR GetPlugMap         :\ Check for NVRAM unplug map
+JSR GetPlugMap         :\ Load unplug bitmap from NVRAM
 OPT FNendif
 LDX #15:LDA L0D6F      :\ Unplug bitmap for ROMs 8-15
 .Serv10Lp1
