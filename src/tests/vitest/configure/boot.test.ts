@@ -59,7 +59,6 @@ describe("service 1 boot with blank / factory-reset NVRAM", () => {
         { term: "DELAY", pattern: /DELAY\s+50/ },
         { term: "REPEAT", pattern: /REPEAT\s+8/ },
         { term: "IGNORE", pattern: /IGNORE\s+10/ },
-        { term: "BAUD", pattern: /BAUD\s+7/ },
       ]) {
         harness.mos.resetCaptures();
         const result = harness.invokeCommand({ commandText: `STATUS ${term}\r` });

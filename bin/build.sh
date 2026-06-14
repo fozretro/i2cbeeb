@@ -29,13 +29,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 ############################################################
-# Extract Time-Config source files
-############################################################
-
-# Run extraction script to clone repo and copy files with selective removal
-./bin/time-config/extract.sh
-
-############################################################
 # Build ROMs
 ############################################################
 

@@ -1,8 +1,11 @@
 #!/bin/bash
+# REFERENCE ONLY — not invoked by bin/build.sh.
+# Historical Time-Config extraction script; sources are vendored under src/configure/.
+# Use when diffing against upstream or preparing a future sync.
 set -e # Exit immediately if a command exits with a non-zero status.
 
 ############################################################
-# Time-Config Extraction Script
+# Time-Config Extraction Script (reference)
 # Clones Time-Config repository and extracts source files
 # with selective removal of unwanted features
 ############################################################

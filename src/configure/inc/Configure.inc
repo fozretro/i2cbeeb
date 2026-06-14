@@ -3,8 +3,12 @@
 \ Includes Time-Config source files in correct order
 \\
 \ Structure:
-\ - Original Time-Config files: src/configure/*.asm (untouched)
+\ - Vendored Time-Config sources: src/configure/*.asm (see upstream pin below)
 \ - Compatibility/Abstraction layers: src/configure/inc/*.asm
+\\
+\ Upstream: Barney Hilken Time-Config, commit e29478cc (2026-05-18).
+\ AP6/I2CBeeb edits are made directly in src/configure/; bin/time-config/extract.sh
+\ is retained for reference only (no longer run by build.sh).
 \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 \ Include files in dependency order:
@@ -20,7 +24,7 @@
 INCLUDE "src/configure/inc/Constants.asm"
 INCLUDE "src/configure/inc/Stubs.asm"
 
-\ Original Time-Config files (untouched, extracted to src/configure/)
+\ Original Time-Config files (vendored under src/configure/)
 INCLUDE "src/configure/Settings.asm"
 INCLUDE "src/configure/Strings.asm"
 INCLUDE "src/configure/Commands.asm"

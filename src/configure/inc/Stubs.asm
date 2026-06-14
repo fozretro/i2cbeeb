@@ -37,7 +37,7 @@
 \ So RTC_readTimeString, OSW_timeCommand, CON_Timezone, CON_DST and all their
 \ helper routines are no longer needed
 
-\ CON_Baud and CON_TV are defined in Configure.asm, so no stubs needed
+\ BAUD/TV removed for AP6/Electron (#7); SET_Startup still applies NVRAM defaults on hard break
 \ CON_FS and CON_PS are defined in Configure.asm, so no stubs needed
 
 \ Helper routines used by Configure.asm

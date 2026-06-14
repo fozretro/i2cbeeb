@@ -5,7 +5,6 @@ import {
   NVR_VDUSettings,
   NVR_MODE_MASK,
   I2CBeebRomTestHarness,
-  nvramBaudRate,
   nvramFile,
   nvramLang,
   nvramMode,
@@ -100,26 +99,26 @@ describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
       expect(result.reason).toBe("return");
       expect(harness.registers().a).toBe(0);
       const text = harness.mos.getOutputText();
-      expect(text).toMatch(/BAUD\s+7/);
+      expect(text).not.toMatch(/BAUD/);
+      expect(text).not.toMatch(/\bTV\b/);
+      expect(text).not.toMatch(/\bPRINT\b/);
+      expect(text).not.toMatch(/\bDATA\b/);
       expect(text).toMatch(new RegExp(`MODE\\s+${defaultMode}`));
       expect(text).toMatch(/NOBOOT/);
-      expect(text).toMatch(/DELAY\s+50/);
       expect(text).toMatch(/REPEAT\s+8/);
       expect(text).not.toMatch(/CONFIGURE/);
       expect(harness.mos.unexpected).toHaveLength(0);
     });
 
     describe("*CONFIGURE numeric literals (decimal and hex)", () => {
-      it("accepts decimal for MODE, BAUD, and DELAY", () => {
-        // When — decimal literals on help7 / help8 / help255 terms
+      it("accepts decimal for MODE and DELAY", () => {
+        // When — decimal literals on help7 / help255 terms
         expect(harness.invokeCommand({ commandText: "CONFIGURE MODE 2\r" }).reason).toBe("return");
-        expect(harness.invokeCommand({ commandText: "CONFIGURE BAUD 5\r" }).reason).toBe("return");
         expect(harness.invokeCommand({ commandText: "CONFIGURE DELAY 40\r" }).reason).toBe("return");
 
         // Then — NVRAM holds parsed values
         const nvram = harness.getNvramImage();
         expect(nvramMode(nvram)).toBe(2);
-        expect(nvramBaudRate(nvram)).toBe(5);
         expect(nvram[NVR_KeyRptDelay]).toBe(40);
         expect(harness.mos.unexpected).toHaveLength(0);
 
@@ -128,7 +127,6 @@ describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
         // When / Then — *STATUS echoes decimal forms
         for (const [term, pattern] of [
           ["MODE", /MODE\s+2/],
-          ["BAUD", /BAUD\s+5/],
           ["DELAY", /DELAY\s+40/],
         ] as const) {
           harness.mos.resetCaptures();

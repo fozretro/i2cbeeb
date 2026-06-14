@@ -9,8 +9,8 @@ Assume repo root `$REPO`; run shells from `$REPO` unless noted.
 
 ## Main I2CBeeb ROM pipeline
 
-1. `./bin/time-config/extract.sh` pulls **Barney Hilken — Time‑Config.** from Codeberg into **`refs/Time-Config`** (gitignored **`/refs`**), pins commit in `TIMECONFIG_COMMIT`, copies/strips into **`src/configure/`**. **Requires:** `git`, `python3`, **network on first clone**.
-2. **`./bin/build.sh`** runs that extract then BeebAsm compiles **`src/I2CBeeb.asm`** for BBC / Electron / EAP6 and test/configure variants into **`src/out/`**, runs **standalone ROM unit tests** (`npm test`, 72 tests on `i2cbc` / `i2cec` / `i2ceap6c`), packages **`dist/`**, then runs **`./bin/buildap6/build.sh`** twice (unless **`--skip-ap6`**) for **`dist/ap6.rom`** (i2c + composite Vitest, 18 tests) and **`bin/buildap6/out/ap6-classic.rom`** followed by **`npm run test:classic-only`** (7 LANG/TUBE tests). Auto-builds Plus 1 Support / ROM Manager if their **`bin/build*/out/`** artefacts are missing. Pass **`--skip-testing`** to omit Vitest and AP6 smoke tests. **Uses:** `./bin/beebasm`, `./bin/mmbutils/beeb`, **`node`/`npm`** for tests.
+1. Configure sources live in **`src/configure/`** (vendored from [Time‑Config.](https://codeberg.org/Barneyntd/Time-Config.), commit pinned in `src/configure/inc/Configure.inc`). **`./bin/build.sh`** does not run extraction; edit those files directly. **`bin/time-config/extract.sh`** is reference-only for upstream diffs.
+2. **`./bin/build.sh`** runs BeebAsm compiles **`src/I2CBeeb.asm`** for BBC / Electron / EAP6 and test/configure variants into **`src/out/`**, runs **standalone ROM unit tests** (`npm test`, 72 tests on `i2cbc` / `i2cec` / `i2ceap6c`), packages **`dist/`**, then runs **`./bin/buildap6/build.sh`** twice (unless **`--skip-ap6`**) for **`dist/ap6.rom`** (i2c + composite Vitest, 18 tests) and **`bin/buildap6/out/ap6-classic.rom`** followed by **`npm run test:classic-only`** (7 LANG/TUBE tests). Auto-builds Plus 1 Support / ROM Manager if their **`bin/build*/out/`** artefacts are missing. Pass **`--skip-testing`** to omit Vitest and AP6 smoke tests. **Uses:** `./bin/beebasm`, `./bin/mmbutils/beeb`, **`node`/`npm`** for tests.
 
 **Smoke check:** from `$REPO`, run `./bin/build.sh`; expect exits `0` and SSD/ROM artefacts updated under **`dist/`** (including **`ap6.rom`**) and **`dev/`** staging described in **`README.md`**. Classic amalgam test fixture under **`bin/buildap6/out/`** (gitignored).
 
@@ -54,7 +54,7 @@ Console labels like `AP1v131` / `AP6v134` may reflect **config** filenames; rely
 
 - Do not commit **`refs/`** clones or scratch (`/refs` is in **`.gitignore`**).
 - Do not commit **`node_modules/`**, **`bin/build*/out/`**, **`src/out/`** per **`.gitignore`**.
-- If Time-Config commit changes, update **`bin/time-config/extract.sh`** `TIMECONFIG_COMMIT` deliberately so builds stay reproducible.
+- If syncing from upstream Time-Config, diff against **`bin/time-config/extract.sh`** / **`refs/Time-Config`** manually; update vendored files under **`src/configure/`**.
 
 ## Fast reference
 
