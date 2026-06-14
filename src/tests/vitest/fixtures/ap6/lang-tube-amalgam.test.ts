@@ -90,16 +90,20 @@ describe("LANG/TUBE persistence (ROM Manager / Plus 1 in ap6 amalgam)", () => {
       romManager.mos.resetCaptures();
       const powerOn = romManager.invokePowerOn();
 
-      // Then — &0D6D reloaded from NVRAM: LANG 10
+      // Then — &0D6D language nibble reloaded from NVRAM: LANG 10 (bit 5 also
+      // reflects the NOTUBE factory default; this test only asserts LANG)
       expect(powerOn.reason).toBe("return");
       expectByte(romManager, MOS_BREAK_TYPE, 1);
-      expectByte(romManager, ROM_MANAGER_L0D6D, 0x0a);
+      expectByte(romManager, ROM_MANAGER_L0D6D, 0x0a, { mask: 0x0f });
       expect(romManager.hasNvramLangRead()).toBe(true);
       expect(romManager.mos.unexpected).toHaveLength(0);
     });
 
     it("*TUBE OFF is session-only; *CONFIGURE NOTUBE persists after power-on", () => {
-      // Given — NVRAM addr 15 bit 0 set (tube on); &0D6D tube enabled (b5 clear)
+      // Given — tube enabled in NVRAM (AP6 factory default is NOTUBE, so seed
+      // byte 15 with the tube-enable bit: 0x3a default | 0x01); &0D6D tube
+      // enabled (b5 clear)
+      session.setNvramBytes({ [NVR_TubeSerialPrint]: 0x3b });
       expectNvramByte(session.getNvramImage(), NVR_TubeSerialPrint, 1, { mask: 0x01 });
       expect(nvramTubeEnabled(session.getNvramImage())).toBe(true);
       romManager.setSessionTubeDisabled(false);

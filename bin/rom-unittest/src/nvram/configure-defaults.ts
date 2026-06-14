@@ -45,7 +45,7 @@ export const DEFAULT_CONFIGURE_NVRAM: PartialNvramImage = {
   12: 0x32,
   13: 0x08,
   14: 0x0a,
-  15: 0x3b,
+  15: 0x3a,
   16: 0xa2,
   [NVR_InitMarker]: 0xff,
 };

@@ -92,27 +92,32 @@ describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
       expect(harness.getNvramImage()[NVR_VDUSettings]! & NVR_MODE_MASK).toBe(defaultMode);
     });
 
-    it("bare *STATUS lists all factory-default config terms", () => {
+    it("bare *STATUS prints exactly the factory-default config terms", () => {
+      // Given — real AP6 has no Econet, so the FS/PS "net exists" gate
+      // (bit 6 of OS_RomBytes[OS_ROMNum]) is clear and FS/PS are not listed.
+      // The harness's RAM fill leaves that bit set (see issue #31), so clear it
+      // here to assert the true on-hardware output.
+      const romSlot = harness.readMemory(0xf4);
+      harness.writeMemory(0x0df0 + romSlot, harness.readMemory(0x0df0 + romSlot) & ~0x40);
+
       const result = harness.invokeCommand({ commandText: "STATUS\r" });
 
-      // Then — CON_Status blankStatus lists each term and value from NVRAM
+      // Then — CON_Status blankStatus emits exactly these lines, in order.
+      // An exact match guards against extra/wrong terms (e.g. TUBE vs NOTUBE,
+      // or removed BAUD/TV/PRINT/DATA/LOUD/QUIET/IGNORE reappearing).
       expect(result.reason).toBe("return");
       expect(harness.registers().a).toBe(0);
-      const text = harness.mos.getOutputText();
-      expect(text).not.toMatch(/BAUD/);
-      expect(text).not.toMatch(/\bTV\b/);
-      expect(text).not.toMatch(/\bPRINT\b/);
-      expect(text).not.toMatch(/\bDATA\b/);
-      expect(text).not.toMatch(/\bLOUD\b/);
-      expect(text).not.toMatch(/\bQUIET\b/);
-      expect(text).not.toMatch(/\bIGNORE\b/);
-      expect(text).toMatch(new RegExp(`MODE\\s+${defaultMode}`));
-      expect(text).toMatch(/NOBOOT/);
-      expect(text).toMatch(/\bCAPS\b/);
-      expect(text).toMatch(/DELAY\s+50/);
-      expect(text).toMatch(/FDRIVE\s+0/);
-      expect(text).toMatch(/REPEAT\s+8/);
-      expect(text).not.toMatch(/CONFIGURE/);
+      const expected =
+        "  NOBOOT\r\n" +
+        "  CAPS\r\n" +
+        "  DELAY 50\r\n" +
+        "  FDRIVE 0\r\n" +
+        "  FILE F\r\n" +
+        "  LANG F\r\n" +
+        `  MODE ${defaultMode}\r\n` +
+        "  NOTUBE\r\n" +
+        "  REPEAT 8\r\n";
+      expect(harness.mos.getOutputText()).toBe(expected);
       expect(harness.mos.unexpected).toHaveLength(0);
     });
 

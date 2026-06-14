@@ -5,6 +5,7 @@ import type { JsbeebCpu } from "../cpu/types.js";
 import { createDefaultConfigureNvramImage } from "../nvram/configure-defaults.js";
 import { ReadKeySwitchesStub } from "../nvram/configure-stubs.js";
 import { NvramMock, installConfigureWorkspaceStubs } from "../nvram/nvram-mock.js";
+import type { PartialNvramImage } from "../nvram/defaults.js";
 import { MosMock } from "../mos/mos-mock.js";
 import { RETURN_TRAMPOLINE, MOS_MACHINE_TYPE } from "./ap6-sidecar-harness.js";
 import {
@@ -95,6 +96,14 @@ export class Ap6ClassicAmalgamSession {
       throw new Error("getNvramImage() requires labelsPath (ap6 amalgam with embedded I²C)");
     }
     return new Uint8Array(this.nvramMock.image);
+  }
+
+  /** Override PCF8583 NVRAM bytes (e.g. set a tube-on precondition). */
+  setNvramBytes(overrides: PartialNvramImage): void {
+    if (!this.configureEnabled) {
+      throw new Error("setNvramBytes() requires labelsPath (ap6 amalgam with embedded I²C)");
+    }
+    this.nvramMock.setBytes(overrides);
   }
 
   reset(): void {

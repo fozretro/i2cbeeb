@@ -30,6 +30,9 @@ describe("LANG/TUBE NVRAM persistence (*CONFIGURE via embedded I²C in ap6 amalg
     });
 
     it("*CONFIGURE NOTUBE clears NVRAM address 15 bit 0", () => {
+      // Given — tube enabled in NVRAM (AP6 factory default is NOTUBE, so seed
+      // byte 15 with the tube-enable bit: 0x3a default | 0x01)
+      harness.mockConfigure({ [NVR_TubeSerialPrint]: 0x3b });
       expectNvramByte(harness.getNvramImage(), NVR_TubeSerialPrint, 1, { mask: 0x01 });
 
       // When — *CONFIGURE NOTUBE

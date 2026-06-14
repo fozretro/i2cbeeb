@@ -57,7 +57,7 @@ NVR_InitMarker		= 17			\\ AP6: initialised flag (PCF8583 reg 23h)
 	EQUB 50					\\ address 12: DELAY
 	EQUB 8					\\ address 13: REPEAT
 	EQUB 10					\\ address 14: IGNORE
-	EQUB %00111011			\\ address 15: TUBE, BAUD & PRINT
+	EQUB %00111010			\\ address 15: BAUD & PRINT (AP6: NOTUBE)
 	EQUB %10100010			\\ address 16: LOUD, BOOT & DATA
 \\	EQUB 0					\\ address 17: ANFS settings
 
