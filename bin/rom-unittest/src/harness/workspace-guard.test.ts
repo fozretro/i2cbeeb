@@ -9,7 +9,7 @@ import {
 } from "./workspace-guard.js";
 
 describe("workspace-guard", () => {
-  it("snapshots all zero page except MOS scratch &A8–&AF", () => {
+  it("snapshots all zero page except MOS scratch &A8–&AF and parser ZP &6B–&6F", () => {
     const mem = new Map<number, number>();
     for (let address = 0; address < 0x100; address++) {
       mem.set(address, address ^ 0x5a);
@@ -18,10 +18,10 @@ describe("workspace-guard", () => {
     mem.set(INDV3_ADDRESS + 1, 0x35);
 
     const snapshot = snapshotWorkspaceGuard((address) => mem.get(address) ?? 0);
-    expect(snapshot.zeroPage.has(0x6b)).toBe(true);
+    expect(snapshot.zeroPage.has(0x6b)).toBe(false);
     expect(snapshot.zeroPage.has(MOS_COMMAND_SCRATCH_START)).toBe(false);
     expect(snapshot.zeroPage.has(MOS_COMMAND_SCRATCH_START + 7)).toBe(false);
-    expect(snapshot.zeroPage.size).toBe(0x100 - 8 - 2);
+    expect(snapshot.zeroPage.size).toBe(0x100 - 8 - 5 - 2);
     expect(snapshot.ram.has(INDV3_ADDRESS)).toBe(true);
   });
 
@@ -34,12 +34,11 @@ describe("workspace-guard", () => {
     mem.set(INDV3_ADDRESS + 1, 0x35);
     const snapshot = snapshotWorkspaceGuard((address) => mem.get(address) ?? 0);
     mem.set(INDV3_ADDRESS, 0xaa);
-    mem.set(0x6b, 0x00);
+    mem.set(0x6a, 0x00);
 
     const violations = compareWorkspaceGuard((address) => mem.get(address) ?? 0, snapshot);
-    expect(violations.length).toBeGreaterThanOrEqual(2);
+    expect(violations.length).toBeGreaterThanOrEqual(1);
     expect(violations.some((v) => v.address === INDV3_ADDRESS)).toBe(true);
-    expect(violations.some((v) => v.address === 0x6b)).toBe(true);
   });
 
   it("allows MOS scratch &A8–&AF to change", () => {

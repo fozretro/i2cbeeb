@@ -91,6 +91,21 @@ describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
       expect(harness.getNvramImage()[NVR_VDUSettings]! & NVR_MODE_MASK).toBe(0);
     });
 
+    it("bare *STATUS lists all factory-default config terms", () => {
+      const result = harness.invokeCommand({ commandText: "STATUS\r" });
+
+      // Then — CON_Status blankStatus lists each term and value from NVRAM
+      expect(result.reason).toBe("return");
+      expect(harness.registers().a).toBe(0);
+      const text = harness.mos.getOutputText();
+      expect(text).toMatch(/BAUD\s+7/);
+      expect(text).toMatch(/MODE\s+0/);
+      expect(text).toMatch(/DELAY\s+50/);
+      expect(text).toMatch(/REPEAT\s+8/);
+      expect(text).not.toMatch(/CONFIGURE/);
+      expect(harness.mos.unexpected).toHaveLength(0);
+    });
+
     describe("*CONFIGURE numeric literals (decimal and hex)", () => {
       it("accepts decimal for MODE, BAUD, and DELAY", () => {
         // When — decimal literals on help7 / help8 / help255 terms

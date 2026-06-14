@@ -139,12 +139,12 @@ bufloc	=	$CE			\zp,y pointer to i2c buffer for RxB..
 						\..and RxD. Normally $0A00 but can..
 						\..also be $0380 during RTC access.
 i2cbuf	=	$0A00		\i2c Tx and Rx data buffer (to $0AFF)
-mos_scratch = &A8		\MOS star-command scratch (#12, JGH-style)
-comdata	=	mos_scratch+0	\Y save during command parsing
-temp1	=	mos_scratch+1	\command transient temporary #1
-temp2	=	mos_scratch+2	\command transient temporary #2
-htextl	=	mos_scratch+6	\help/command table ptr lo — must be ZP for (htextl),Y
-htexth	=	mos_scratch+7	\help/command table ptr hi
+mos_scratch = &A8		\MOS star-command scratch — Configure TempSpace only (#12)
+temp1	=	$6B			\command parser transient #1
+temp2	=	$6C			\command parser transient #2
+htextl	=	$6D			\help/command table ptr lo — must be ZP for (htextl),Y
+htexth	=	$6E			\help/command table ptr hi
+comdata	=	$6F			\Y save during command parsing
 i2cwrk	=	&02E0		\I2C transaction workspace (not zero page)
 eeplo	=	i2cwrk+0	\24C32 target address lo-byte for r/w
 eephi	=	i2cwrk+1	\24C32 target address hi-byte for r/w

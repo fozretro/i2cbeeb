@@ -2,7 +2,7 @@
  * MOS workspace guards for issue #12 — star-command scratch etiquette.
  *
  * Snapshot zero page (and optionally other RAM) after harness setup; assert
- * only MOS star-command scratch (&A8–&AF) may change across a ROM invoke.
+ * only MOS star-command scratch (&A8–&AF) and I2CBeeb parser ZP (&6B–&6F) may change
  */
 
 /** Language indirection vector (INDV3) — must not be used as COMVEC. */
@@ -19,9 +19,10 @@ export interface MemoryRegion {
   length: number;
 }
 
-/** Default: ROM may freely use MOS star-command scratch only. */
+/** Default: ROM may freely use MOS star-command scratch and I2CBeeb parser ZP. */
 export const DEFAULT_ZERO_PAGE_EXEMPT: readonly MemoryRegion[] = [
   { start: MOS_COMMAND_SCRATCH_START, length: MOS_COMMAND_SCRATCH_BYTES },
+  { start: 0x006b, length: 5 }, // I2CBeeb command-parser transient ($6B–$6F)
   { start: 0x00e4, length: 2 }, // Time-Config TempSpace2 — STR_PrintString pointer
 ];
 
