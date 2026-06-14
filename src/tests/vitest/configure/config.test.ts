@@ -105,6 +105,9 @@ describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
       expect(text).not.toMatch(/\bDATA\b/);
       expect(text).toMatch(new RegExp(`MODE\\s+${defaultMode}`));
       expect(text).toMatch(/NOBOOT/);
+      expect(text).toMatch(/\bCAPS\b/);
+      expect(text).toMatch(/DELAY\s+50/);
+      expect(text).toMatch(/FDRIVE\s+0/);
       expect(text).toMatch(/REPEAT\s+8/);
       expect(text).not.toMatch(/CONFIGURE/);
       expect(harness.mos.unexpected).toHaveLength(0);

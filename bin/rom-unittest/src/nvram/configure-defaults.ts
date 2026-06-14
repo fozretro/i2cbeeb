@@ -41,7 +41,7 @@ export const DEFAULT_CONFIGURE_NVRAM: PartialNvramImage = {
   8: 0x00,
   9: 0x00,
   10: 0x06,
-  11: 0xc0,
+  11: 0xe0,
   12: 0x32,
   13: 0x08,
   14: 0x0a,

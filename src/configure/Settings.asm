@@ -53,7 +53,7 @@ NVR_InitMarker		= 17			\\ AP6: initialised flag (PCF8583 reg 23h)
 	EQUB 0					\\ address 8: EDIT settings
 	EQUB 0					\\ address 9: Telecom settings
 	EQUB %00000110			\\ address 10: MODE & TV (AP6: MODE 6)
-	EQUB %11000000			\\ address 11: FDRIVE & CAPS (AP6: FDRIVE 0)
+	EQUB %11100000			\\ address 11: FDRIVE & CAPS (AP6: FDRIVE 0, CAPS on)
 	EQUB 50					\\ address 12: DELAY
 	EQUB 8					\\ address 13: REPEAT
 	EQUB 10					\\ address 14: IGNORE

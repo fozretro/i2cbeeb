@@ -155,16 +155,13 @@
 	JSR CMD_printTerm
 	JMP endLine
 .notThisOne
-	LDA TempSpace+3						\\ load parameter type
-	CMP #helpAlt - helpBase				\\ check for alternative
-	PHP
 .skipLoop
 	INX
 	LDA commandTable-1,X
 	BPL	skipLoop						\\ skip over term
-	STA TempSpace+3
-	PLP
-	BNE nothing							\\ no alternative matches setting
+	STA TempSpace+3						\\ param of the term just skipped
+	CMP #helpAlt - helpBase				\\ was it an alternative (helpAlt) or last in group (&FF)?
+	BNE nothing							\\ not helpAlt => group exhausted, stop (do not eat next term)
 	INY
 	INY
 	INY									\\ next index
