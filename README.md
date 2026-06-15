@@ -23,7 +23,7 @@ Supported Platforms and Features
 
 The project builds multiple ROM variants for each target platform:
 
-| Filename (/dist) | Filename (.ssd) | Platform | RTC Type | I2C Core | Plus *CONFIGURE \*\* | Plus AP6 Support ROMs | Plus Test |
+| Filename (/dist) | Filename (.ssd) | Platform | RTC Type | I2C Core | *CONFIGURE \*\* | AP6 Support ROMs | I2C Testing |
 |------------------|-----------------|----------|----------|----------|------------------|-----------------------|-----------|
 | `i2cb.rom` | `I2CB` | BBC Micro* | DS3231 | ✓ | | | |
 | `i2cbc.rom` | `C.I2CB` | BBC Micro* | DS3231 | ✓ | | | |
