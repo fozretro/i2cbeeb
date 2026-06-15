@@ -52,32 +52,23 @@ Time & Config sources are copied under [`src/configure/`](src/configure/) for no
 I2C Devices Supported
 ---------------------
 
-BBC Micro* and Electron builds talk to a **DS3231** at **`&68`** (`RTC` in `src/inc/rtc/DS3231.asm`). Electron **AP6** builds (and production AP-class boards with the on-board RTC) use a **PCF8583** at **`&50`** (`RTC` in `src/inc/rtc/PCF8583.asm`) — the same address used in the `*I2CRXB 50 …` examples in [Usage with AP6](#usage-with-ap6) below. Dave’s planned cartridge RTC is expected to stay on **`&50`** so it matches AP6 without a rebuild.
+BBC Micro and Electron builds talk to a **DS3231** at **`&68`** (`RTC` in `src/inc/rtc/DS3231.asm`). Electron **AP6** builds (and production AP-class boards with the on-board RTC) use a **PCF8583** at **`&50`** (`RTC` in `src/inc/rtc/PCF8583.asm`) — the same address used in the `*I2CRXB 50 …` examples in [Usage with Electron AP6 Platform](#usage-with-electron-ap6-platform) below.
 
 The I²C bus commands (`*I2CRXB`, `*I2CTXB`, `*I2CQUERY`, etc.) take the device address in **decimal** (`50` = `&50`). On AP6, **`&50` registers `10h`–`11h`** are reserved by the RTC layer (year offset, year copy, `*TBRK`); **configure NVRAM uses logical addresses `0`–`17`** (chip `12h`–`23h`: settings **0–16**, init marker at logical **17** = chip **`23h`**). Logical **238+** wraps into the clock region — do not use. Other devices on the AP6 header must not clash with **`&50`**. Use `*I2CQUERY` / `*I2CTEST` on hardware to confirm.
-
-Factory Reset
--------------
-
-**Factory reset and first-boot init (AP6 *CONFIGURE* builds):** Persisted settings live in PCF8583 NVRAM (see [NVRAM layout](#usage-with-ap6) below) and are applied to MOS on every boot (Ctrl+Break or power-on).
-
-| Trigger | What happens |
-|---------|----------------|
-| **Hold `R` during break** | Factory reset — default `*CONFIGURE` values are written. Does not reset the RTC chip. |
-| **Uninitialised NVRAM** | Automatic factory reset on first boot of new or blank NVRAM, then marked initialised so later breaks do not re-init. |
-| **Normal break** | Apply saved settings from NVRAM; no full reset. |
 
 Developer Diary
 ---------------
 
 Development status and milestones (newest first) are tracked in a separate developer diary to keep this README focused on usage and reference. See [DIARY.md](DIARY.md) for the full history, including the in-progress v3.3 work, the BeebAsm migration, and earlier releases.
 
-Usage with AP6
---------------
+Usage with Electron AP6 Platform
+--------------------------------
 
-You need a Plus 1 with the AP6 expansion board fitted and a battery installed for the RTC chip to retain time and data. Download and install/load the ROM above. All the commands, `*TSET, *DSET, *NOW, *DATE, *TIME` etc work as per documentation on Martins [thread](https://stardot.org.uk/forums/viewtopic.php?t=10966). There is one notable exception that the `*TEMP` command outputs `Not Available`, because the PCF8583 RTC does not support this.
+You need a Plus 1 with the AP6 expansion board fitted and a battery installed for the RTC chip to retain time and data. Download and install/load the ROM above. The `I2CEAP6*` ROMs are standalone, but note that their NVRAM storage (used by `*CONFIGURE`/`*STATUS`) will only work if the I2C ROM is installed in a **higher ROM slot than the AP6 Support ROM**, and that AP6 Support ROM must be **v1.341 or above**. Alternatively the AP6 Support ROM can be replaced (at the reader's own risk) with the combined `ap6.rom`, which bundles the I2CBeeb ROM within it — see [Supported Platforms and Features](#supported-platforms-and-features).
 
-What the PCF8583 does have though is storage! Meaning you can do things like this to store information and have it retained. The ROM reserves chip registers **`10h`** (year offset) and **`11h`** (year copy and `*TBRK` toggle). **Configure NVRAM** uses logical bytes **0–17** (chip **`12h`–`23h`**: settings **0–16**, initialised marker at logical **17** = chip **`23h`**). Spare logical addresses **18–237** map to chip **`24h`–`FFh`**. Do not use `*I2CTXB`/`I2CRXB` on chip regs below **`12h`** except for RTC debugging. Note that **`50`** in the commands below is the device ID for the installed PCF8583.
+All the commands, `*TSET, *DSET, *NOW, *DATE, *TIME` etc work as per documentation on Martins [thread](https://stardot.org.uk/forums/viewtopic.php?t=10966). There is one notable exception that the `*TEMP` command outputs `Not Available`, because the PCF8583 RTC does not support this. The `*CONFIGURE` and `*STATUS` commands work as per the [Time & Config. repository](https://codeberg.org/Barneyntd/Time-Config.). The `*ROMS`, `*UNPLUG` and `*INSERT` commands from the ROM Manager (included in the AP6 Support ROM) will now retain their state over a power cycle in this configuration.
+
+As an additional feature, the PCF8583's spare RAM can be used to store your own data and have it retained across power cycles. The ROM reserves chip registers **`10h`** (year offset) and **`11h`** (year copy and `*TBRK` toggle). **Configure NVRAM** uses logical bytes **0–17** (chip **`12h`–`23h`**: settings **0–16**, initialised marker at logical **17** = chip **`23h`**). Spare logical addresses **18–237** map to chip **`24h`–`FFh`**. Do not use `*I2CTXB`/`I2CRXB` on chip regs below **`12h`** except for RTC debugging. Note that **`50`** in the commands below is the device ID for the installed PCF8583.
 
     *I2CQUERY
     *I2CRXB 50 #12 A%
@@ -90,6 +81,16 @@ What the PCF8583 does have though is storage! Meaning you can do things like thi
     P.$&A00
 
 Finally, note that the AP6, has I2C headers on board, meaning you can attach easily other I2C devices and access them using the above commands. Please be careful attaching new devices and observe the correct pin out, then run `*I2CQUERY`.
+
+### Factory Reset
+
+Persisted settings set by `*CONFIGURE` live in PCF8583 NVRAM and are applied to MOS on every boot (Ctrl+Break or power-on). The following triggers determine whether NVRAM is reset, initialised, or simply applied:
+
+| Trigger | What happens |
+|---------|----------------|
+| **Hold `R` during break** | Factory reset — default `*CONFIGURE` values are written. Does not reset the RTC chip. |
+| **Uninitialised NVRAM** | Automatic factory reset on first boot of new or blank NVRAM, then marked initialised so later breaks do not re-init. |
+| **Normal break** | Apply saved settings from NVRAM; no full reset. |
 
 Building
 --------
