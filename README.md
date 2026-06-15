@@ -5,22 +5,22 @@ I2CBeeb ROM for BBC, Electron, Electron AP6
 
 This project got started as a means to explore and implement RTC commands and others that make use of the RTC (a `PCF8583`) within the Electron **AP6** by Dave Hitchens. StarDot forum discussion [here](https://www.stardot.org.uk/forums/viewtopic.php?t=28720). It has now become a means to build the I2C Rom by MartinB (of StarDot) using the BeebAsm assembler for three targets, **BBC Micro**, **Electron** and **Electron Plus with AP6** (`/bin/build.sh`). Additionally tools in this project will also rebuild the AP6 Support ROM to include the I2C AP6 ROM (`/bin/buildap6/build.sh`) all be it without TreeROM due to size restrictions. All compiled output is in `/dist`.
 
-This repository has partnered with Barney Hilken, the author of the [Time & Config. ROM](https://codeberg.org/Barneyntd/Time-Config.), to reuse its configuration feature implementation. Many thanks to Barney for making this integration possible. Configure sources are **vendored** under [`src/configure/`](src/configure/) (upstream commit noted in [`src/configure/inc/Configure.inc`](src/configure/inc/Configure.inc)); AP6-specific edits are made there directly. [`bin/time-config/extract.sh`](bin/time-config/extract.sh) is retained for reference when diffing upstream. This integration enables `*CONFIGURE` and `*STATUS` commands for machine configuration, as well as `*INSERT` and `*UNPLUG` commands for ROM management. For more information and documentation on Time & Config ROM features, readers should refer to the [Time & Config. repository](https://codeberg.org/Barneyntd/Time-Config.) directly.
+This repository has partnered with Barney Hilken, the author of the [Time & Config. ROM](https://codeberg.org/Barneyntd/Time-Config.), to reuse its configuration feature implementation. Many thanks to Barney for making this integration possible. Configure sources are **copied** under [`src/configure/`](src/configure/) for now (upstream commit noted in [`src/configure/inc/Configure.inc`](src/configure/inc/Configure.inc)); AP6-specific edits are made there directly. The goal is to dynamically import only the required code once the integration work has completed and the touch points are clearer. [`bin/time-config/extract.sh`](bin/time-config/extract.sh) is retained for reference when diffing upstream. This integration enables `*CONFIGURE` and `*STATUS` commands for machine configuration, as well as `*INSERT` and `*UNPLUG` commands for ROM management. For more information and documentation on Time & Config ROM features, readers should refer to the [Time & Config. repository](https://codeberg.org/Barneyntd/Time-Config.) directly.
 
 The project builds multiple ROM variants for each target platform:
 
-| Filename (/dist) | Filename (.ssd) | Platform | RTC Type | I2C Core | Plus *CONFIGURE | Plus Test |
-|------------------|-----------------|----------|----------|----------|------------------|-----------|
-| `i2cb.rom` | `I2CB` | BBC Micro* | DS3231 | ✓ | | |
-| `i2cbc.rom` | `C.I2CB` | BBC Micro* | DS3231 | ✓ | | |
-| `i2cbt.rom` | `T.I2CB` | BBC Micro* | DS3231 | ✓ | | ✓ |
-| `i2ce.rom` | `I2CE` | Electron | DS3231 | ✓ | | |
-| `i2cec.rom` | `C.I2CE` | Electron | DS3231 | ✓ | | |
-| `i2cet.rom` | `T.I2CE` | Electron | DS3231 | ✓ | | ✓ |
-| `i2ceap6.rom` | `I2CEAP6` | Electron AP6 | PCF8583 | ✓ | ✓ | |
-| `i2ceap6c.rom` | `C.I2CEAP6` | Electron AP6 | PCF8583 | ✓ | ✓ | |
-| `i2ceap6t.rom` | `T.I2CEAP6` | Electron AP6 | PCF8583 | ✓ | ✓ | ✓ |
-| `ap6.rom` | `AP6` | Electron AP6 Support ROM | PCF8583 | ✓ | ✓ | |
+| Filename (/dist) | Filename (.ssd) | Platform | RTC Type | I2C Core | Plus *CONFIGURE | Plus AP6 Support ROMs | Plus Test |
+|------------------|-----------------|----------|----------|----------|------------------|-----------------------|-----------|
+| `i2cb.rom` | `I2CB` | BBC Micro* | DS3231 | ✓ | | | |
+| `i2cbc.rom` | `C.I2CB` | BBC Micro* | DS3231 | ✓ | | | |
+| `i2cbt.rom` | `T.I2CB` | BBC Micro* | DS3231 | ✓ | | | ✓ |
+| `i2ce.rom` | `I2CE` | Electron | DS3231 | ✓ | | | |
+| `i2cec.rom` | `C.I2CE` | Electron | DS3231 | ✓ | | | |
+| `i2cet.rom` | `T.I2CE` | Electron | DS3231 | ✓ | | | ✓ |
+| `i2ceap6.rom` | `I2CEAP6` | Electron AP6 | PCF8583 | ✓ | ✓ | | |
+| `i2ceap6c.rom` | `C.I2CEAP6` | Electron AP6 | PCF8583 | ✓ | ✓ | | |
+| `i2ceap6t.rom` | `T.I2CEAP6` | Electron AP6 | PCF8583 | ✓ | ✓ | | ✓ |
+| `ap6.rom` | `AP6` | Electron AP6 | PCF8583 | ✓ | ✓ | ✓ | |
 
 **BBC Micro\*** — the `I2CB` / `C.I2CB` / `T.I2CB` rows are one sideways-ROM profile for **BBC Model B**, **B+**, **Master**, and **Master Compact** (not separate Master builds). The I²C core (`*I2C…`, RTC/time commands, `*I2CTEST`) is expected to work on all of them; bus access is via the **user port**, the same attachment path on Model B and Master-class machines.
 
@@ -50,7 +50,7 @@ This project also includes support for building the AP6 Support ROM (`ap6.rom`) 
 
 This repository `/dist` folder contains version **v3.2** and above of the **I2CBeeb** ROM. If you need the official I2CBeeb ROMs **v3.1**, see [thread](https://stardot.org.uk/forums/viewtopic.php?t=10966) for other variants. Looking forward, since this repo supports building all variants of the ROM, one option is this repository may become the main I2CBeeb repository in the future, or it may reside some other place. Currently the source code is only shared by Martin as attachments on StarDot and in this repository per his kind permission.
 
-Time & Config sources are vendored under [`src/configure/`](src/configure/) with AP6-specific edits applied in-tree. [`bin/time-config/extract.sh`](bin/time-config/extract.sh) is reference-only for upstream diffs. For more information and documentation on Time & Config ROM features, readers should refer to the [Time & Config. repository](https://codeberg.org/Barneyntd/Time-Config.) directly. 
+Time & Config sources are copied under [`src/configure/`](src/configure/) for now with AP6-specific edits applied in-tree. The goal is to dynamically import only the required code once the integration work has completed and the touch points are clearer. [`bin/time-config/extract.sh`](bin/time-config/extract.sh) is reference-only for upstream diffs. For more information and documentation on Time & Config ROM features, readers should refer to the [Time & Config. repository](https://codeberg.org/Barneyntd/Time-Config.) directly. 
 
 Status - Release v3.3 In Progress - Test Framework and Configure Support (Jan 2026)
 ----------------------------------------------------------------------------------
