@@ -1,15 +1,27 @@
 I2CBeeb ROM for BBC, Electron, Electron AP6
 ===========================================
 
-> **⚠️ IMPORTANT NOTE:** This is an exploration branch only at present. Source files relating to other AP6 supporting ROMs and builds of them will not be merged into the final branch—they are temporarily stored here for ease of exploration.
+> **⚠️ IMPORTANT NOTE:** This is a development branch. Source files relating to other AP6 supporting ROMs and builds of them will not be merged into the final branch—they are temporarily stored here for ease of development.
 
-This project got started as a means to explore and implement RTC commands and others that make use of the RTC (a `PCF8583`) within the Electron **AP6** by Dave Hitchens. StarDot forum discussion [here](https://www.stardot.org.uk/forums/viewtopic.php?t=28720). It has now become a means to build the I2C Rom by MartinB (of StarDot) using the BeebAsm assembler for three targets, **BBC Micro**, **Electron** and **Electron Plus with AP6** (`/bin/build.sh`). Additionally tools in this project will also rebuild the AP6 Support ROM to include the I2C AP6 ROM (`/bin/buildap6/build.sh`) all be it without TreeROM due to size restrictions. All compiled output is in `/dist`.
+This project started as a way to explore and implement RTC commands for the Electron **AP6** by Dave Hitchens ([StarDot forum discussion](https://www.stardot.org.uk/forums/viewtopic.php?t=28720)). It has since grown into a tool for building the I2C ROM by MartinB (of StarDot) with the BeebAsm assembler, targeting the **BBC Micro**, **Electron**, and **Electron Plus with AP6**. It can also rebuild the AP6 Support ROM to include the I2C AP6 ROM, albeit without TreeROM due to size restrictions.
 
-This repository has partnered with Barney Hilken, the author of the [Time & Config. ROM](https://codeberg.org/Barneyntd/Time-Config.), to reuse its configuration feature implementation. Many thanks to Barney for making this integration possible. Configure sources are **copied** under [`src/configure/`](src/configure/) for now (upstream commit noted in [`src/configure/inc/Configure.inc`](src/configure/inc/Configure.inc)); AP6-specific edits are made there directly. The goal is to dynamically import only the required code once the integration work has completed and the touch points are clearer. [`bin/time-config/extract.sh`](bin/time-config/extract.sh) is retained for reference when diffing upstream. This integration enables `*CONFIGURE` and `*STATUS` commands for machine configuration, as well as `*INSERT` and `*UNPLUG` commands for ROM management. For more information and documentation on Time & Config ROM features, readers should refer to the [Time & Config. repository](https://codeberg.org/Barneyntd/Time-Config.) directly.
+Where did the Source code come from?
+------------------------------------
+
+In the **StarDot** thread linked above, MartinB the author of the **I2C Beeb ROM** shared his code in order to help create a compatible version for the Acorn Electron AP6. Rather than forking his code just for AP6, the aim was to explore whether AP6 support could be added while still supporting future updates.
+
+This was quite easy as Martin had done an amazing job at separating out the code needed to access the I2C bus and read/write to the RTC from all the other logic. Using the `INCLUDE` directive it is possible to have a single source file for the bulk of the code, with the differences needed to support each target kept separately. The build now uses **BeebAsm** rather than the original Lancs Compiler, but the same `INCLUDE` approach still applies, so should the main code be updated all three targets can easily be rebuilt from it, much like how the variants of **MMFS** work.
+
+Martin has given kind permission in the **StarDot** thread above to leverage his code to make all this possible and hopefully making iterating on the ROM for all targets possible in the future (though right now there are no plans beyond adding support for AP6, as its kinda pretty good as-is tbh). Since then as noted above the `/src` now contains a migration of his original code that now supports the BeebAsm tool, which speeds up the compilation dramatically and removes the need for an emulator.
+
+This repository has also partnered with Barney Hilken, the author of the [Time & Config. ROM](https://codeberg.org/Barneyntd/Time-Config.), to reuse its configuration feature implementation — many thanks to Barney for making this integration possible. This enables the `*CONFIGURE` and `*STATUS` commands for machine configuration, along with `*INSERT` and `*UNPLUG` for ROM management (the latter only when embedded within the AP6 Support ROM). For more information on Time & Config ROM features, refer to the [Time & Config. repository](https://codeberg.org/Barneyntd/Time-Config.) directly.
+
+Supported Platforms and Features
+--------------------------------
 
 The project builds multiple ROM variants for each target platform:
 
-| Filename (/dist) | Filename (.ssd) | Platform | RTC Type | I2C Core | Plus *CONFIGURE | Plus AP6 Support ROMs | Plus Test |
+| Filename (/dist) | Filename (.ssd) | Platform | RTC Type | I2C Core | Plus *CONFIGURE \*\* | Plus AP6 Support ROMs | Plus Test |
 |------------------|-----------------|----------|----------|----------|------------------|-----------------------|-----------|
 | `i2cb.rom` | `I2CB` | BBC Micro* | DS3231 | ✓ | | | |
 | `i2cbc.rom` | `C.I2CB` | BBC Micro* | DS3231 | ✓ | | | |
@@ -22,57 +34,41 @@ The project builds multiple ROM variants for each target platform:
 | `i2ceap6t.rom` | `T.I2CEAP6` | Electron AP6 | PCF8583 | ✓ | ✓ | | ✓ |
 | `ap6.rom` | `AP6` | Electron AP6 | PCF8583 | ✓ | ✓ | ✓ | |
 
-**BBC Micro\*** — the `I2CB` / `C.I2CB` / `T.I2CB` rows are one sideways-ROM profile for **BBC Model B**, **B+**, **Master**, and **Master Compact** (not separate Master builds). The I²C core (`*I2C…`, RTC/time commands, `*I2CTEST`) is expected to work on all of them; bus access is via the **user port**, the same attachment path on Model B and Master-class machines.
+<sub>**\*** — the `I2CB` / `C.I2CB` / `T.I2CB` rows are one sideways-ROM profile for **BBC Model B**, **B+**, **Master**, and **Master Compact** (not separate Master builds). The I²C core (`*I2C…`, RTC/time commands, `*I2CTEST`) is expected to work on all of them; bus access is via the **user port**, the same attachment path on Model B and Master-class machines.</sub>
 
-**Note (Plus *CONFIGURE*):** `*CONFIGURE`, `*STATUS`, and related Time-Config features appear only in **Electron AP6** builds (tick in that column). They require **NVRAM**; the AP6 **PCF8583** has free RAM for persisted settings. Typical **DS3231** modules on **Model B, B+**, and basic **Electron** have **no user-accessible RAM**. **Master** machines already provide their own persisted configuration—so those commands are omitted from all BBC-family ROMs by design. Detected **EEPROM** devices on the I²C bus could provide NVRAM on other targets in future.
+<sub>**\*\*** — `*CONFIGURE`, `*STATUS`, and related Time-Config features appear only in **Electron AP6** builds (tick in that column). They require **NVRAM**; the AP6 **PCF8583** has free RAM for persisted settings. Typical **DS3231** modules on **Model B, B+**, and basic **Electron** have **no user-accessible RAM**. **Master** machines already provide their own persisted configuration—so those commands are omitted from all BBC-family ROMs by design. Detected **EEPROM** devices on the I²C bus could provide NVRAM on other targets in future.</sub>
 
-**Factory reset and first-boot init (AP6 *CONFIGURE* builds):** Persisted settings live in PCF8583 NVRAM (logical addresses **0–16**; see [NVRAM layout](#usage-with-ap6) below). On every boot (Ctrl+Break or power-on), the configure ROM runs `SET_Startup` and applies those bytes to MOS.
+This project also includes support for building the AP6 Support ROM (`ap6.rom`) which combines the I2C ROM with other AP6 ROMs (AP1Plus, ROMManager, TUBEelk, AP6Count) into a single 16KB ROM image. The build process is handled by [`/bin/buildap6/build.sh`](bin/buildap6/build.sh) and uses SMJoin compatibility to enable ROM relocation and chaining. For detailed technical information about the AP6 Support ROM build process, see the [SMJoin Compatibility Implementation](DIARY.md#smjoin-compatibility-implementation-sept-2025) section in the developer diary.
 
-| Trigger | What happens |
-|---------|----------------|
-| **Hold `R` during break** | Factory reset — `SET_Reset` writes default `*CONFIGURE` values (same as a fresh init table). Does not reset the RTC chip. |
-| **Uninitialised NVRAM** (logical byte **17** = 0) | Automatic factory reset on that boot — intended for a new or blank FRAM image. After init, byte **17** is set to **255** so later breaks do not re-init. |
-| **Normal break** (byte **17** ≠ 0, `R` not held) | Apply saved settings from NVRAM; no full reset. |
-
-Logical **17** is the init marker (chip register **`23h`**). Time-Config upstream used byte **255**, which on AP6 aliases RTC register **`11h`** (year / `*TBRK`) and is not used here. To simulate an uninitialised store for testing:
-
-    A%=0
-    *I2CTXB 50 #23 A%
-    REM then Ctrl+Break or cold boot — expect factory *STATUS (e.g. MODE 6)
-
-**I²C addresses (7-bit):** BBC Micro* and Electron builds talk to a **DS3231** at **`&68`** (`RTC` in `src/inc/rtc/DS3231.asm`). Electron **AP6** builds (and production AP-class boards with the on-board RTC) use a **PCF8583** at **`&50`** (`RTC` in `src/inc/rtc/PCF8583.asm`) — the same address used in the `*I2CRXB 50 …` examples in [Usage with AP6](#usage-with-ap6) below. Dave’s planned cartridge RTC is expected to stay on **`&50`** so it matches AP6 without a rebuild.
-
-Star commands take the address in **decimal** (`50` = `&50`). On AP6, **`&50` registers `10h`–`11h`** are reserved by the RTC layer (year offset, year copy, `*TBRK`); **configure NVRAM uses logical addresses `0`–`17`** (chip `12h`–`23h`: settings **0–16**, init marker at logical **17** = chip **`23h`**). Logical **238+** wraps into the clock region — do not use. Other devices on the AP6 header must not clash with **`&50`**. Use `*I2CQUERY` / `*I2CTEST` on hardware to confirm.
-
-This project also includes support for building the AP6 Support ROM (`ap6.rom`) which combines the I2C ROM with other AP6 ROMs (AP1Plus, ROMManager, TUBEelk, AP6Count) into a single 16KB ROM image. The build process is handled by [`/bin/buildap6/build.sh`](bin/buildap6/build.sh) and uses SMJoin compatibility to enable ROM relocation and chaining. For detailed technical information about the AP6 Support ROM build process, see the [SMJoin Compatibility Implementation](#smjoin-compatibility-implementation-sept-2025) section below.
-
-**IMPORTANT DISTRIBUTION NOTE**
+Important Distribution Note
+---------------------------
 
 This repository `/dist` folder contains version **v3.2** and above of the **I2CBeeb** ROM. If you need the official I2CBeeb ROMs **v3.1**, see [thread](https://stardot.org.uk/forums/viewtopic.php?t=10966) for other variants. Looking forward, since this repo supports building all variants of the ROM, one option is this repository may become the main I2CBeeb repository in the future, or it may reside some other place. Currently the source code is only shared by Martin as attachments on StarDot and in this repository per his kind permission.
 
-Time & Config sources are copied under [`src/configure/`](src/configure/) for now with AP6-specific edits applied in-tree. The goal is to dynamically import only the required code once the integration work has completed and the touch points are clearer. [`bin/time-config/extract.sh`](bin/time-config/extract.sh) is reference-only for upstream diffs. For more information and documentation on Time & Config ROM features, readers should refer to the [Time & Config. repository](https://codeberg.org/Barneyntd/Time-Config.) directly. 
+Time & Config sources are copied under [`src/configure/`](src/configure/) for now with AP6-specific edits applied in-tree. The goal is to dynamically import only the required code once the integration work has completed and the touch points are clearer. [`bin/time-config/extract.sh`](bin/time-config/extract.sh) is reference-only for upstream diffs. For more information and documentation on Time & Config ROM features, readers should refer to the [Time & Config. repository](https://codeberg.org/Barneyntd/Time-Config.) directly.
 
-Status - Release v3.3 In Progress - Test Framework and Configure Support (Jan 2026)
-----------------------------------------------------------------------------------
-
-This release introduces significant enhancements including integration with the Time & Config ROM for configuration management and ROM control features. The `*CONFIGURE` and `*STATUS` commands enable system configuration settings to be stored in NVRAM and applied on boot, while `*INSERT` and `*UNPLUG` commands provide ROM management capabilities. **Factory reset** (hold **`R`** on break) and **automatic init** when NVRAM byte **17** is blank are described [above](#factory-reset-and-first-boot-init-ap6-configure-builds). These features are currently available only in Electron AP6 builds due to NVRAM requirements—the PCF8583 RTC chip provides sufficient free RAM for configuration storage, while the DS3231 RTC chip used in BBC Micro* and basic Electron builds has no user-accessible RAM. The build system has been updated to disable configure features for BBC and Electron builds, keeping them enabled only for Electron AP6 builds. Additionally, the `*I2CTEST` command has been implemented to provide comprehensive automated testing of I2C functionality across all target platforms (on real hardware). Automated ROM unit tests run during `./bin/build.sh`; see [ROM unit testing](#rom-unit-testing). For on-machine I2C tests, see the [Test Framework *I2CTEST](#test-framework-i2ctest) section below.
-
-Status - BeebAsm Migration Complete (Sep 2025)
-----------------------------------------------
-
-The main source code has been successfully migrated from Lancs Assembler to BeebAsm and is now located in `/src` (original Lancs Source code is for now in `/src.lancs` but will of course not be updated going forward). This migration represents a significant improvement to the development workflow, eliminating the need to run B-em emulator to compile with the Lancs Assembler. The development process is now much faster with native compilation on modern systems, and provides full compatibility with modern editors such as Visual Studio Code and its 6502 tooling extensions.
-
-The migration required careful attention to assembler syntax differences, particularly converting high/low byte operators from Lancs `>/<` syntax to BeebAsm `HI()/LO()` functions, and fixing endianness issues by converting `DFDB` (big-endian) to `EQUB HI(), LO()` format. The result is byte-for-byte compatibility with the original Lancs Assembler ROMs, verified through comprehensive binary comparison testing using both manual `cmp` commands and custom Python comparison tools.
-
-Status - v3.2 Release
+I2C Devices Supported
 ---------------------
 
-This adds support for type 0 OSWORD 14 handling to ensure `*TIME` and `PRINT $TIME` on the BBC Master Compact work - when using the I2CB ROM. This is based on the patch shared [here](https://www.stardot.org.uk/forums/viewtopic.php?p=371328#p371328). I have not tested as yet on the Electron or Electon AP6 targets, but plan to, in theory they have not changed since v3.1 behavior as this was a purely additional change... An ssd and each rom in is under `\dist`. Also of note is that `TIME="bla..."` is not supported yet - more fun later (remind to check `\src.softrc`)
+**I²C addresses (7-bit):** BBC Micro* and Electron builds talk to a **DS3231** at **`&68`** (`RTC` in `src/inc/rtc/DS3231.asm`). Electron **AP6** builds (and production AP-class boards with the on-board RTC) use a **PCF8583** at **`&50`** (`RTC` in `src/inc/rtc/PCF8583.asm`) — the same address used in the `*I2CRXB 50 …` examples in [Usage with AP6](#usage-with-ap6) below. Dave’s planned cartridge RTC is expected to stay on **`&50`** so it matches AP6 without a rebuild.
 
-Status - AP6 Target Beta
-------------------------
+The I²C bus commands (`*I2CRXB`, `*I2CTXB`, `*I2CQUERY`, etc.) take the device address in **decimal** (`50` = `&50`). On AP6, **`&50` registers `10h`–`11h`** are reserved by the RTC layer (year offset, year copy, `*TBRK`); **configure NVRAM uses logical addresses `0`–`17`** (chip `12h`–`23h`: settings **0–16**, init marker at logical **17** = chip **`23h`**). Logical **238+** wraps into the clock region — do not use. Other devices on the AP6 header must not clash with **`&50`**. Use `*I2CQUERY` / `*I2CTEST` on hardware to confirm.
 
-Current status is this variant of the **I2CBeeb ROM by MartinB** is working with a reasonble level of testing with an AP6. However it is currently labelled as **Beta**, so please expect some bugs and report on the thread. It can be downloaded from here `/dist/i2c/I2C32EAP6.rom`. See known issues below. 
+Factory Reset
+-------------
+
+**Factory reset and first-boot init (AP6 *CONFIGURE* builds):** Persisted settings live in PCF8583 NVRAM (see [NVRAM layout](#usage-with-ap6) below) and are applied to MOS on every boot (Ctrl+Break or power-on).
+
+| Trigger | What happens |
+|---------|----------------|
+| **Hold `R` during break** | Factory reset — default `*CONFIGURE` values are written. Does not reset the RTC chip. |
+| **Uninitialised NVRAM** | Automatic factory reset on first boot of new or blank NVRAM, then marked initialised so later breaks do not re-init. |
+| **Normal break** | Apply saved settings from NVRAM; no full reset. |
+
+Developer Diary
+---------------
+
+Development status and milestones (newest first) are tracked in a separate developer diary to keep this README focused on usage and reference. See [DIARY.md](DIARY.md) for the full history, including the in-progress v3.3 work, the BeebAsm migration, and earlier releases.
 
 Usage with AP6
 --------------
@@ -93,41 +89,29 @@ What the PCF8583 does have though is storage! Meaning you can do things like thi
 
 Finally, note that the AP6, has I2C headers on board, meaning you can attach easily other I2C devices and access them using the above commands. Please be careful attaching new devices and observe the correct pin out, then run `*I2CQUERY`.
 
-COLD — simulated power-on reset (Electron AP6 dev)
--------------------------------------------------
+Building
+--------
 
-Testing `*CONFIGURE LANG` (and other NVRAM settings applied on boot) needs a **true power-on** (`&028D = 1`). Ctrl+Break and `JMP (&FFFC)` do not reload configure from NVRAM—they are soft or hard breaks, not cold start.
+Build with `./bin/build.sh` and this will compile using BeebAsm all three targets for BBC Micro, Acorn Electron and Acorn Electron Plus 1 AP6 in `/dist`. It will also update `/dev/eap6` and `/dev/roms`; these folders work with virtual file systems such as the one in b-em and are supported by UPURSFS, so build output can be loaded and tested on a target machine. The `dev/eap6` folder also receives dev utilities from the AP6 build SSD: `COLD` (6502 executable from `COLD.asm`) and tokenised BASIC files `NVList`, `RTCTest`, and `RTCRead` (via `PUTBASIC`). See [COLD Utility](#cold-utility).
 
-The **`COLD`** utility fakes a power-on reset in software so you can repeat configure tests without mains off/on. It uses [JGH’s `.ResetElk`](https://stardot.org.uk/forums/viewtopic.php?t=20240) routine from the same Stardot thread as hoglet’s fixed `JMP &D8EB` variant (equivalent on MOS 1.00).
+Unless you pass `--skip-testing`, the build also runs the automated ROM unit tests described below.
 
-**Source:** [`src/utils/COLD.asm`](src/utils/COLD.asm) — JGH’s `.ResetElk` (`&FFFC + 25`, then `JMP (&A8)`), assembled at `&0B00`.
+COLD Utility
+------------
 
-**Build integration:** At the end of [`src/I2CBeeb.asm`](src/I2CBeeb.asm), after `SAVE romstart, romend`, BeebAsm `INCLUDE`s `COLD.asm` and `SAVE`s a separate DFS executable onto each build SSD (`SAVE "COLD", &0B00, *`). This does **not** modify the sideways ROM image (`I2CEAP6`, `dist/ap6.rom`, etc.)—only adds a disc file alongside the ROM and other `PUTBASIC` utilities. `./bin/build.sh` extracts it from the AP6 SSD into `src/out/ap6/` and copies [`dev/eap6/COLD`](dev/eap6/COLD) (+ `.inf`) for hardware, UPURSFS, or b-em.
-
-**Usage** (with `COLD` on the default DFS drive):
+Testing `*CONFIGURE LANG` (and other NVRAM settings applied on boot) needs a **true power-on** (`&028D = 1`). Ctrl+Break and `JMP (&FFFC)` do not reload configure from NVRAM—they are soft or hard breaks, not cold start. The **`COLD`** utility fakes a power-on reset in software so you can repeat configure tests without mains off/on. It uses [JGH’s `.ResetElk`](https://stardot.org.uk/forums/viewtopic.php?t=20240) routine. Example usage:
 
     *CONFIGURE LANG 5
     *STATUS LANG
     *COLD
-
-Or `*RUN COLD`. Load and exec are both `&0B00` (see `dev/eap6/COLD.inf`).
 
 After reboot, check power-on path and session LANG:
 
     PRINT ~?&028D    : REM expect 1 (power-on)
     PRINT ~?&0D6D    : REM LANG in low nibble after GetTubeAndLang
 
-**Caveats:** Entry is derived from the MOS reset vector (`&FFFC + 25`), so it tracks the ROM layout rather than a fixed address. This is not a hardware reset: sideways ROM and ULA state may differ from mains off/on. For final verification, power-cycle the machine.
-
-Building
---------
-
-Build with `./bin/build.sh` and this will compile using BeebAsm all three targets for BBC Micro, Acorn Electron and Acorn Electron Plus 1 AP6 in `/dist`. It will also update `/dev/eap6` and `/dev/roms`; these folders work with virtual file systems such as the one in b-em and are supported by UPURSFS, so build output can be loaded and tested on a target machine. The `dev/eap6` folder also receives dev utilities from the AP6 build SSD: `COLD` (6502 executable from `COLD.asm`) and tokenised BASIC files `NVList`, `RTCTest`, and `RTCRead` (via `PUTBASIC`). See [COLD](#cold--simulated-power-on-reset-electron-ap6-dev).
-
-Unless you pass `--skip-testing`, the build also runs the automated ROM unit tests described below.
-
-ROM workspace (memory used)
-------------------------------
+ROM workspace
+-------------
 
 Fixed RAM the ROM uses for storage (see [`src/I2CBeeb.asm`](src/I2CBeeb.asm)). MOS star-command scratch at `&A8–&AF` may be overwritten during any `*` command; do not rely on it across `OSCLI`. The ROM does not use `&0234–&0235` (`INDV3`).
 
@@ -144,255 +128,23 @@ Persistent settings on AP6 are stored in **NVRAM on the board** (PCF8583/FRAM), 
 ROM unit testing
 ----------------
 
-Each `./bin/build.sh` run (unless `--skip-testing` is passed) exercises the **real assembled ROM binaries** against a simulated 6502, with MOS calls stubbed out so tests can run quickly on a modern machine without a Beeb attached. This is separate from the on-machine `*I2CTEST` command documented [further down](#test-framework-i2ctest)—those tests need hardware and an I2C bus.
+Each `./bin/build.sh` run (unless `--skip-testing` is passed) exercises the **real assembled ROM binaries** against a simulated 6502, with MOS calls stubbed out so tests can run quickly on a modern machine without a Beeb attached. This is separate from the on-machine `*I2CTEST` command documented [further down](#rom-device-testing)—those tests need hardware and an I2C bus.
 
-The tests are mainly about **sideways-ROM good manners**: behaving correctly when the MOS hands you a `*` command, and not trampling memory the rest of the system expects to keep.
-
-**What we check (ROM conventions and expectations)**
-
-- **Star-command dispatch** — unknown `*` commands are handled through the normal service entry; handlers are reached without repurposing the language indirection vector at `&0234` (`INDV3`).
-- **Zero-page workspace** — MOS star-command scratch at `&A8–&AF` may be used freely during a `*` handler (the same convention used by ROMs such as JGH’s ROM Manager). The rest of zero page should be left alone across a command. Configure builds may also use `&E4–&E5` for Time-Config string output.
-- **`*HELP`** — title and extended help output follow Acorn-style expectations (including not adding an extra blank line before the banner on global `*HELP`).
-- **Time and date commands** — `*TIME`, `*DATE`, `*NOW`, and related paths produce sensible output when the RTC is mocked.
-- **Time-on-Break (`*TBRK`) and boot (service 1)** — toggle and boot-header behaviour against a mocked RTC.
-- **Configure builds (Electron AP6)** — `*CONFIGURE` and `*STATUS` read and write NVRAM as expected; dot-abbreviated command forms work; bad parameters are rejected without corrupting stored settings.
-
-**Coverage (high level)**
-
-Tests run against the main configure-less ROM variants built into `/dist` (BBC, Electron, and Electron AP6). Configure-specific cases run on the AP6 configure build. They validate ROM logic and MOS integration, **not** real I2C electrical behaviour—that remains the job of `*I2CTEST` on real hardware.
-
-**Where the tests live**
+In general they cover sideways-ROM good manners—correct `*` command dispatch via the service entry, respecting MOS zero-page workspace, Acorn-style `*HELP` output, and sensible time/date, `*TBRK`, and (on AP6 configure builds) `*CONFIGURE`/`*STATUS` NVRAM behaviour against a mocked RTC. They run against the main ROM variants in `/dist` (BBC, Electron, and Electron AP6) and validate ROM logic and MOS integration, **not** real I2C electrical behaviour—that remains the job of `*I2CTEST` on real hardware. Where the tests live:
 
 | Location | Purpose |
 |----------|---------|
-| [`src/tests/vitest/`](src/tests/vitest/) | Test cases — `standalone/`, `configure/`, `fixtures/ap6/`, `fixtures/ap6-classic/` (see **`src/tests/vitest/README.md`**) |
+| [`src/tests/vitest/`](src/tests/vitest/) | Test cases for standalone and configure builds, plus ROM fixtures (see **`src/tests/vitest/README.md`**) |
 | [`bin/rom-unittest/`](bin/rom-unittest/) | Test harness, MOS/RTC/NVRAM mocks, workspace guards |
 
 To run the unit tests on their own after a build:
 
     cd bin/rom-unittest && npm test
 
-`./bin/build.sh` runs standalone Vitest, then `./bin/buildap6/build.sh` for the i2c layout (composite Vitest on **`dist/ap6.rom`**) and builds **`bin/buildap6/out/ap6-classic.rom`** (test fixture, not shipped in **`dist/`**), then runs **`npm run test:classic-only`** (7 LANG/TUBE tests). See **`bin/rom-unittest/README.md`**.
+When `./bin/build.sh` runs, the unit tests are exercised against several ROM targets. First the standalone ROM variants (BBC, Electron, and Electron AP6) are tested directly. The AP6 Support ROM build then produces a composite image (`dist/ap6.rom`) which is tested in its combined layout, along with an `ap6-classic` ROM built purely as a test fixture (not shipped in `dist/`). The `ap6-classic` fixture exercises the (modified) **ROM Manager** and **Plus 1 Support ROM** *without* I2CBeeb present, so we can verify the code paths in them that behave dynamically depending on whether I2CBeeb's NVRAM implementation is available—confirming correct LANG/TUBE behaviour both with and without it. This way each shipped and fixture target is validated in the form it will actually run. See **`bin/rom-unittest/README.md`** for the full breakdown.
 
-Some Year Testing
------------------
-
-The year logic is funky! Meaning there is software workarounds to the fact the PCF8583 only stores 2 bit years, max 4 years basically. So some shadow year and offset values are also stored to get to the year value. There is some management of these each time the date/time is read. As I did not want to wait for years to pass to complete my test some poking is required to emulate the conditions the code applies to.
-
-**Note:** These tests actually require the validation logic *I2CTXB commenting out (the `JSR txbval` and `BCS txbpx` in `txbparse`) as the I2CRXB normally does not allow the reserved storage to be written.
-
-**Test 1** - Last year sync properly with the current year (*TBRK off)
-
-    Step 1
-    *DSET Mon 01-01-20
-    *NOW
-    Assert &A10=32 (offset)
-    Assert &A11=0  (last year and boot toggle)
-
-    Step 2
-    *DSET Mon 01-01-22
-    *NOW
-    Assert &A10=32  (offset)
-    Assert &A11=128 (last year and boot toggle)
-
-    Step 3 - This emulates the machine not having been powered up since 2020
-    A%=0
-    *I2CTXB 50 #11 A%
-    A%=42
-    *I2CRXB 50 #11 A%
-    Assert A%=0
-
-    Step 4
-    *NOW
-    Assert: Year is still 22
-    Assert: &A11=128
-
-    Step 5
-    A%=42
-    *I2CRXB 50 #11 A%
-    Assert A%=128
-
-**Test 2** - Last year sync properly with the current year (*TBRK on)
-
-    Step 1
-    *DSET Mon 01-01-20
-    *NOW
-    Assert &A10=32 (offset)
-    Assert &A11=1  (last year and boot toggle)
-
-    Step 2
-    *DSET Mon 01-01-22
-    *NOW
-    Assert &A10=32  (offset)
-    Assert &A11=129 (last year and boot toggle)
-
-    Step 3 - This emulates the machine not having been powered up since 2020
-    A%=1
-    *I2CTXB 50 #11 A%
-    A%=42
-    *I2CRXB 50 #11 A%
-    Assert A%=1
-
-    Step 4
-    *NOW
-    Assert: Year is still 22
-    Assert: &A11=129
-
-    Step 5
-    A%=42
-    *I2CRXB 50 #11 A%
-    Assert A%=129
-
-**Test 3** - Check it adjusts for wrap around of year in RTC (*TBRK off)
-
-    Step 1
-    *DSET Mon 01-01-22
-    *NOW
-    Assert &A10=32  (offset)
-    Assert &A11=128 (last year and boot toggle)
-
-    Step 2
-    *DSET Mon 01-01-25
-    *NOW
-    Assert &A10=36  (offset)
-    Assert &A11=64  (last year and boot toggle)
-
-    Step 3 - This emulates the machine not having been powered up since 2022
-    A%=32
-    *I2CTXB 50 #10 A%
-    A%=42
-    *I2CRXB 50 #10 A%
-    Assert A%=10
-    A%=128
-    *I2CTXB 50 #11 A%
-    A%=42
-    *I2CRXB 50 #11 A%
-    Assert A%=128
-
-    Step 4
-    *NOW
-    Assert year is 25
-    Assert &A10=36
-    Assert &A11=64
-
-Where did the Source code come from?
-------------------------------------
-
-In the **StarDot** thread linked above, MartinB the author of the **I2C Beeb ROM** shared his code in order to help create a compatible version for the Acorn Electron AP6. Rather than create fork of his code just for AP6 I decided to explore if AP6 support can be added and thus support future updates.
-
-Initially my aim was just changing the required parts of the code. This was quite easy as Martin had done an amazing job at separating out the code needed to access the I2C bus and read/write to the RTC from all the other logic. With a little use of the `INCLUDE` directive in the Lancs Compiler it was possible to have a single source file for the bulk of the code in `/src.lancs/I2CBeeb.asm` with the differences needed to support different targets in `/src.lancs/inc` per above. This means that should the main code be updated, we can easily rebuild all three targets from it, much like how the variants of **MMFS** work.
-
-Martin has given kind permission in the **StarDot** thread above to leverage his code to make all this possible and hopefully making iterating on the ROM for all targets possible in the future (though right now there are no plans beyond adding support for AP6, as its kinda pretty good as-is tbh). Since then as noted above the `/src` now contains a migration of his original code that now supports the BeebAsm tool, which speeds up the compilation dramatically and removes the need for an emulator.
-
-SMJoin Compatibility Implementation (Sept 2025)
-------------------------------------------------
-
-**I2C ROM Successfully Integrated into Combined AP6 ROM System ✅**
-
-Successfully implemented SMJoin compatibility for the I2C ROM, enabling it to be combined with other AP6 ROMs into a single 16KB ROM image. For detailed technical information about the ROM relocation and chaining mechanisms, see [smjoin.md](/bin/buildap6/smjoin.md).
-
-**Key Achievements:**
-- **5 ROMs successfully combined**: AP1v131, AP6v134, TUBEelk, AP6Count, I2C
-- **Total size**: 12.8KB (well under 16KB limit with 3.5KB free space)
-- **SMJoin compatibility**: Proper relocation data generation and ROM header format
-- **Automated build and test pipeline**: Complete workflow from I2C compilation to ROM testing
-
-**Technical Implementation:**
-- **Dual compilation process**: Compile ROM at $8000 and $8100 to generate relocation data
-- **Node.js relocation tool**: `smjoin-reloc.js` compares builds and generates compressed relocation bitmap
-- **Header modification simulation**: Sets header bytes first, then generates bitmap accounting for new candidate bytes
-- **Service entry adjustment**: Automatically adjusts addresses for relocation from $8000 to $8100
-
-**Build Tools:**
-- `bin/buildap6.sh` - Unified build pipeline script with testing flags
-- `bin/buildap6/smjoin-build-i2c-rom.sh` - Builds I2C ROM at both $8000 and $8100
-- `bin/buildap6/smjoin-reloc.js` - Node.js tool for relocation data generation
-- `bin/buildap6/smjoin-create.js` - Node.js port of BBC BASIC SMJoin tool
-- `bin/buildap6/smjoin-test.js` - Playwright-based ROM testing with emulator automation
-- `dist/ap6.rom` - Final combined ROM output
-
-**Documentation:**
-- `SMJOIN.md` - Comprehensive documentation of ROM relocation and chaining mechanisms
-- Detailed explanation of candidate bytes, relocation bitmap generation, and header modification
-- Step-by-step instructions for both BBC BASIC and non-BBC BASIC ROMs
-- Complete example of relocation bitmap generation process
-
-**Validation:**
-- All 5 ROM tests pass: AP6.rom, LatestAP6.rom, I2C.rom, LatestI2C8000.rom
-- I2C ROM correctly relocates service address and integrates with AP6 Plus
-- Relocation data generation is stable and reproducible
-- ROM header format matches SMJoin requirements
-- Emulator testing confirms "RH Plus 1" display in combined ROM
-
-**Result:** The I2C ROM is now fully compatible with the SMJoin system and can be combined with other AP6 ROMs into a single 16KB ROM image, providing a complete AP6 ROM solution with automated testing.
-
-TreeROM Version Compatibility Issue (Sep 2025)
------------------------------------------------
-
-**Issue Identified: TreeROM Version Mismatch Preventing Full ROM Combination**
-
-During testing of the complete AP6 ROM combination (including TreeROM), a version compatibility issue was discovered that prevents the full 5-ROM combination from fitting within the 16KB limit.
-
-**Problem Analysis:**
-- **Current TreeROM available**: Version 1.62 (8,704 bytes) - too large for 16KB ROM
-- **Original AP6v134t.rom used**: TreeCopy Version 1.61 (8,291 bytes) - fits successfully
-- **Available space**: 8,448 bytes (after combining AP1v131, AP6v134, TUBEelk, AP6Count, I2C)
-- **Space deficit**: 256 bytes (8,704 - 8,448 = 256 bytes)
-
-**Critical Discovery:**
-The original AP6v133t.rom (16,067 bytes) contained **5 ROMs without I2C**:
-- AP1v131, AP6v133, TUBEelk, AP6Count, TreeROM
-- **No I2C ROM was included in the original combination**
-
-Our current build includes **4 ROMs plus I2C** (12,887 bytes), which leaves 8,448 bytes available for additional ROMs.
-
-**Detailed Size Analysis:**
-- **TreeCopy 1.61** (original): 8,291 bytes ✅
-- **TreeROM v1.62** (available): 8,704 bytes ❌ (256 bytes too large)
-- **Available space**: 8,448 bytes
-- **Size difference**: TreeROM v1.62 is 413 bytes larger than TreeCopy 1.61
-- **Conclusion**: The 16KB ROM space can accommodate either the original 5 ROMs OR 4 ROMs + I2C, but not all 6 ROMs together
-
-**Root Cause:**
-The source code analysis at [MDFS TreeCopier](https://mdfs.net/Software/CommandSrc/FileUtils/TreeCopier/) confirms that TreeCopy version 1.62 source is larger than version 1.61, explaining the size difference. The original AP6v133t.rom was built using the smaller TreeROM version 1.61.
-
-**Current Status:**
-- ✅ **4-ROM combination works perfectly**: AP1v131, AP6v134, TUBEelk, AP6Count, I2C (12,887 bytes)
-- ❌ **5-ROM combination fails**: Adding TreeROM 1.62 exceeds 16KB limit by 256 bytes
-- ✅ **All tests pass**: Complete build and test pipeline functional without TreeROM
-- ✅ **Binary analysis confirmed**: AP6v134t.rom contains TreeCopy 1.61 (8,291 bytes), not 1.62
-
-**Reference:** [MDFS TreeCopier Source](https://mdfs.net/Software/CommandSrc/FileUtils/TreeCopier/) - Contains source code for both TreeCopy 1.61 and 1.62 versions.
-
-Merging I2C ROM into the AP6 Main ROM Update (Jan 2025)
--------------------------------------------------------
-
-I have been reviewing the orignal build scripts to merge 4 ROMs into 1 and have got them running via b-em emulator and its co-processor emmulation (previously looks like the scripts ran on an A5000). The src.AP* folders contain files I have been downloading to get to the point where I can reproduce the current merged ROM from the existing ROM images. This will prove I have the build tools/scripts working. There is however a difference I am exploring with Dave Hitchens at present. Once this is resolved I can apply the realloc table to the I2C ROM and merge it in as well (its about 4kb and we have 8kb spare!). Oh and I also spent a chunk of time getting b-em building on my Macbook running Silcon hardware - build in in /bin/b-em.
-
-Known Issues
-------------
-- None at present
-
-Other (Useful) Stuff
---------------------
-
-Various reference resources, forum posts etc..
-- [Read RTC Clock - OSWORD 14](https://beebwiki.mdfs.net/OSWORD_%260E)
-- [Write RTC Clock - OSWORD 15](https://beebwiki.mdfs.net/OSWORD_%260F)
-- [Real time clock upgrade for Electron](https://www.stardot.org.uk/forums/viewtopic.php?p=419371&hilit=RTC#p419371)
-- [OSWORD 14 & 15 numbers for real-time clocks](https://www.stardot.org.uk/forums/viewtopic.php?t=28743)
-- [Userport RTC](https://stardot.org.uk/forums/viewtopic.php?f=3&t=26270)
-- [Setting a real-time clock to centi-second accuracy](https://www.stardot.org.uk/forums/viewtopic.php?p=419313#p419313)
-- [Handling year in the RTC](https://github.com/xoseperez/pcf8583/blob/master/src/PCF8583.cpp)
-- [Handling year in the RTC another example](https://github.com/xoseperez/pcf8583/blob/master/src/PCF8583.cpp#L162)
-- [Handling year in the RTC yet another example](https://github.com/pciebiera/rtc-philips-pcf8583/blob/master/rtc-philips-pcf8583.c )
-- [ROM joining approach](https://mdfs.net/Info/Comp/BBC/SROMs/JoinROM.htm)
-- [Interesting base code for ROMS](https://mdfs.net/Software/BBC/SROM/Tools/MiniROM.src)
-- [Source code AP6Count useful ref](https://mdfs.net/Software/BBC/SROM/AP6Count.bas)
-- [Source code AP6 Plus 1 ROM](https://mdfs.net/Software/BBC/SROM/Plus1/)
-
-Test Framework *I2CTEST
-------------------------
+ROM device testing
+------------------
 
 The I2C ROM includes a comprehensive test framework accessible via the `*I2CTEST` command.
 
@@ -424,3 +176,25 @@ The test framework will run all registered tests and display results for each on
 | 20. Time Set and Read | Verifies time values can be written and read from RTC |
 | 21. Date Set and Read | Verifies date values can be written and read from RTC |
 | 22. Time Passage (3 seconds) | Verifies RTC time advances correctly over time |
+
+Known Issues
+------------
+- None at present
+
+Other (Useful) Stuff
+--------------------
+
+Various reference resources, forum posts etc..
+- [Read RTC Clock - OSWORD 14](https://beebwiki.mdfs.net/OSWORD_%260E)
+- [Write RTC Clock - OSWORD 15](https://beebwiki.mdfs.net/OSWORD_%260F)
+- [Real time clock upgrade for Electron](https://www.stardot.org.uk/forums/viewtopic.php?p=419371&hilit=RTC#p419371)
+- [OSWORD 14 & 15 numbers for real-time clocks](https://www.stardot.org.uk/forums/viewtopic.php?t=28743)
+- [Userport RTC](https://stardot.org.uk/forums/viewtopic.php?f=3&t=26270)
+- [Setting a real-time clock to centi-second accuracy](https://www.stardot.org.uk/forums/viewtopic.php?p=419313#p419313)
+- [Handling year in the RTC](https://github.com/xoseperez/pcf8583/blob/master/src/PCF8583.cpp)
+- [Handling year in the RTC another example](https://github.com/xoseperez/pcf8583/blob/master/src/PCF8583.cpp#L162)
+- [Handling year in the RTC yet another example](https://github.com/pciebiera/rtc-philips-pcf8583/blob/master/rtc-philips-pcf8583.c )
+- [ROM joining approach](https://mdfs.net/Info/Comp/BBC/SROMs/JoinROM.htm)
+- [Interesting base code for ROMS](https://mdfs.net/Software/BBC/SROM/Tools/MiniROM.src)
+- [Source code AP6Count useful ref](https://mdfs.net/Software/BBC/SROM/AP6Count.bas)
+- [Source code AP6 Plus 1 ROM](https://mdfs.net/Software/BBC/SROM/Plus1/)
