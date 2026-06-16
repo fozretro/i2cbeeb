@@ -1,30 +1,9 @@
 
-.timestr1
-	EQUS "S/A",0
-.timestr3
-	EQUS "zzz",0
-.timestr4
-	EQUS "T+tt",0
-.timestr6
-	EQUS "zzz+hh",0
-.timestr7
-	EQUS "S+ss.cc",0
-.timestr8
-	EQUS "hh:mm:ss",0
-.timestr9
-	EQUS "zzz+hh:mm",0
-.timestr15
-	EQUS "www,dd mmm yyyy",0
-.timestr24
-	EQUS "www,dd mmm yyyy.hh:mm:ss",0
-	EQUB 0
-
-.helpTime
-	EQUS "(<timestr>)",0
-.helpTimeZone
-	EQUS "zzz=(zzz+/-hh(:mm))",0
-.helpDST
-	EQUS "<tz1> <tz1end> ..",0
+\ timestr* time-format strings and the TIME/TIMEZONE/SUMMERTIME help strings
+\ (helpTime/helpTimeZone/helpDST) were removed: those commands were stripped
+\ during extraction, so nothing references them. The help strings below are
+\ addressed as single-byte offsets from helpBase (anchored to the end of the
+\ pool), so dropping earlier entries does not move the live offsets.
 .helpConf
 	EQUS "(<config>)",0
 .helpRom
@@ -43,7 +22,7 @@
 	EQUS " /",0								\\ must be last
 
 helpBase = P% - &100
-IF timestr1 < helpBase OR helpTime - helpBase < &80
+IF helpConf < helpBase					\\ help string pool must fit the &100-byte helpBase window
    ERROR "Table too large"
 ENDIF
 
@@ -74,17 +53,15 @@ ENDIF
 	EQUS "PS", helpSid - helpBase
 	EQUB 0
 
-.helpTable
-	EQUS "T&C",&FF
-	EQUB 0
-	
 IF P% - commandTable > &FF
 	ERROR "Table too large"
 ENDIF
 
-.cmdJmpTable
-	EQUW CMD_Configure-1, CMD_Status-1
-
+\ Command routing removed: CMD_Command/cmdJmpTable and the standalone
+\ CMD_Configure/CMD_Status service-call handlers are unused here - I2CBeeb
+\ dispatches via its own command table to CON_Configure/CON_Status
+\ (Configure.asm). The data tables above and CMD_matchCommand / CMD_Help /
+\ CMD_printTerm / CMD_doError below remain in use by Configure.asm.
 
 .CMD_printTerm
 {
@@ -185,22 +162,6 @@ ENDIF
 	RTS
 }
 
-.CMD_Command
-{
-	LDX #0
-	JSR CMD_matchCommand
-	BPL passCommand					\\ either blank or no match
-	LDA TempSpace+1
-	ASL A
-	TAX
-	LDA cmdJmpTable+1,X				\\ address high
-	PHA
-	LDA cmdJmpTable,X				\\ address low
-	PHA
-.passCommand
-	RTS
-}
-
 .CMD_doError
 {
 	PLA
@@ -223,34 +184,3 @@ ENDIF
 	BNE errorLoop2
 	JMP &0100
 }
-
-
-.CMD_Configure
-{
-	LDX #&28
-.serviceCall
-	CLC
-	JSR GSINIT					\\ check for end of line
-	PHP							\\ save result
-	LDA #143
-	JSR OSBYTE					\\ issue service call &28 or &29 to roms
-	PLP
-	BEQ noParams				\\ if no config term, can't be an error
-	TXA							\\ X is zero if some rom dealt with it, NZ otherwise
-	BNE error
-.noParams
-	LDA #0
-	RTS
-.error
-	LDX #&FF
-	JSR CMD_doError
-	EQUS 254, "Bad configure", 0
-
-.*CMD_Status
-	LDX #&29
-	BNE serviceCall
-}
-
-
-
-
