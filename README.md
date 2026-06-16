@@ -7,7 +7,7 @@ This project started as a way to explore and implement RTC commands (`*TIME`, `*
 
 <img src="images/electron-ap6-time-configure.jpg" alt="*TIME, *DATE and *CONFIGURE on an Acorn Electron with RH Plus 1 / AP6" width="780" height="436">
 
-Along the way this repo has grown into a set of tools for building and testing the **I2CBeeb ROM** by MartinB (of StarDot, [thread](https://stardot.org.uk/forums/viewtopic.php?t=10966)) with the BeebAsm assembler, targeting the **BBC Micro**, **Electron**, and **Electron Plus with AP6**. It can also rebuild the AP6 Support ROM to include the I2C AP6 ROM, albeit without TreeROM due to size restrictions.
+Martin's **I2CBeeb ROM** already shipped stock `*DATE` and `*TIME` implementations for the BBC Micro and Electron Plus 1, alongside a great set of I2C supporting commands — which made it an appealing starting point for the project's goal at the time. Along the way this repo has grown into a set of tools for building and testing the **I2CBeeb ROM** by MartinB (of StarDot, [thread](https://stardot.org.uk/forums/viewtopic.php?t=10966)) with the BeebAsm assembler, targeting the **BBC Micro**, **Electron**, and **Electron Plus with AP6**. It can also rebuild the AP6 Support ROM to include the I2C AP6 ROM, albeit without TreeROM due to size restrictions.
 
 Many thanks also to **JGH** (J.G.Harston), who has supported the project with code changes and reviews of the **Electron ROM Manager** and **Plus 1 Support ROM** needed to integrate with the `*CONFIGURE`, `*STATUS`, and NVRAM storage features the I2CBeeb ROM exposes for Electron AP6 users.
 
