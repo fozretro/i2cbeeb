@@ -50,9 +50,8 @@ ENDIF
 .commandTable
 	EQUS "CONFIGURE", helpConf - helpBase
 	EQUS "STATUS", helpConf - helpBase
-	EQUS "UNPLUG", helpRom - helpBase
-	EQUS "INSERT", helpRom - helpBase
-	EQUS "ROMS", &FF
+	\ UNPLUG/INSERT/ROMS removed - handled by the ROM Manager ROM, not the
+	\ configure module (see src/configure/inc/Configure.inc). Roms.asm dropped.
 	EQUB 0
 
 .configTable
@@ -84,7 +83,7 @@ IF P% - commandTable > &FF
 ENDIF
 
 .cmdJmpTable
-	EQUW CMD_Configure-1, CMD_Status-1, CMD_Unplug-1, CMD_Insert-1, CMD_Roms-1
+	EQUW CMD_Configure-1, CMD_Status-1
 
 
 .CMD_printTerm

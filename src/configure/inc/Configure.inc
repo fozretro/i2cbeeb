@@ -17,8 +17,10 @@
 \ 3. Strings - String utilities (original)
 \ 4. Commands - Command parsing infrastructure (original)
 \ 5. Configure - CONFIGURE and STATUS commands (original)
-\ 6. Roms - INSERT, UNPLUG, ROMS commands (original)
-\ 7. NVRAM - NVRAM abstraction layer (compatibility, replaces VIA.asm)
+\ 6. NVRAM - NVRAM abstraction layer (compatibility, replaces VIA.asm)
+\\
+\ NOTE: Roms.asm (INSERT/UNPLUG/ROMS handlers) is intentionally NOT included.
+\ I2CBeeb does not expose those commands - the ROM Manager ROM implements them.
 
 \ Compatibility/Abstraction layers (must come first)
 INCLUDE "src/configure/inc/Constants.asm"
@@ -29,7 +31,6 @@ INCLUDE "src/configure/Settings.asm"
 INCLUDE "src/configure/Strings.asm"
 INCLUDE "src/configure/Commands.asm"
 INCLUDE "src/configure/Configure.asm"
-INCLUDE "src/configure/Roms.asm"
 
 \ Compatibility/Abstraction layers (after originals)
 INCLUDE "src/configure/inc/NVRAM.asm"
