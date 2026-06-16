@@ -10,11 +10,6 @@ export interface RomVariant {
   /** Copied artefact under `dist/` (used by standalone `npm test`). */
   distPath: string;
   distLabelsPath: string;
-  /**
-   * I²C is embedded in a larger amalgam — `$8003` is not the I²C service JMP.
-   * Tests invoke the relocated I²C `service` label directly.
-   */
-  embeddedSlice?: boolean;
 }
 
 export const CONFIGLESS_ROM_VARIANTS: RomVariant[] = [
@@ -68,7 +63,6 @@ export const COMPOSITE_ROM_VARIANTS: RomVariant[] = [
     buildLabelsPath: "dist/ap6-i2c.labels",
     distPath: "dist/ap6.rom",
     distLabelsPath: "dist/ap6-i2c.labels",
-    embeddedSlice: true,
   },
 ];
 

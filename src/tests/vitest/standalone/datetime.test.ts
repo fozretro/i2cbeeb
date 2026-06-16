@@ -31,11 +31,10 @@ describe("configure-less I2C ROM variants", () => {
       // When — service entry is read from labels and from the ROM header at $8003
       const headerEntry = parseServiceEntry(harness.rom, harness.romBase);
 
-      // Then — labels match harness; header JMP only matches for standalone sideways ROMs
+      // Then — labels match harness, and the ROM header JMP target agrees
+      // (standalone sideways ROMs publish their service entry at $8003)
       expect(harness.serviceEntry).toBe(expected);
-      if (!variant.embeddedSlice) {
-        expect(headerEntry).toBe(expected);
-      }
+      expect(headerEntry).toBe(expected);
     });
 
     it("resolves getrtc, writetd, and wtbrk from BeebAsm labels", () => {
