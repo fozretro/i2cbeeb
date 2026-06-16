@@ -19,28 +19,28 @@ export interface RomVariant {
 
 export const CONFIGLESS_ROM_VARIANTS: RomVariant[] = [
   {
-    id: "i2cbc",
-    label: "BBC configure-less / DS3231",
-    buildPath: "src/out/configb/C.I2CB",
-    buildLabelsPath: "src/out/C.I2CB.labels",
-    distPath: "dist/i2cbc.rom",
-    distLabelsPath: "dist/i2cbc.labels",
+    id: "i2cb",
+    label: "BBC standalone / DS3231",
+    buildPath: "src/out/b/I2CB",
+    buildLabelsPath: "src/out/I2CB.labels",
+    distPath: "dist/i2cb.rom",
+    distLabelsPath: "dist/i2cb.labels",
   },
   {
-    id: "i2cec",
-    label: "Electron configure-less / DS3231",
-    buildPath: "src/out/confige/C.I2CE",
-    buildLabelsPath: "src/out/C.I2CE.labels",
-    distPath: "dist/i2cec.rom",
-    distLabelsPath: "dist/i2cec.labels",
+    id: "i2ce",
+    label: "Electron standalone / DS3231",
+    buildPath: "src/out/e/I2CE",
+    buildLabelsPath: "src/out/I2CE.labels",
+    distPath: "dist/i2ce.rom",
+    distLabelsPath: "dist/i2ce.labels",
   },
   {
-    id: "i2ceap6c",
-    label: "EAP6 configure-less / PCF8583",
-    buildPath: "src/out/configap6c/C.I2CEAP6",
-    buildLabelsPath: "src/out/C.I2CEAP6.labels",
-    distPath: "dist/i2ceap6c.rom",
-    distLabelsPath: "dist/i2ceap6c.labels",
+    id: "i2ceap6",
+    label: "EAP6 standalone (config-less) / PCF8583",
+    buildPath: "src/out/ap6/I2CEAP6",
+    buildLabelsPath: "src/out/I2CEAP6.labels",
+    distPath: "dist/i2ceap6.rom",
+    distLabelsPath: "dist/i2ceap6.labels",
   },
 ];
 
@@ -97,22 +97,14 @@ export function classicCompositeTestMode(): ClassicCompositeTestMode {
 }
 
 /** How the AP6 amalgam fixture participates in Vitest variant lists. */
-export type CompositeTestMode = "off" | "append" | "only";
+export type CompositeTestMode = "off" | "only";
 
 /**
  * `off` — standalone fixtures only (default `npm test`).
  * `only` — **`ap6`** amalgam only (`npm run test:composite`, buildap6 Step 4a).
- * `append` — standalone plus composite (manual full matrix).
  */
 export function compositeTestMode(): CompositeTestMode {
-  const value = process.env.I2CBEEB_TEST_COMPOSITE;
-  if (value === "only") {
-    return "only";
-  }
-  if (value === "1" || value === "append") {
-    return "append";
-  }
-  return "off";
+  return process.env.I2CBEEB_TEST_COMPOSITE === "only" ? "only" : "off";
 }
 
 export interface ResolvedRomVariant extends RomVariant {
@@ -158,7 +150,7 @@ function resolveRomVariant(variant: RomVariant, repoRoot: string): ResolvedRomVa
   return { ...variant, path: path!, labelsPath: labelsPath! };
 }
 
-/** Standalone configure-less ROM variants (`i2cbc`, `i2cec`, `i2ceap6c`). */
+/** Standalone config-less ROM variants (`i2cb`, `i2ce`, `i2ceap6`). */
 export function requireConfiglessRomVariants(repoRoot = repoRootFromFramework()): ResolvedRomVariant[] {
   const errors: string[] = [];
   const resolved: ResolvedRomVariant[] = [];
@@ -176,11 +168,6 @@ export function requireConfiglessRomVariants(repoRoot = repoRootFromFramework())
   }
 
   return resolved;
-}
-
-/** @deprecated Use {@link requireConfiglessRomVariants} in standalone tests; fixture folders select ROM set. */
-export function requireRomVariants(repoRoot = repoRootFromFramework()): ResolvedRomVariant[] {
-  return appendCompositeWhenEnabled(requireConfiglessRomVariants(repoRoot), repoRoot);
 }
 
 /**
@@ -227,16 +214,6 @@ export function requireConfigureRomVariant(
     throw new Error(`Configure ROM variant "${id}" not found. Available: ${available}`);
   }
   return match;
-}
-
-function appendCompositeWhenEnabled(
-  resolved: ResolvedRomVariant[],
-  repoRoot: string,
-): ResolvedRomVariant[] {
-  if (compositeTestMode() !== "append") {
-    return resolved;
-  }
-  return [...resolved, ...requireCompositeRomVariants(repoRoot)];
 }
 
 /** Composite AP6 ROM variants — throws if amalgamated ROM or relocated I²C labels are absent. */

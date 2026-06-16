@@ -10,13 +10,13 @@ const SAMPLE_LABELS = `[{'service':32804L,'getrtc':36290L,'writetd':36324L,'wtbr
 
 describe("BeebAsm labels parser", () => {
   it("parses symbol addresses from -labels output", () => {
-    // Given — a BeebAsm -labels file fragment for a DS3231 C.I2CB build
+    // Given — a BeebAsm -labels file fragment for a DS3231 I2CB build
     const content = SAMPLE_LABELS;
 
     // When — the parser loads service, getrtc, and writetd symbols
     const symbols = parseBeebAsmLabels(content);
 
-    // Then — addresses match known C.I2CB label values
+    // Then — addresses match known I2CB label values
     expect(serviceEntryAddress(symbols)).toBe(0x8024);
     expect(rtcHookAddresses(symbols)).toEqual({
       getrtc: 0x8dc2,

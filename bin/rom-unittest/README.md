@@ -53,8 +53,8 @@ Vectors at `$FFE0`–`$FFF7` are patched to `RTS` ($60). `debugInstruction` hook
 import { I2CBeebRomTestHarness } from "./src/index.js";
 
 const harness = new I2CBeebRomTestHarness({
-  romPath: "dist/i2cbc.rom",
-  labelsPath: "dist/i2cbc.labels",
+  romPath: "dist/i2cb.rom",
+  labelsPath: "dist/i2cb.labels",
 });
 ```
 
@@ -66,7 +66,7 @@ Vitest **projects** in **`vitest.config.ts`** select which folders run (no env-b
 
 | Command | Vitest project | Fixture(s) | Typical count |
 |---------|----------------|------------|---------------|
-| `npm test` | `standalone` | `i2cbc`, `i2cec`, `i2ceap6c` + configure ROM | **73** |
+| `npm test` | `standalone` | `i2cb`, `i2ce`, `i2ceap6` + configure ROM | **73** |
 | `npm run test:composite` | `composite` | **`ap6`** (`fixtures/ap6/` + `configure/`) | **28** |
 | `npm run test:classic-composite` | `classic-composite` | standalone + **`ap6-classic`** | **79** |
 | `npm run test:classic-only` | `classic-only` | **`ap6-classic`** only | **7** |
@@ -87,7 +87,7 @@ Variant lists: **`src/rom-variants.ts`**. Each test file calls the resolver matc
 
 | Folder | ROM fixture |
 |--------|-------------|
-| `standalone/` | `i2cbc`, `i2cec`, `i2ceap6c` |
+| `standalone/` | `i2cb`, `i2ce`, `i2ceap6` |
 | `configure/` | INC_CONFIG EAP6 configure ROM (standalone) or `dist/ap6.rom` (composite) |
 | `fixtures/ap6/` | `dist/ap6.rom` + `dist/ap6-i2c.labels` |
 | `fixtures/ap6-classic/` | `bin/buildap6/out/ap6-classic.rom` |

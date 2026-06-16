@@ -26,19 +26,17 @@ The project builds multiple ROM variants for each target platform:
 | Filename (/dist) | Filename (.ssd) | Platform | RTC Type | I2C Core | *CONFIGURE \*\* | AP6 Support ROMs | I2C Testing |
 |------------------|-----------------|----------|----------|----------|------------------|-----------------------|-----------|
 | `i2cb.rom` | `I2CB` | BBC Micro* | DS3231 | ✓ | | | |
-| `i2cbc.rom` | `C.I2CB` | BBC Micro* | DS3231 | ✓ | | | |
 | `i2cbt.rom` | `T.I2CB` | BBC Micro* | DS3231 | ✓ | | | ✓ |
 | `i2ce.rom` | `I2CE` | Electron | DS3231 | ✓ | | | |
-| `i2cec.rom` | `C.I2CE` | Electron | DS3231 | ✓ | | | |
 | `i2cet.rom` | `T.I2CE` | Electron | DS3231 | ✓ | | | ✓ |
-| `i2ceap6.rom` | `I2CEAP6` | Electron AP6 | PCF8583 | ✓ | ✓ | | |
+| `i2ceap6.rom` | `I2CEAP6` | Electron AP6 | PCF8583 | ✓ | | | |
 | `i2ceap6c.rom` | `C.I2CEAP6` | Electron AP6 | PCF8583 | ✓ | ✓ | | |
 | `i2ceap6t.rom` | `T.I2CEAP6` | Electron AP6 | PCF8583 | ✓ | ✓ | | ✓ |
 | `ap6.rom` | `AP6` | Electron AP6 | PCF8583 | ✓ | ✓ | ✓ | |
 
-<sub>**\*** — the `I2CB` / `C.I2CB` / `T.I2CB` rows are one sideways-ROM profile for **BBC Model B**, **B+**, **Master**, and **Master Compact** (not separate Master builds). The I²C core (`*I2C…`, RTC/time commands, `*I2CTEST`) is expected to work on all of them; bus access is via the **user port**, the same attachment path on Model B and Master-class machines.</sub>
+<sub>**\*** — the `I2CB` / `T.I2CB` rows are one sideways-ROM profile for **BBC Model B**, **B+**, **Master**, and **Master Compact** (not separate Master builds). The I²C core (`*I2C…`, RTC/time commands, `*I2CTEST`) is expected to work on all of them; bus access is via the **user port**, the same attachment path on Model B and Master-class machines.</sub>
 
-<sub>**\*\*** — `*CONFIGURE`, `*STATUS`, and related Time-Config features appear only in **Electron AP6** builds (tick in that column). They require **NVRAM**; the AP6 **PCF8583** has free RAM for persisted settings. Typical **DS3231** modules on **Model B, B+**, and basic **Electron** have **no user-accessible RAM**. **Master** machines already provide their own persisted configuration—so those commands are omitted from all BBC-family ROMs by design. Detected **EEPROM** devices on the I²C bus could provide NVRAM on other targets in future.</sub>
+<sub>**\*\*** — `*CONFIGURE`, `*STATUS`, and related Time-Config features appear only in **Electron AP6** builds (tick in that column). They require **NVRAM**; the AP6 **PCF8583** has free RAM for persisted settings. Among the AP6 standalone ROMs only **`i2ceap6c.rom`** (`C.I2CEAP6`) includes these commands — the plain **`i2ceap6.rom`** is config-less. Typical **DS3231** modules on **Model B, B+**, and basic **Electron** have **no user-accessible RAM**. **Master** machines already provide their own persisted configuration—so those commands are omitted from all BBC-family ROMs by design. Detected **EEPROM** devices on the I²C bus could provide NVRAM on other targets in future.</sub>
 
 This project also includes support for building the AP6 Support ROM (`ap6.rom`) which combines the I2C ROM with other AP6 ROMs (AP1Plus, ROMManager, TUBEelk, AP6Count) into a single 16KB ROM image. The build process is handled by [`/bin/buildap6/build.sh`](bin/buildap6/build.sh) and uses SMJoin compatibility to enable ROM relocation and chaining. For detailed technical information about the AP6 Support ROM build process, see the [SMJoin Compatibility Implementation](DIARY.md#smjoin-compatibility-implementation-sept-2025) section in the developer diary.
 
@@ -64,7 +62,7 @@ Development status and milestones (newest first) are tracked in a separate devel
 Usage with Electron AP6 Platform
 --------------------------------
 
-You need a Plus 1 with the AP6 expansion board fitted and a battery installed for the RTC chip to retain time and data. Download and install/load the ROM above. The `I2CEAP6*` ROMs are standalone, but note that their NVRAM storage (used by `*CONFIGURE`/`*STATUS`) will only work if the I2C ROM is installed in a **higher ROM slot than the AP6 Support ROM**, and that AP6 Support ROM must be **v1.341 or above**. Alternatively the AP6 Support ROM can be replaced (at the reader's own risk) with the combined `ap6.rom`, which bundles the I2CBeeb ROM within it — see [Supported Platforms and Features](#supported-platforms-and-features).
+You need a Plus 1 with the AP6 expansion board fitted and a battery installed for the RTC chip to retain time and data. Download and install/load the ROM above. The `I2CEAP6*` ROMs are standalone; for the `*CONFIGURE`/`*STATUS` NVRAM features use **`i2ceap6c.rom`** (the plain `i2ceap6.rom` is config-less). Note that this NVRAM storage will only work if the I2C ROM is installed in a **higher ROM slot than the AP6 Support ROM**, and that AP6 Support ROM must be **v1.341 or above**. Alternatively the AP6 Support ROM can be replaced (at the reader's own risk) with the combined `ap6.rom`, which bundles the I2CBeeb ROM within it — see [Supported Platforms and Features](#supported-platforms-and-features).
 
 All the commands, `*TSET, *DSET, *NOW, *DATE, *TIME` etc work as per documentation on Martins [thread](https://stardot.org.uk/forums/viewtopic.php?t=10966). There is one notable exception that the `*TEMP` command outputs `Not Available`, because the PCF8583 RTC does not support this. The `*CONFIGURE` and `*STATUS` commands work as per the [Time & Config. repository](https://codeberg.org/Barneyntd/Time-Config.). The `*ROMS`, `*UNPLUG` and `*INSERT` commands from the ROM Manager (included in the AP6 Support ROM) will now retain their state over a power cycle in this configuration.
 

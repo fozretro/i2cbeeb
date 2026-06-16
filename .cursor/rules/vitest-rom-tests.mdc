@@ -10,7 +10,7 @@ Tests live under `src/tests/vitest/` and run from `bin/rom-unittest/`. Folder pa
 
 | Folder | ROM | Resolver |
 |--------|-----|----------|
-| `standalone/` | `i2cbc`, `i2cec`, `i2ceap6c` | `requireConfiglessRomVariants()` |
+| `standalone/` | `i2cb`, `i2ce`, `i2ceap6` | `requireConfiglessRomVariants()` |
 | `configure/` | INC_CONFIG EAP6 (standalone) or `dist/ap6.rom` (composite) | `requireConfigureFolderVariants()` |
 | `fixtures/ap6/` | `dist/ap6.rom` + `ap6-i2c.labels` (embedded I²C) | `requireCompositeRomVariants()` |
 | `fixtures/ap6-classic/` | `bin/buildap6/out/ap6-classic.rom` (TreeCopy, no I²C) | `requireClassicCompositeVariants()` |

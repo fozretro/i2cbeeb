@@ -104,7 +104,6 @@ export {
   EAP6_CONFIGURE_ROM_ID,
   COMPOSITE_ROM_VARIANTS,
   requireConfiglessRomVariants,
-  requireRomVariants,
   requireConfigureRomVariants,
   requireConfigureFolderVariants,
   requireConfigureRomVariant,
