@@ -31,7 +31,7 @@ REM              Removed pre-v1.337 code
 :
 ver$="1.341":date$="12 Feb 2026"
 REM              *INSERT/*UNPLUG use NVRAM OSBYTEs
-REM              Serv10 break applies unplug; Serv1 supports NVRAM resets
+REM              Unplug handling split between Serv10 and Serv1 by power-on state
 REM              LANG/TUBE defaults read back from NVRAM
 REM              *ROMS/*AQRPAGE honour NVRAM unplug map
 REM              Bugfix: Serv7 Tube write now updates L0D6D
@@ -332,11 +332,9 @@ RTS
 TYA:PHA                  :\ Save current workspace address
 OPT FNif(VALver$>=1.341)
 LDA &028D
-CMP #&01:BNE Serv1SkipPlugMap
-\ Power-on only (break applies unplug on Serv10); after I²C Beeb Serv&01
-\ handler (.boot) has run configure SET_Startup (incl. SET_Reset when R held)
+CMP #&01:BNE Serv1Skip   :\ Apply already done in Serv10, else apply on power-on
 JSR ApplyPlugMap
-.Serv1SkipPlugMap
+.Serv1Skip
 OPT FNendif
 LDA L0D6D:ASL A:ASL A    :\ Get TUBE Enable from bit 5
 BPL Serv1a               :\ bit 5 = 0, not disabled
@@ -417,8 +415,7 @@ JMP Serv7RdOk            :\ EOR FF and return
 \ SERVICE &10 - Spool/Exec closing
 \ ================================
 \ Insert/Unplug ROMs
-\ Break applies unplug on Serv10; power-on defers unplug to Serv&01 after
-\ I²C Beeb ROM Serv&01 handler (.boot) has run configure SET_Startup
+\ Break applies unplug on Serv10; power-on defers unplug to Serv1
 \ Needs to be done before Serv1, on BBC/Elk Serv10 before Serv01
 \ Ctrl-CAPS check needs to be done here to enable ROM before Serv01
 \ Check Ctrl-* and jump to *-prompt
