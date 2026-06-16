@@ -99,14 +99,14 @@ Persisted settings set by `*CONFIGURE` live in PCF8583 NVRAM and are applied to 
 Building
 --------
 
-Build with `./bin/build.sh` and this will compile using BeebAsm all three targets for BBC Micro, Acorn Electron and Acorn Electron Plus 1 AP6 in `/dist`. It will also update `/dev/eap6` and `/dev/roms`; these folders work with virtual file systems such as the one in b-em and are supported by UPURSFS, so build output can be loaded and tested on a target machine. The `dev/eap6` folder also receives dev utilities from the AP6 build SSD: `COLD` (6502 executable from `COLD.asm`) and tokenised BASIC files `NVList`, `RTCTest`, and `RTCRead` (via `PUTBASIC`). See [COLD Utility](#cold-utility).
+Build with `./bin/build.sh` and this will compile using BeebAsm all three targets for BBC Micro, Acorn Electron and Acorn Electron Plus 1 AP6 in `/dist`. It will also update `/dev/eap6` and `/dev/roms`; these folders work with virtual file systems such as the one in b-em and are supported by UPURSFS, so build output can be loaded and tested on a target machine. The `dev/eap6` folder also receives dev utilities from the AP6 build SSD: `COLD` (6502 executable from `COLD.asm`) and tokenised BASIC files `NVList`, `RTCTest`, and `RTCRead` (via `PUTBASIC`). See [Electron COLD Utility](#electron-cold-utility).
 
 Unless you pass `--skip-testing`, the build also runs the automated ROM unit tests described below.
 
-COLD Utility
-------------
+Electron COLD Utility
+---------------------
 
-Testing `*CONFIGURE LANG` (and other NVRAM settings applied on boot) needs a **true power-on** (`&028D = 1`). Ctrl+Break and `JMP (&FFFC)` do not reload configure from NVRAM—they are soft or hard breaks, not cold start. The **`COLD`** utility fakes a power-on reset in software so you can repeat configure tests without mains off/on. It uses [JGH’s `.ResetElk`](https://stardot.org.uk/forums/viewtopic.php?t=20240) routine. Example usage:
+This utility is for the **Acorn Electron** only. Testing `*CONFIGURE LANG` (and other NVRAM settings applied on boot) needs a **true power-on** (`&028D = 1`). Ctrl+Break and `JMP (&FFFC)` do not reload configure from NVRAM—they are soft or hard breaks, not cold start. The **`COLD`** utility fakes a power-on reset in software so you can repeat configure tests without mains off/on. It uses [JGH’s `.ResetElk`](https://stardot.org.uk/forums/viewtopic.php?t=20240) routine. Example usage:
 
     *CONFIGURE LANG 5
     *STATUS LANG
