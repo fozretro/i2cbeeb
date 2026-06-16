@@ -2,7 +2,7 @@
 \ 			*** I2C Beeb ***			\
 \			I2C Rom Utilities			\
 \			(c) Martin Barr 2018		\
-\			!FOZ!, v3.3, Added I2CTEST	\
+\			!FOZ!, v3.2 onwards		    \
 \										\
 \			For the BBC Micro			\ 
 \			Acorn Electron AP5			\
@@ -111,8 +111,10 @@
 \ 7. Changes introduced in v3.3 :
 \
 \	a) Added *I2CTEST command for testing I2C functionality
-\	b) Integrated Time & Config ROM features: *CONFIGURE, *STATUS, *INSERT, *UNPLUG
-\	c) Configuration features available only in Electron AP6 builds (PCF8583 RTC required)
+\	b) Added support for OSBYTE 161/162 for NVRAM persistence
+\	c) Integrated Time & Config ROM features: *CONFIGURE, *STATUS
+\	d) Configuration features available only in Electron AP6 builds (PCF8583 RTC required)
+\	e) If used with ROM Manager v1.341 or above and Plus 1 Support v1.312 or above, and this ROM is higher, the *INSERT and *UNPLUG commands use NVRAM
 \
 \-------------------------------------------------------------------------------
 
