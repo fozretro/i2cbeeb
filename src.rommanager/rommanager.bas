@@ -31,9 +31,10 @@ REM              Removed pre-v1.337 code
 :
 ver$="1.341":date$="12 Feb 2026"
 REM              *INSERT/*UNPLUG use NVRAM OSBYTEs
-REM              *LANG/*TUBE update L0D6D only, not NVRAM
-REM              Serv10 break applies unplug; Serv1 after I²C Beeb Serv&01 SET_Startup
-REM              Bugfix: *LANG no longer writes NVRAM via OSBYTE 162
+REM              Serv10 break applies unplug; Serv1 supports NVRAM resets
+REM              LANG/TUBE defaults read back from NVRAM
+REM              *ROMS/*AQRPAGE honour NVRAM unplug map
+REM              Bugfix: Serv7 Tube write now updates L0D6D
 :
 :
 REM Base addresses
