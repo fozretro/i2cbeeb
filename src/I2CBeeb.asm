@@ -517,9 +517,9 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	EQUS	"DSET <day> <dd-mm-yy>"
 	EQUB	HI(xdset), LO(xdset)
 	IF INC_CONFIG
-	EQUS	"CONFIGURE"
+	EQUS	"CONFIGURE (<config>)"
 	EQUB	HI(xconfigure), LO(xconfigure)
-	EQUS	"STATUS"
+	EQUS	"STATUS (<config>)"
 	EQUB	HI(xstatus), LO(xstatus)
 	\ INSERT and UNPLUG removed - ROM Manager handles these commands
 	\ I2CBeeb provides NVRAM via OSBYTE 161/162 instead
