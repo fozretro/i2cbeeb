@@ -10,6 +10,7 @@
 \ PCF8583 free RAM starts at register 12h (18 decimal)
 \ NVRAM address (0-255) maps to PCF8583 register (12h + NVRAM address, low 8 bits)
 PCF8583_NVRAM_BASE = $12
+NVRAM_MAX_OFFSET = 237
 
 \ Temporary buffer for single-byte NVRAM operations
 \ Uses buf08 ($0388) which is unused by RTC operations

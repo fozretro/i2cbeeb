@@ -130,11 +130,6 @@ OSRDCH	=	$FFE0		\read character from input stream
 OSW_A	=	$EF			\A at time of unknown OSWORD call
 OSW_X	=	$F0			\X at .....
 OSW_Y	=	$F1			\Y at .....
-	IF INC_CONFIG
-OSBYTEA	=	$EF			\A at time of unknown OSBYTE call
-OSBYTEX	=	$F0			\X at time of unknown OSBYTE call
-OSBYTEY	=	$F1			\Y at time of unknown OSBYTE call
-	ENDIF
 cli		=	$F2			\command line pointer - use (cli),Y
 ivars	=	$0400		\BASIC integer % variable base address
 bufloc	=	$CE			\zp,y pointer to i2c buffer for RxB..
@@ -245,7 +240,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	IF INC_CONFIG
 	CMP	#7				\A=7, Unrecognised OSBYTE?
 	BNE	serv_x			\no, next check
-	JMP	xosbyte			\else goto OSBYTE handler
+	JMP	notCommand		\Time-Config Header.asm .ROM_service (A=7)
 	ENDIF
 .serv_x	
 	RTS					\not a call we want so exit
@@ -581,33 +576,6 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	LDA	#8			\not an RTC call so restore A
 .xosxx	
 	RTS				\and return flagging command untaken
-
-\------------------------------------------------------------------------------
-\Handler for OSBYTE calls implemented in I2C rom. Currently, &A1 and &A2 for NVRAM
-
-	IF INC_CONFIG
-.xosbyte	
-	LDA	OSBYTEA		\get unknown OSBYTE call
-	CMP	#$A1			\is it OSBYTE &A1 (read NVRAM)?
-	BNE	xosb_a1		\no, try next
-	LDX	OSBYTEX		\X = NVRAM address (0-255)
-	CLC				\C = 0 for addresses 0-255
-	JSR	FRAM_readByte	\read byte from NVRAM (returns value in Y)
-	LDA	#0			\claim call and return to MOS
-	RTS				\Y contains read value, X preserved by FRAM_readByte
-.xosb_a1	
-	CMP	#$A2			\is it OSBYTE &A2 (write NVRAM)?
-	BNE	xosb_x		\no, pass on
-	LDX	OSBYTEX		\X = NVRAM address (0-255)
-	LDY	OSBYTEY		\Y = byte value to write
-	CLC				\C = 0 for addresses 0-255
-	JSR	FRAM_writeByte	\write byte to NVRAM
-	LDA	#0			\claim call and return to MOS
-	RTS				\X and Y preserved by FRAM_writeByte
-.xosb_x	
-	LDA	#7			\not an NVRAM call so restore A
-	RTS				\and return flagging command untaken
-	ENDIF
 
 \------------------------------------------------------------------------------
 \OSWORD call &0E Type 1 emulation - requests BCD output of the RTC into a

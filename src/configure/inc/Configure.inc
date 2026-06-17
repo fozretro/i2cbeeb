@@ -1,37 +1,11 @@
-\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-\ Configure Module - Master Include File
-\ Includes Time-Config source files in correct order
-\\
-\ Structure:
-\ - Vendored Time-Config sources: src/configure/*.asm (see upstream pin below)
-\ - Compatibility/Abstraction layers: src/configure/inc/*.asm
-\\
-\ Upstream: Barney Hilken Time-Config, commit e29478cc (2026-05-18).
-\ AP6/I2CBeeb edits are made directly in src/configure/; bin/time-config/extract.sh
-\ is retained for reference only (no longer run by build.sh).
-\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+\ Upstream Time-Config commit e29478cc (2026-05-18)
 
-\ Include files in dependency order:
-\ 1. Constants - Compatibility constants (replaces Header.asm constants)
-\ 2. Settings - NVRAM addresses and constants (original)
-\ 3. Strings - String utilities (original)
-\ 4. Commands - Command parsing infrastructure (original)
-\ 5. Configure - CONFIGURE and STATUS commands (original)
-\ 6. NVRAM - NVRAM abstraction layer (compatibility, replaces VIA.asm)
-\\
-\ NOTE: Roms.asm (INSERT/UNPLUG/ROMS handlers) is intentionally NOT included.
-\ I2CBeeb does not expose those commands - the ROM Manager ROM implements them.
-
-\ Compatibility/Abstraction layers (must come first)
 INCLUDE "src/configure/inc/Constants.asm"
 INCLUDE "src/configure/inc/Stubs.asm"
+INCLUDE "src/configure/inc/NVRAM.asm"
 
-\ Original Time-Config files (vendored under src/configure/)
+INCLUDE "src/configure/Header.asm"
 INCLUDE "src/configure/Settings.asm"
 INCLUDE "src/configure/Strings.asm"
 INCLUDE "src/configure/Commands.asm"
 INCLUDE "src/configure/Configure.asm"
-
-\ Compatibility/Abstraction layers (after originals)
-INCLUDE "src/configure/inc/NVRAM.asm"
-

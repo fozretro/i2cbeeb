@@ -1,0 +1,48 @@
+---
+description: Time-Config vendored sources — layout, integration edits, and upstream sync
+globs: src/configure/**/*
+alwaysApply: false
+---
+
+# Time-Config vendored code
+
+Upstream: [Time & Config. on Codeberg](https://codeberg.org/Barneyntd/Time-Config.) — vendored `ROM/*.asm` under `src/configure/`. Pinned commit in `src/configure/inc/Configure.inc`.
+
+## Layout
+
+| Path | Role |
+|------|------|
+| **`src/configure/*.asm`** | Vendored Time-Config `ROM/*.asm` files — **same filenames** as upstream, same labels and structure, **minimal integration edits only** |
+| **`src/configure/inc/`** | **I2CBeeb additions only** — not upstream files |
+
+**`inc/` contents:** `Configure.inc` (include order), `NVRAM.asm` (PCF8583 backend, replaces upstream `VIA.asm`), `Constants.asm` (ROM header stubs), `Stubs.asm` (clock/timezone stubs).
+
+## Vendored root files
+
+| File | Upstream | Notes |
+|------|----------|-------|
+| `Header.asm` | `ROM/Header.asm` | Constants + `.notCommand` OSBYTE &A1/&A2 slice; ROM header and other `.ROM_service` branches live in `I2CBeeb.asm` |
+| `Settings.asm` | `ROM/Settings.asm` | |
+| `Strings.asm` | `ROM/Strings.asm` | |
+| `Commands.asm` | `ROM/Commands.asm` | `TIME` removed |
+| `Configure.asm` | `ROM/Configure.asm` | TIMEZONE/SUMMERTIME removed; Electron AP6 edits |
+
+**Not vendored:** `Roms.asm` (ROM Manager owns `*INSERT`/`*UNPLUG`), `VIA.asm` (→ `inc/NVRAM.asm`), clock/`Time.asm` tree (stubbed in `inc/Stubs.asm`).
+
+## What we borrow vs I2CBeeb-owned
+
+- **From Time-Config:** `*CONFIGURE`, `*STATUS`, `SET_Startup`, NVRAM byte layout, OSBYTE &A1/&A2 handler logic (`Header.asm` `.notCommand`).
+- **Not from Time-Config:** clock commands, OSWORD 14/15, `*HELP` timestrings — `I2CBeeb.asm` + Martin RTC code.
+- **Wiring:** `I2CBeeb.asm` service 7 (`A=7`) → `JMP notCommand`. `*CONFIGURE`/`*STATUS` → wrappers → `CON_Configure` / `CON_Status`.
+
+## Editing rules
+
+1. **No integration banners** in vendored `src/configure/*.asm` — match upstream file tone (open with constants or code, not AP6/I2CBeeb preamble essays).
+2. **Preserve upstream shape** — keep original labels, control flow, and file boundaries so diffs against Codeberg `ROM/*.asm` stay meaningful. Prefer wiring from `I2CBeeb.asm` or `inc/` over renaming or restructuring vendored code.
+3. **Minimal integration edits** — only what attachment to I2CBeeb requires (omitted sections, duplicate equates defined elsewhere, platform swaps). No drive-by refactors.
+4. **I2CBeeb-only code** lives in `src/configure/inc/`, not new root files unless vendoring another upstream module.
+5. **Upstream sync:** source of truth is [Time & Config. on Codeberg](https://codeberg.org/Barneyntd/Time-Config.) (`ROM/*.asm`). Clone or fetch that repo locally when diffing or preparing a PR back upstream; pinned commit in `src/configure/inc/Configure.inc`. `bin/time-config/extract.sh` is historical reference only (not run by build). Contributions back to Time-Config are tracked separately (GitHub issue).
+
+## Include order
+
+See `src/configure/inc/Configure.inc`: `inc/` stubs/constants → `inc/NVRAM.asm` → vendored root files.

@@ -91,16 +91,19 @@ describe("OSBYTE 161/162 via service 7 (#33 — NVList intent)", () => {
 
     /**
      * Replicates `src/tests/native/NVList.bas` PROCreadall size query (lines 31–32):
-     * `X%=255:Y%=49:A%=USR&FFF4` → `nvmax%`. ROM returns byte at 255 today; full
-     * Acorn size metadata deferred to #36.
+     * `X%=255:Y%=49:A%=USR&FFF4` → `nvmax%` (max offset; NVList prints `nvmax%+1` locations).
      */
-    it("OSBYTE 161 size query (X=255 Y=49) behaviour is documented — see gap issue", () => {
+    it("OSBYTE 161 size query (X=255 Y=49) returns NVRAM max offset (NVList.bas lines 31–32)", () => {
       // Given — NVList.bas lines 31–32 (after bulk read loop line 30)
+      const NVRAM_MAX_OFFSET = 237;
+
+      // When
       const result = harness.invokeUnknownOsbyte({ code: 161, x: 255, y: 49 });
 
-      // Then — per-byte xosbyte only; nvmax%+1 at NVList.bas line 35 not yet correct
+      // Then — Acorn MOS: Y = size−1; PCF8583 logical bytes 0–237 (see NVRAM.asm)
       expect(result.claimed).toBe(true);
-      expect(result.y).toBe(harness.getNvramImage()[255]! & 0xff);
+      expect(harness.registers().a).toBe(0);
+      expect(result.y).toBe(NVRAM_MAX_OFFSET);
     });
   });
 });
