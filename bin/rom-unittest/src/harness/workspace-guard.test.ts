@@ -21,7 +21,7 @@ describe("workspace-guard", () => {
     expect(snapshot.zeroPage.has(0x6b)).toBe(true);
     expect(snapshot.zeroPage.has(MOS_COMMAND_SCRATCH_START)).toBe(false);
     expect(snapshot.zeroPage.has(MOS_COMMAND_SCRATCH_START + 7)).toBe(false);
-    expect(snapshot.zeroPage.size).toBe(0x100 - 8 - 2);
+    expect(snapshot.zeroPage.size).toBe(0x100 - 8 - 2 - 3);
     expect(snapshot.ram.has(INDV3_ADDRESS)).toBe(true);
   });
 

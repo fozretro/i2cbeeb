@@ -23,6 +23,7 @@ export interface MemoryRegion {
 export const DEFAULT_ZERO_PAGE_EXEMPT: readonly MemoryRegion[] = [
   { start: MOS_COMMAND_SCRATCH_START, length: MOS_COMMAND_SCRATCH_BYTES },
   { start: 0x00e4, length: 2 }, // Time-Config TempSpace2 — STR_PrintString pointer
+  { start: 0x00ef, length: 3 }, // MOS OSWORD/OSBYTE scratch (OSW_A / OSW_X / OSW_Y)
 ];
 
 /** MOS error pointer — repointed on Time-Config validation BRK paths. */
@@ -38,6 +39,7 @@ export const DEFAULT_RAM_GUARD_EXEMPT: readonly MemoryRegion[] = [
   { start: 0x0100, length: 0x100 }, // 6502 stack page
   { start: 0x0200, length: 0x001 }, // return trampoline (NOP)
   { start: 0x02e0, length: 0x010 }, // I2CBeeb i2cwrk command workspace
+  { start: 0x0700, length: 0x020 }, // OSWORD control block (mos-service-call.ts)
   { start: 0x0900, length: 0x100 }, // default * command line buffer
   { start: 0x0a00, length: 0x100 }, // i2cbuf
 ];

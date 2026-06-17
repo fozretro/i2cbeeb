@@ -21,6 +21,19 @@ export {
 } from "./harness/rom-test-harness.js";
 export type { CommandCallOptions, I2CBeebRomHarnessOptions, ServiceCallOptions } from "./harness/rom-test-harness.js";
 export {
+  MOS_SERVICE_UNKNOWN_OSBYTE,
+  MOS_SERVICE_UNKNOWN_OSWORD,
+  OSWORD_CTRL_BLOCK,
+  OSWORD_CTRL_LENGTH,
+  nullTerminatedAscii,
+  oswordBlockFirstWord,
+  oswordNoResponse,
+  type OsbyteInvokeOptions,
+  type OsbyteInvokeResult,
+  type OswordInvokeOptions,
+  type OswordInvokeResult,
+} from "./harness/mos-service-call.js";
+export {
   INDV3_ADDRESS,
   MOS_COMMAND_SCRATCH_START,
   MOS_COMMAND_SCRATCH_BYTES,

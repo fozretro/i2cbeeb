@@ -31,6 +31,18 @@ import {
   type WorkspaceGuardOptions,
   type WorkspaceSnapshot,
 } from "./workspace-guard.js";
+import {
+  MOS_SERVICE_UNKNOWN_OSBYTE,
+  MOS_SERVICE_UNKNOWN_OSWORD,
+  readOswordBlock,
+  seedOswordBlock,
+  writeOsbyteZp,
+  writeOswordZp,
+  type OsbyteInvokeOptions,
+  type OsbyteInvokeResult,
+  type OswordInvokeOptions,
+  type OswordInvokeResult,
+} from "./mos-service-call.js";
 
 export interface I2CBeebRomHarnessOptions {
   /** Path to a sideways ROM image. */
@@ -226,6 +238,57 @@ export class I2CBeebRomTestHarness {
       y: options.y ?? 0,
       commandLine: options.commandLine,
     });
+  }
+
+  /**
+   * Invoke MOS service 8 — unclaimed OSWORD (mirrors MOS chaining to sideways ROMs).
+   * Seeds {@link OSWORD_CTRL_BLOCK} and sets OSW_A / OSW_X / OSW_Y before entry.
+   */
+  invokeUnknownOsword(options: OswordInvokeOptions): OswordInvokeResult {
+    const { blockAddress, blockLength } = seedOswordBlock(
+      (address, value) => this.writeMemory(address, value),
+      options,
+    );
+    writeOswordZp(
+      (address, value) => this.writeMemory(address, value),
+      options.wordNumber,
+      blockAddress,
+    );
+    const run = this.invokeService({ serviceType: MOS_SERVICE_UNKNOWN_OSWORD, x: 0, y: 0 });
+    return {
+      claimed: this.registers().a === 0,
+      block: readOswordBlock(
+        (address) => this.readMemory(address),
+        blockAddress,
+        blockLength,
+      ),
+      blockAddress,
+      run,
+    };
+  }
+
+  /**
+   * Invoke MOS service 7 — unclaimed OSBYTE (NVRAM &A1/&A2 on INC_CONFIG ROMs).
+   * Sets OSBYTEA / OSBYTEX / OSBYTEY (aliases of OSW_A / OSW_X / OSW_Y) before entry.
+   */
+  invokeUnknownOsbyte(options: OsbyteInvokeOptions): OsbyteInvokeResult {
+    writeOsbyteZp(
+      (address, value) => this.writeMemory(address, value),
+      options.code,
+      options.x,
+      options.y ?? 0,
+    );
+    const run = this.invokeService({ serviceType: MOS_SERVICE_UNKNOWN_OSBYTE, x: 0, y: 0 });
+    return {
+      claimed: this.registers().a === 0,
+      y: this.registers().y & 0xff,
+      run,
+    };
+  }
+
+  /** Whether this ROM image includes INC_CONFIG NVRAM hooks (service 7 / OSBYTE &A1). */
+  hasConfigureNvram(): boolean {
+    return this.framReadEntry !== null && this.framWriteEntry !== null;
   }
 
   /** Invoke the sideways ROM service entry (JMP target from the ROM header). */
