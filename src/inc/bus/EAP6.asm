@@ -91,7 +91,7 @@ ENDMACRO
 \i2cstop - issues an I2C STOP by a sequence of SCL>lo, SDA>lo, SCL>hi, SDA>hi.
 \This puts the bus into the I2C IDLE state.
 
-MACRO i2cstop
+MACRO i2cstopm
 	scllo
 	sdalo
 	sclhi
@@ -102,7 +102,7 @@ ENDMACRO
 \i2cstart - issues an I2C START by a sequence of SDA>lo, <delay>, SCL>lo.
 \Sets idle state (both hi) first.
 
-MACRO i2cstart
+MACRO i2cstartm
 	LDA #ap6idle		\idle value for AP6
 	STA ap6reg			\set AP6 reg (write only) to known state
 	STA ap6regc			\maintain a copy of the last written value

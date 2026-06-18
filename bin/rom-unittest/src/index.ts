@@ -1,4 +1,4 @@
-export { MOS, ROM_BASE, ROM_SIZE, ZP, I2CWRK_ADDRESS, I2C_BYTE_ADDRESS } from "./bbc/mos.js";
+export { MOS, ROM_BASE, ROM_SIZE, ZP, I2CWRK_ADDRESS, I2C_BYTE_ADDRESS, I2C_BUF_ADDRESS, I2C_SLOT_ADDRESS, I2C_ZPREG_ADDRESS, MOS_ROM_SLOT } from "./bbc/mos.js";
 export type { MosVector } from "./bbc/mos.js";
 export {
   createJsbeebCpu,
@@ -64,6 +64,7 @@ export {
   parseBeebAsmLabels,
   requireSymbolAddress,
   configureHookAddresses,
+  i2cBusHookAddresses,
   rtcHookAddresses,
   serviceEntryAddress,
   symbolAddress,
@@ -72,6 +73,8 @@ export {
 } from "./beebasm/labels.js";
 export type { BeebAsmSymbols } from "./beebasm/labels.js";
 export { RtcMock, RTC_BUF, DEFAULT_RTC_MOCK_STATE, BLANK_RTC_MOCK_STATE, mergeRtcMockState } from "./rtc/getrtc-stub.js";
+export { I2cBusMock } from "./i2c/bus-mock.js";
+export type { I2cBusHookAddresses } from "./i2c/bus-mock.js";
 export type {
   PartialRtcMockState,
   RtcBcdState,

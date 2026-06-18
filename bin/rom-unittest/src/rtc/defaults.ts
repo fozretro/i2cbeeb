@@ -14,6 +14,7 @@ export const DEFAULT_RTC_MOCK_STATE: RtcMockState = {
   month: 0x05,
   year: 0x26,
   tbrk: 0,
+  temperature: 0x19,
 };
 
 export type PartialRtcMockState = Partial<RtcMockState>;
@@ -33,4 +34,5 @@ export const BLANK_RTC_MOCK_STATE: RtcMockState = {
   month: 0,
   year: 0,
   tbrk: 0,
+  temperature: 0,
 };

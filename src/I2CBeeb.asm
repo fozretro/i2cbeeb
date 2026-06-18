@@ -848,7 +848,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	i2clock
 	DEX
 	BNE rstc			\loop for nine ticks
-	i2cstop				\issue a stop
+	i2cstopm			\issue a stop
 	RTS					\and return
 
 \-------------------------------------------------------------------------------
@@ -858,7 +858,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	NOP					\assembler call entry point
 	SEI
 .starstp	
-	i2cstop				\call internal routine
+	JSR	i2cstop		\call internal routine
 .stpx	
 	PLA					\MOS command graceful exit
 	TAY
@@ -913,7 +913,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	LDA	#devidlo		\first device id
 	STA	temp1			\current id counter
 .qryloop	
-	i2cstart			\issue a device address with read
+	JSR	i2cstart		\issue a device address with read
 	LDA	temp1			\next device id to interrogate
 	SEC					\C = 1 = Read
 	JSR	i2caddr
@@ -936,11 +936,11 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	LDA	temp1			\last id to interrogate?
 	CMP	#devidhi
 	BEQ	qry2
-	i2cstop				\not finished, issue stop
+	JSR	i2cstop		\not finished, issue stop
 	INC	temp1			\increment id
 	JMP	qryloop			\and loop to interrogate next
 .qry2	
-	i2cstop				\finished, issue stop
+	JSR	i2cstop		\finished, issue stop
 	LDA	#$FF			\mark end of responding devices
 	LDX	temp2			\with $FF
 	STA	i2cbuf,X 
@@ -1006,7 +1006,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	LDA	i2cdev			\is address 'special' $FF ?
 	CMP	#$FF
 	BEQ	txb2			\yes, only send 8 data bits, no addr
-	i2cstart			\issue an i2c start
+	JSR	i2cstart		\issue an i2c start
 	LDA	i2cdev			\fetch device address
 	CLC					\Carry = 0 = write
 	JSR	i2caddr			\send address
@@ -1030,7 +1030,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 .txb3	
 	LDA	htextl			\stop inhibited ?
 	BNE	txbx			\yes, skip to exit
-	i2cstop				\else issue an i2c stop
+	JSR	i2cstop		\else issue an i2c stop
 .txbx	
 	PLA					\MOS command graceful exit
 	TAY
@@ -1129,7 +1129,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	SEI
 	LDA	#0				\begin i2c tx with clear status
 	STA	i2cstat
-	i2cstart			\issue an i2c start
+	JSR	i2cstart		\issue an i2c start
 	LDA	i2cdev			\fetch device address
 	CLC					\Carry = 0 = write
 	JSR	i2caddr			\send address
@@ -1159,7 +1159,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 .txd4	
 	LDA	htextl			\stop inhibited ?
 	BNE	txdx			\yes, skip to exit
-	i2cstop				\else issue an i2c stop
+	JSR	i2cstop		\else issue an i2c stop
 .txdx	
 	PLA					\MOS command graceful exit
 	TAY
@@ -1320,7 +1320,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	SEI
 	LDA	#0				\begin i2c rx with clear status
 	STA	i2cstat
-	i2cstart			\issue an i2c start
+	JSR	i2cstart		\issue an i2c start
 	LDA	i2cdev			\fetch device address
 	SEC					\Carry = 1 = read
 	LDX	temp2			\are we specifying a register?
@@ -1338,7 +1338,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	JSR	i2ctxbyte		\and send it
 	JSR	i2crxack		\ACK from slave?
 	BCS	rxberr1			\no, abort on error
-	i2cstart			\issue a re-start
+	JSR	i2cstart		\issue a re-start
 	LDA	i2cdev			\re-send address..
 	SEC					\..but now with RnW = read
 	JSR	i2caddr
@@ -1367,7 +1367,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	ORA	#2
 	STA	i2cstat
 .rxb4	
-	i2cstop				\issue an i2c stop
+	JSR	i2cstop		\issue an i2c stop
 .rxbx	
 	PLA					\MOS command graceful exit
 	TAY
@@ -1463,7 +1463,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	SEI
 	LDA	#0				\begin i2c tx with clear status
 	STA	i2cstat
-	i2cstart			\issue an i2c start
+	JSR	i2cstart		\issue an i2c start
 	LDA	i2cdev			\fetch device address
 	SEC					\Carry = 1 = read
 	LDX	temp2			\are we specifying a register?
@@ -1481,7 +1481,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	JSR	i2ctxbyte		\and send it
 	JSR	i2crxack		\ACK from slave?
 	BCS	rxderr1			\no, abort on error
-	i2cstart			\issue a re-start
+	JSR	i2cstart		\issue a re-start
 	LDA	i2cdev			\re-send address..
 	SEC					\..but now with RnW = read
 	JSR	i2caddr
@@ -1507,7 +1507,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	ORA	#2
 	STA	i2cstat
 .rxd6	
-	i2cstop				\issue an i2c stop
+	JSR	i2cstop		\issue an i2c stop
 .rxdx	
 	PLA					\MOS command graceful exit
 	TAY
@@ -1581,6 +1581,23 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	JSR	xmess
 	SEC					\flag error with Carry set
 .rxdpx
+	RTS
+
+\-------------------------------------------------------------------------------
+\i2cstart - issues an I2C START on the active bus. Subroutine peer of i2caddr,
+\i2crxbyte etc; wraps the per-bus i2cstartm macro (B/E/EAP6) so command bodies
+\JSR a single addressable entry point - also to enable mocking in unit tests.
+
+.i2cstart
+	i2cstartm			\issue an i2c start via active bus macro
+	RTS
+
+\-------------------------------------------------------------------------------
+\i2cstop - issues an I2C STOP on the active bus. Subroutine peer of i2cstart;
+\wraps the per-bus i2cstopm macro (B/E/EAP6) - also to enable mocking in unit tests.
+
+.i2cstop
+	i2cstopm			\issue an i2c stop via active bus macro
 	RTS
 
 \-------------------------------------------------------------------------------

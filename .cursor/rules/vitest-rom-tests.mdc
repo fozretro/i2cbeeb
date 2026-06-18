@@ -19,15 +19,20 @@ See `src/tests/vitest/README.md` for Vitest project → npm script mapping.
 
 ## Given / When / Then comments (required)
 
-Keep narrative **`// Given —`**, **`// When —`**, and **`// Then —`** comments on sequence and policy tests — especially under `fixtures/`.
+**Every `it(...)` you author or edit gets `// Given —`, `// When —`, `// Then —` comments** — not just sequence/policy tests under `fixtures/`. This is the house style for all ROM tests (`standalone/`, `configure/`, `fixtures/`). When you touch an existing test that lacks them, add them.
 
-- **Given** — setup and preconditions (harness, session state, NVRAM store / PCF8583, `beforeEach` context).
-- **When** — the action under test (`invokeCommand`, `invokeCtrlBreak`, `invokePowerOn`, NVRAM store setup on classic via `writeNVRAMStore` / `writeClassicServ7TubeEnabled`, etc.).
-- **Then** — assertions that prove the policy or outcome.
+Map the three phases to the classic Arrange/Act/Assert (Given/When/Then is the same Four-Phase pattern, per Fowler/North; see martinfowler.com/bliki/GivenWhenThen.html):
 
-Do **not** strip these when moving, splitting, or refactoring tests. Do **not** hide star-command steps in helpers when the test is meant to read as a Dave-style sequence — call `invokeCommand` (or explicit NVRAM store setup on classic) in the test body.
+- **Given** — preconditions / the state of the world *before* the action: harness construction, `beforeEach` context, RTC/NVRAM/bus mocks, `stubGetrtc`, seeding memory. Describe **state, not actions** ("RTC mock holds BCD 12:34:56"), not a user verb.
+- **When** — the **single** action under test: one `invokeCommand` / `invokeBoot` / `invokeService` (or one `run6502`). If a test needs a second When/Then pair (e.g. write-then-read-back), separate the pairs with a fresh `// Given —` (reset captures) + `// When —` + `// Then —`; don't chain unrelated actions under one When.
+- **Then** — assertions on **observable** outcomes: MOS output text, returned registers (`A`), memory the command is contracted to write, `mos.unexpected` empty. Prefer outcomes a user/caller can see over internal incidentals.
 
-Reference style: `fixtures/ap6/lang-tube-amalgam.test.ts`, `fixtures/ap6-classic/lang-tube-amalgam.test.ts`, `standalone/tbrk.test.ts`.
+Style notes:
+- One blank `// Given —` line is fine when the precondition is just "harness ready" from `beforeEach`.
+- Keep comments declarative (what the ROM does), not a narration of the JS API.
+- Do **not** strip these when moving, splitting, or refactoring tests. Do **not** hide star-command steps in helpers when the test should read as a Dave-style sequence — call `invokeCommand` (or explicit NVRAM store setup on classic) in the test body.
+
+Reference style: `standalone/tbrk.test.ts`, `standalone/i2c.test.ts`, `fixtures/ap6/lang-tube-amalgam.test.ts`, `fixtures/ap6-classic/lang-tube-amalgam.test.ts`.
 
 ## Fixture-specific behaviour
 

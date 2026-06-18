@@ -84,4 +84,37 @@ export function configureHookAddresses(symbols: BeebAsmSymbols): {
   };
 }
 
+const REQUIRED_I2C_BUS_SYMBOLS = [
+  "i2cstart",
+  "i2cstop",
+  "i2caddr",
+  "i2crxack",
+  "i2ctxack",
+  "i2crxbyte",
+  "i2ctxbyte",
+  "i2creset",
+] as const;
+
+export function i2cBusHookAddresses(symbols: BeebAsmSymbols): {
+  i2cstart: number;
+  i2cstop: number;
+  i2caddr: number;
+  i2crxack: number;
+  i2ctxack: number;
+  i2crxbyte: number;
+  i2ctxbyte: number;
+  i2creset: number;
+} {
+  return {
+    i2cstart: requireSymbolAddress(symbols, REQUIRED_I2C_BUS_SYMBOLS[0]),
+    i2cstop: requireSymbolAddress(symbols, REQUIRED_I2C_BUS_SYMBOLS[1]),
+    i2caddr: requireSymbolAddress(symbols, REQUIRED_I2C_BUS_SYMBOLS[2]),
+    i2crxack: requireSymbolAddress(symbols, REQUIRED_I2C_BUS_SYMBOLS[3]),
+    i2ctxack: requireSymbolAddress(symbols, REQUIRED_I2C_BUS_SYMBOLS[4]),
+    i2crxbyte: requireSymbolAddress(symbols, REQUIRED_I2C_BUS_SYMBOLS[5]),
+    i2ctxbyte: requireSymbolAddress(symbols, REQUIRED_I2C_BUS_SYMBOLS[6]),
+    i2creset: requireSymbolAddress(symbols, REQUIRED_I2C_BUS_SYMBOLS[7]),
+  };
+}
+
 export { formatBeebAsmLabels, translateCompositeLabels } from "./composite-labels.js";

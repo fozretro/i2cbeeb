@@ -12,12 +12,14 @@ import { MosMock } from "../mos/mos-mock.js";
 import {
   loadBeebAsmLabels,
   configureHookAddresses,
+  i2cBusHookAddresses,
   rtcHookAddresses,
   serviceEntryAddress,
   type BeebAsmSymbols,
 } from "../beebasm/labels.js";
 import { RtcMock } from "../rtc/getrtc-stub.js";
 import type { PartialRtcMockState, RtcMockState } from "../rtc/getrtc-stub.js";
+import { I2cBusMock } from "../i2c/bus-mock.js";
 import { NvramMock, installConfigureWorkspaceStubs } from "../nvram/nvram-mock.js";
 import type { PartialNvramImage } from "../nvram/nvram-mock.js";
 import { createDefaultConfigureNvramImage } from "../nvram/configure-defaults.js";
@@ -106,9 +108,11 @@ export class I2CBeebRomTestHarness {
 
   private readonly returnTrampoline = RETURN_TRAMPOLINE;
   private readonly rtcMock = new RtcMock();
+  private readonly i2cBusMock = new I2cBusMock();
   private readonly nvramMock = new NvramMock();
   private readonly readKeySwitchesStub = new ReadKeySwitchesStub();
   private rtcMockEnabled = false;
+  private i2cBusMockEnabled = false;
   private configureMockEnabled = false;
   private readonly workspaceGuardEnabled: boolean;
   private readonly workspaceGuardOptions: WorkspaceGuardOptions;
@@ -144,6 +148,7 @@ export class I2CBeebRomTestHarness {
     this.mos.reinstallStubs(this.cpu);
     this.mos.resetCaptures();
     this.reinstallRtcMock();
+    this.reinstallI2cBusMock();
     this.reinstallConfigureMock();
     if (this.configureMockEnabled) {
       installConfigureWorkspaceStubs(this.cpu);
@@ -179,6 +184,50 @@ export class I2CBeebRomTestHarness {
   /** Enable RTC mock with all-zero scratch (uninitialised chip buffer). */
   mockBlankRtc(): void {
     this.mockRtc(BLANK_RTC_MOCK_STATE);
+  }
+
+  /**
+   * Stub I2C bus subroutines (`i2caddr`, `i2crxack`, `i2ctxbyte`, `i2crxbyte`,
+   * `i2ctxack`, `i2creset`). VIA bit-bang macros are not mocked.
+   */
+  mockI2cBus(options?: { devices?: number[]; rxBytes?: number[] }): void {
+    this.i2cBusMockEnabled = true;
+    this.i2cBusMock.reset();
+    for (const device of options?.devices ?? []) {
+      this.i2cBusMock.addDevice(device);
+    }
+    if (options?.rxBytes) {
+      this.i2cBusMock.setRxBytes(...options.rxBytes);
+    }
+    this.reinstallI2cBusMock();
+  }
+
+  /** Bytes captured by the bus mock since the last {@link mockI2cBus} / reset. */
+  getI2cTxBytes(): number[] {
+    return [...this.i2cBusMock.txBytes];
+  }
+
+  /** Addresses observed at each stubbed `i2caddr` entry. */
+  getI2cAddrLog(): number[] {
+    return [...this.i2cBusMock.addrLog];
+  }
+
+  /** Number of stubbed `i2crxack` entries since the last bus mock reset. */
+  getI2cRxAckCalls(): number {
+    return this.i2cBusMock.rxAckCalls;
+  }
+
+  /** Configure RX data returned by stubbed `i2crxbyte`. */
+  setI2cRxBytes(...bytes: number[]): void {
+    this.i2cBusMock.setRxBytes(...bytes);
+  }
+
+  /** Register a responding 7-bit I2C device address on the bus mock. */
+  addI2cDevice(address: number): void {
+    if (!this.i2cBusMockEnabled) {
+      this.mockI2cBus();
+    }
+    this.i2cBusMock.addDevice(address);
   }
 
   /**
@@ -369,6 +418,13 @@ export class I2CBeebRomTestHarness {
     this.rtcMock.detach(this.cpu);
     if (this.rtcMockEnabled) {
       this.rtcMock.install(this.cpu, this.getrtcEntry, this.writetdEntry, this.wtbrkEntry);
+    }
+  }
+
+  private reinstallI2cBusMock(): void {
+    this.i2cBusMock.detach(this.cpu);
+    if (this.i2cBusMockEnabled) {
+      this.i2cBusMock.install(this.cpu, i2cBusHookAddresses(this.symbols));
     }
   }
 

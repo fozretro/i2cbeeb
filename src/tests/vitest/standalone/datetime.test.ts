@@ -14,6 +14,8 @@ const romVariants = requireConfiglessRomVariants();
 
 describe("configure-less I2C ROM variants", () => {
   describe.each(romVariants)("$label ($id)", (variant) => {
+    // DS3231 reports temperature (RTC_TEMP); PCF8583 has no temp sensor.
+    const hasTemp = !variant.label.includes("PCF8583");
     let harness: I2CBeebRomTestHarness;
 
     beforeEach(() => {
@@ -180,6 +182,91 @@ describe("configure-less I2C ROM variants", () => {
       // Then — same date is printed from mock state
       expect(date.reason).toBe("return");
       expect(harness.mos.getOutputText()).toContain("Tue 31-05-26");
+      expect(harness.mos.unexpected).toHaveLength(0);
+    });
+
+    it("handles *NOW and prints time, date, and temperature on one line", () => {
+      // Given — RTC mock holds fixed BCD time/date and temperature 0x19 (25 degC)
+      harness.stubGetrtc({
+        hours: 0x12,
+        minutes: 0x34,
+        seconds: 0x56,
+        weekday: 3,
+        date: 0x31,
+        month: 0x05,
+        year: 0x26,
+        temperature: 0x19,
+      });
+
+      // When — MOS service 4 dispatches *NOW
+      const result = harness.invokeCommand({ commandText: "NOW\r" });
+
+      // Then — one line carries hh:mm:ss, day dd-mm-yy, and (DS3231 only) temperature
+      expect(result.reason).toBe("return");
+      const text = harness.mos.getOutputText();
+      expect(text).toContain("12:34:56");
+      expect(text).toContain("Tue 31-05-26");
+      if (hasTemp) {
+        expect(text).toContain("25");
+        expect(text).toMatch(/degC/);
+      }
+      expect(harness.registers().a).toBe(0);
+      expect(harness.mos.unexpected).toHaveLength(0);
+    });
+
+    it("handles *NOW$ and writes the ASCII BCD clock string to i2cbuf", () => {
+      // Given — RTC mock holds fixed BCD time/date and temperature 0x19 (25 degC)
+      harness.stubGetrtc({
+        hours: 0x12,
+        minutes: 0x34,
+        seconds: 0x56,
+        weekday: 3,
+        date: 0x31,
+        month: 0x05,
+        year: 0x26,
+        temperature: 0x19,
+      });
+
+      // When — MOS service 4 dispatches *NOW$
+      const result = harness.invokeCommand({ commandText: "NOW$\r" });
+
+      // Then — nothing is printed; the ASCII clock string is built in i2cbuf ($0A00)
+      expect(result.reason).toBe("return");
+      expect(harness.mos.getOutputText()).toBe("");
+
+      let clock = "";
+      for (let i = 0; i < 25; i++) {
+        clock += String.fromCharCode(harness.readMemory(0x0a00 + i));
+      }
+      expect(clock.startsWith("12:34:56")).toBe(true);
+      expect(clock).toContain("Tue");
+      expect(clock).toContain("31-05-26");
+      if (hasTemp) {
+        // hh:mm:ss<sp>day<sp>dd-mm-yy<sp>tt<cr> — temp digits then CR at offset 24
+        expect(clock).toContain("25");
+        expect(clock.charCodeAt(24)).toBe(0x0d);
+      }
+      expect(harness.registers().a).toBe(0);
+      expect(harness.mos.unexpected).toHaveLength(0);
+    });
+
+    it("handles *TEMP and prints degrees Celsius from the RTC buffer", () => {
+      // Given — RTC mock holds temperature 0x19 (25 degC)
+      harness.stubGetrtc({ temperature: 0x19 });
+
+      // When — MOS service 4 dispatches *TEMP
+      const result = harness.invokeCommand({ commandText: "TEMP\r" });
+
+      // Then — DS3231 prints 25 degC; PCF8583 (no sensor) reports Not Available
+      expect(result.reason).toBe("return");
+      if (hasTemp) {
+        expect(harness.mos.getOutputText()).toMatch(/25/);
+        expect(harness.mos.getOutputText()).toMatch(/degC/);
+      } else {
+        // PCF8583 has no temperature sensor — ROM reports it is unavailable.
+        expect(harness.mos.getOutputText()).toMatch(/Not Available/i);
+      }
+      expect(harness.registers().a).toBe(0);
       expect(harness.mos.unexpected).toHaveLength(0);
     });
   });

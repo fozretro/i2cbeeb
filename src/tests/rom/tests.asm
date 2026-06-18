@@ -87,7 +87,7 @@ testptrh	=	mos_scratch+4
 	i2cidle
 	
 	\ Call i2cstart
-	i2cstart
+	i2cstartm
 	
 	\ Assert SDA is low (SCL state cannot be read on this platform)
 	readsda
@@ -111,14 +111,14 @@ testptrh	=	mos_scratch+4
 \-------------------------------------------------------------------------------
 .test03_stop
 	\ Step 1: Set bus to some state (e.g., START condition - both low)
-	i2cstart		\This sets both SCL and SDA low
+	i2cstartm		\This sets both SCL and SDA low
 	readsda
 	BEQ	test03_ok1		\SDA should be low (zero)
 	JMP	test03_fail_1		\Error occurred in step 1
 .test03_ok1
 	
 	\ Step 2: Call i2cstop and verify SDA is high (idle state)
-	i2cstop
+	i2cstopm
 	readsda
 	BNE	test03_done		\SDA should be high (non-zero)
 	JMP	test03_fail_2		\Error occurred in step 2
@@ -230,14 +230,14 @@ testptrh	=	mos_scratch+4
 .test07_ok1
 	
 	\ Step 2: Call i2cstart and verify SDA low
-	i2cstart
+	i2cstartm
 	readsda
 	BEQ	test07_ok2		\SDA should be low (zero)
 	JMP	test07_fail_2		\Error occurred in step 2
 .test07_ok2
 	
 	\ Step 3: Call i2cstop and verify SDA high (idle)
-	i2cstop
+	i2cstopm
 	readsda
 	BNE	test07_done		\SDA should be high (non-zero)
 	JMP	test07_fail_3		\Error occurred in step 3
@@ -272,7 +272,7 @@ testptrh	=	mos_scratch+4
 \-------------------------------------------------------------------------------
 .test08_addr_tx
 	\ Step 1: Test address transmission sequence - valid address ($50)
-	i2cstart
+	i2cstartm
 	LDA	#$50			\7-bit address
 	CLC					\RnW=0 (write)
 	JSR	i2caddr			\Transmit address
@@ -282,7 +282,7 @@ testptrh	=	mos_scratch+4
 .test08_ok1
 
 	\ Step 2: Test address transmission sequence - invalid address ($80)
-	i2cstart
+	i2cstartm
 	LDA	#$80			\7-bit address
 	CLC					\RnW=0 (write)
 	JSR	i2caddr			\Transmit address

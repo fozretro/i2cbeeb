@@ -13,6 +13,8 @@ export const RTC_BUF = {
   YEAR: 0x0386,
   /** Alarm 2 hours — Time-on-Break flag in bits 3–0. */
   TBRK: 0x038c,
+  /** DS3231 temperature MSB (integer °C in bits 6–0). */
+  TEMPERATURE: 0x0391,
 } as const;
 
 export interface RtcMockState {
@@ -26,6 +28,8 @@ export interface RtcMockState {
   year: number;
   /** Time-on-Break flag stored in buf12 bits 3–0 (0=off, non-zero=on). */
   tbrk: number;
+  /** Integer °C in buf17 bits 6–0 (DS3231). */
+  temperature: number;
 }
 
 /** @deprecated Use {@link RtcMockState} or {@link PartialRtcMockState}. */
@@ -68,6 +72,9 @@ export class RtcMock {
     if (partial.month !== undefined) this.state.month = partial.month & 0xff;
     if (partial.year !== undefined) this.state.year = partial.year & 0xff;
     if (partial.tbrk !== undefined) this.state.tbrk = partial.tbrk & 0x0f;
+    if (partial.temperature !== undefined) {
+      this.state.temperature = partial.temperature & 0x7f;
+    }
   }
 
   install(cpu: JsbeebCpu, getrtcEntry: number, writetdEntry: number, wtbrkEntry: number): void {
@@ -145,6 +152,7 @@ export class RtcMock {
     cpu.writemem(RTC_BUF.MONTH, this.state.month);
     cpu.writemem(RTC_BUF.YEAR, this.state.year);
     cpu.writemem(RTC_BUF.TBRK, this.state.tbrk & 0x0f);
+    cpu.writemem(RTC_BUF.TEMPERATURE, this.state.temperature & 0x7f);
   }
 
   private captureState(cpu: JsbeebCpu): void {
