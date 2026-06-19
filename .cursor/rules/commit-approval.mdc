@@ -1,0 +1,14 @@
+---
+description: Git commit approval policy — never auto-commit
+alwaysApply: true
+---
+
+# Commits require explicit approval
+
+Never create a git commit automatically. The user approves all commits.
+
+- Do NOT run `git commit` (or `git commit --amend`) unless the user explicitly asks for a commit in the current request.
+- Completing a task, passing tests, or finishing a build is NOT permission to commit. Stop and let the user decide.
+- Staging is fine to prepare, but do not commit on your own initiative.
+- When work is ready, summarise what changed and ask whether to commit, rather than committing.
+- Pushing (`git push`) and PR creation likewise require an explicit request.

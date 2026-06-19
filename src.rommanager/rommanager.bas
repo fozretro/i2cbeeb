@@ -36,6 +36,11 @@ REM              LANG/TUBE defaults read back from NVRAM
 REM              *ROMS/*AQRPAGE honour NVRAM unplug map
 REM              Bugfix: Serv7 Tube write now updates L0D6D
 :
+ver$="1.342":date$="19 Jun 2026"
+REM              Service 3: restore *FX 5 printer dest (NVRAM 15 b5-b7) on hard break
+REM              Service 3: select default FILE (filing system) from NVRAM 5 b0-b3
+REM              via OS_ROMNum redirect
+:
 :
 REM Base addresses
 REM --------------
@@ -128,6 +133,9 @@ PHA
 LDA &0DF0,X:BMI ROMMgrExit :\ Disabled, ignore call
 PLA:PHA
 CMP #1:BNE P%+5:JMP Serv1
+OPT FNif(VALver$>=1.342)
+CMP #3:BNE P%+5:JMP Serv3
+OPT FNendif
 CMP #4:BNE P%+5:JMP Serv4
 CMP #7:BNE P%+5:JMP Serv7
 CMP #9:BNE P%+5:JMP Serv9
@@ -356,6 +364,33 @@ PLA:TAY
 PLA:RTS
 
 
+\ SERVICE 3 - Auto-boot printer destination and default filing system
+\ ===================================================================
+\  - on a hard break, restore *FX 5 printer destination from NVRAM 15 b5-b7
+\  - if no key is held, redirect MOS service-3 ROM scan to the configured
+\    default filing system (NVRAM 5 b0-b3) by writing OS_ROMNum (&F4), so the
+\    FS ROM in that bank auto-boots. Returned unclaimed (A=3) so MOS continues.
+.Serv3
+OPT FNif(VALver$>=1.342)
+TYA:PHA                  :\ Save Y
+LDA &028D                :\ Read last break type (page 2, as Serv1/Serv10)
+BEQ Serv3FS              :\ Soft break, skip printer destination
+LDX #15:LDA #161:JSR OSBYTE        :\ Read NVRAM 15 (TUBE/BAUD/PRINT)
+TYA:LSR A:LSR A:LSR A:LSR A:LSR A  :\ PRINT in b5-b7 -> b0-b2
+TAX:LDA #5:JSR OSBYTE    :\ *FX 5 - set printer destination
+.Serv3FS
+LDA #&7A:JSR OSBYTE      :\ Scan for any key held
+CPX #&FF:BNE Serv3Done   :\ Key pressed, ignore default FS
+LDX #5:LDA #161:JSR OSBYTE         :\ Read NVRAM 5 (FILE/LANG)
+TYA:AND #&0F             :\ FILE = default FS ROM in b0-b3
+CMP &F4:BCS Serv3Done    :\ >= our ROM, already offered, skip
+ADC #1:SEI:STA &F4       :\ Redirect MOS scan to default FS (about to -1)
+.Serv3Done
+PLA:TAY                  :\ Restore Y
+JMP Serv1Exit            :\ Return unclaimed (A=3)
+OPT FNendif
+
+
 \ SERVICE 7 - Read/Write configuration settings
 \ =============================================
 \ We will respond if nobody higher than us has already responded
@@ -376,6 +411,9 @@ LSR A:BCC Serv7Write
 LDA L0D6D-5,X            :\ Read configuration setting
 CPX #5:BNE Serv7RdOk     :\ Return unplug bitmap
 ASL A:ASL A:ASL A:ASL A  :\ Move LANG to b4-b7
+OPT FNif(VALver$>=1.342)
+ORA #&0F                 :\ FILE nibble unbacked here - report &F so Serv3 skips
+OPT FNendif
 EOR #&FF
 .Serv7RdOk
 EOR #&FF:TAY             :\ Return in Y

@@ -15,6 +15,7 @@
 	EQUB 10+&80, %11111000,	%00000111		\\ MODE -- read keyboard switches for default         
 	EQUB 15,	%11111110,	%00000001		\\ TUBE
 	EQUB 15,	%11111110,	%00000000		\\ NOTUBE
+	EQUB 15,	%00011111,	%00100000		\\ PRINT (b5-b7 printer dest; applied via *FX 5 on service 3)
 	EQUB 13,	0,			8				\\ REPEAT
 	EQUB 0:		EQUW CON_FS-1				\\ FS
 	EQUB 0:		EQUW CON_PS-1				\\ PS

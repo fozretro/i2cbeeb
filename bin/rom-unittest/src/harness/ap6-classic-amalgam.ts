@@ -11,6 +11,7 @@ import { RETURN_TRAMPOLINE, MOS_MACHINE_TYPE } from "./ap6-sidecar-harness.js";
 import {
   createDefaultClassicServ7Store,
   installClassicServ7OsbyteStubs,
+  installDelegatingClassicServ7Osbyte,
   type ClassicServ7Store,
 } from "./classic-serv7-osbyte.js";
 import { installNvramServ7OsbyteStubs } from "./nvram-serv7-osbyte.js";
@@ -90,6 +91,26 @@ export class Ap6ClassicAmalgamSession {
     this.plus1 = Plus1SupportTestHarness.forAmalgamModule(binding);
   }
 
+  /**
+   * Opt-in: route OSBYTE 161/162 through ROM Manager's REAL 6502 Serv7 (via a
+   * nested service-7 dispatch) instead of the JS stub. Call after {@link reset}.
+   * Only valid for the classic (no-I²C) amalgam, where ROM Manager's Serv7 is the
+   * NVRAM provider; throws otherwise.
+   */
+  delegateNvramToRealServ7(): void {
+    if (this.configureEnabled) {
+      throw new Error(
+        "delegateNvramToRealServ7() is only for the classic (no-I²C) amalgam; " +
+          "the I²C build answers OSBYTE 161/162 from the PCF8583 slice, not Serv7",
+      );
+    }
+    installDelegatingClassicServ7Osbyte(this.mos, {
+      cpu: this.cpu,
+      serviceEntry: this.serviceEntry,
+      romSlot: this.romSlot,
+    });
+  }
+
   /** PCF8583 image when {@link Ap6ClassicAmalgamOptions.labelsPath} was provided. */
   getNvramImage(): Uint8Array {
     if (!this.configureEnabled) {
@@ -123,7 +144,7 @@ export class Ap6ClassicAmalgamSession {
       this.mos.stubOsbyteDefault(() => ({ a: 0, carry: false }));
       installConfigureWorkspaceStubs(this.cpu);
       this.reinstallConfigureMocks();
-      installNvramServ7OsbyteStubs(this.mos, this.nvramMock.image);
+      installNvramServ7OsbyteStubs(this.mos, () => this.nvramMock.image);
       return;
     }
     installClassicServ7OsbyteStubs(this.mos, this.serv7Store);

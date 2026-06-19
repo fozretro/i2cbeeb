@@ -4,15 +4,18 @@ import {
   NVR_KeyRptDelay,
   NVR_VDUSettings,
   NVR_MODE_MASK,
+  NVR_TubeSerialPrint,
   I2CBeebRomTestHarness,
   nvramFile,
   nvramLang,
   nvramMode,
+  nvramPrinter,
   requireConfigureFolderVariants,
 } from "../../../../bin/rom-unittest/src/index.js";
 
 const configureVariants = requireConfigureFolderVariants();
 const defaultMode = DEFAULT_CONFIGURE_NVRAM[10]! & NVR_MODE_MASK;
+const defaultPrint = (DEFAULT_CONFIGURE_NVRAM[15]! & 0xe0) >> 5;
 
 describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
   describe.each(configureVariants)("$label ($id)", (variant) => {
@@ -104,7 +107,9 @@ describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
 
       // Then — CON_Status blankStatus emits exactly these lines, in order.
       // An exact match guards against extra/wrong terms (e.g. TUBE vs NOTUBE,
-      // or removed BAUD/TV/PRINT/DATA/LOUD/QUIET/IGNORE reappearing).
+      // or removed BAUD/TV/DATA/LOUD/QUIET/IGNORE reappearing). PRINT is now
+      // exposed (applied via *FX 5 on service 3) so it appears between NOTUBE
+      // and REPEAT.
       expect(result.reason).toBe("return");
       expect(harness.registers().a).toBe(0);
       const expected =
@@ -116,9 +121,46 @@ describe("*CONFIGURE and *STATUS (INC_CONFIG ROMs)", () => {
         "  LANG F\r\n" +
         `  MODE ${defaultMode}\r\n` +
         "  NOTUBE\r\n" +
+        `  PRINT ${defaultPrint}\r\n` +
         "  REPEAT 8\r\n";
       expect(harness.mos.getOutputText()).toBe(expected);
       expect(harness.mos.unexpected).toHaveLength(0);
+    });
+
+    it("*CONFIGURE PRINT n stores printer dest in byte 15 b5-b7 and *STATUS PRINT confirms it", () => {
+      // Given — factory default printer destination
+      expect(nvramPrinter(harness.getNvramImage())).toBe(defaultPrint);
+      const lowBitsBefore = harness.getNvramImage()[NVR_TubeSerialPrint]! & 0x1f;
+
+      // When — *CONFIGURE PRINT 3 (help7 numeric term)
+      const configure = harness.invokeCommand({ commandText: "CONFIGURE PRINT 3\r" });
+
+      // Then — bits 5-7 hold 3; low 5 bits (baud/tube) untouched
+      expect(configure.reason).toBe("return");
+      expect(harness.registers().a).toBe(0);
+      expect(nvramPrinter(harness.getNvramImage())).toBe(3);
+      expect(harness.getNvramImage()[NVR_TubeSerialPrint]! & 0x1f).toBe(lowBitsBefore);
+      expect(harness.mos.unexpected).toHaveLength(0);
+
+      // When — *STATUS PRINT reads it back
+      harness.mos.resetCaptures();
+      const status = harness.invokeCommand({ commandText: "STATUS PRINT\r" });
+
+      // Then — printed status shows PRINT 3
+      expect(status.reason).toBe("return");
+      expect(harness.mos.getOutputText()).toMatch(/PRINT\s+3/);
+      expect(harness.mos.unexpected).toHaveLength(0);
+    });
+
+    it("rejects out-of-range *CONFIGURE PRINT (help7 is 0-7)", () => {
+      // Given — factory default printer destination
+      expect(nvramPrinter(harness.getNvramImage())).toBe(defaultPrint);
+
+      // When — PRINT 8 exceeds the help7 range
+      harness.invokeCommand({ commandText: "CONFIGURE PRINT 8\r" });
+
+      // Then — NVRAM printer field unchanged (bad parameter path)
+      expect(nvramPrinter(harness.getNvramImage())).toBe(defaultPrint);
     });
 
     describe("*CONFIGURE numeric literals (decimal and hex)", () => {

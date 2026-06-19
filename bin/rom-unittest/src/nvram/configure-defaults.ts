@@ -25,6 +25,10 @@ export const NVR_FILE_MASK = 0x0f;
 export const NVR_BAUD_SHIFT = 2;
 export const NVR_BAUD_MASK = 0x1c;
 
+/** Printer destination (*FX 5) is in NVR_TubeSerialPrint bits 5–7. */
+export const NVR_PRINT_SHIFT = 5;
+export const NVR_PRINT_MASK = 0xe0;
+
 /**
  * Default NVRAM bytes written by `SET_Reset` (`SET_DefaultsTable` in Settings.asm).
  * Address 17 must be non-zero so `SET_Startup` treats NVRAM as initialised.
@@ -70,6 +74,11 @@ export function nvramFile(image: NvramImage): number {
 /** MOS-reported baud rate (1–8), from stored index in NVRAM. */
 export function nvramBaudRate(image: NvramImage): number {
   return ((image[NVR_TubeSerialPrint]! & NVR_BAUD_MASK) >> NVR_BAUD_SHIFT) + 1;
+}
+
+/** Printer destination (0–7) from NVR_TubeSerialPrint bits 5–7. */
+export function nvramPrinter(image: NvramImage): number {
+  return (image[NVR_TubeSerialPrint]! & NVR_PRINT_MASK) >> NVR_PRINT_SHIFT;
 }
 
 export function nvramTubeEnabled(image: NvramImage): boolean {

@@ -105,6 +105,8 @@ export {
   NVR_MODE_MASK,
   NVR_InitMarker,
   NVR_NVRSize,
+  NVR_PRINT_MASK,
+  NVR_PRINT_SHIFT,
   NVR_TubeSerialPrint,
   NVR_VDUSettings,
   createDefaultConfigureNvramImage,
@@ -112,6 +114,7 @@ export {
   nvramFile,
   nvramLang,
   nvramMode,
+  nvramPrinter,
   nvramTubeEnabled,
 } from "./nvram/configure-defaults.js";
 export {

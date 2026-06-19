@@ -46,6 +46,7 @@ ENDIF
 	EQUS "MODE", help7 - helpBase
 	EQUS "TUBE", helpAlt - helpBase
 	EQUS "NOTUBE", &FF
+	EQUS "PRINT", help7 - helpBase
 	EQUS "REPEAT", help255 - helpBase
 	EQUB 0
 .fspsTable

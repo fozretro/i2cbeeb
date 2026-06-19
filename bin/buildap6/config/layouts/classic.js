@@ -28,12 +28,11 @@ module.exports = {
             name: "ROMManager",
             pageAlignment: false,
         },
-        {
-            path: "../../roms/TUBEelk-v1.10.rom",
-            name: "TUBEelk",
-            pageAlignment: false,
-        },
-        // AP6Count omitted: TreeROM 1.62 leaves no room (8291-byte TreeCopy 1.61 fits with AP6Count).
+        // TUBEelk + AP6Count omitted: TreeROM 1.62 + ROM Manager 1.342 (service-3
+        // default-FS/printer handler) leave no room for them in 16 KiB. The shipped
+        // i2c amalgam (dist/ap6.rom) still chains ROM Manager → TUBEelk → AP6Count,
+        // so sibling service-3 tolerance is covered there. This fixture only needs
+        // Plus 1 + ROM Manager to exercise their LANG/TUBE/service behaviour.
     ],
     output: {
         path: "out/ap6-classic.rom",

@@ -107,6 +107,20 @@ export class RomManagerTestHarness extends Ap6SidecarHarness {
     return this.invokeService({ serviceType: 1, y: 0, commandText: "\r" });
   }
 
+  /**
+   * Service 3 (auto-boot): default filing system + printer destination.
+   * Seeds the break type at &028D (read directly, as Serv1/Serv10 do), and
+   * stubs OSBYTE &7A (key scan, &FF = no key held) and &05 (printer
+   * destination) then dispatches service 3.
+   */
+  invokeServ3(options: { breakType?: 0 | 1 | 2; keyHeld?: boolean } = {}) {
+    const keyHeld = options.keyHeld ?? false;
+    this.setBreakType(options.breakType ?? 2);
+    this.mos.stubOsbyte(0x7a, () => ({ x: keyHeld ? 0x00 : 0xff }));
+    this.mos.stubOsbyte(0x05, () => ({}));
+    return this.invokeService({ serviceType: 3, y: 0, commandText: "\r" });
+  }
+
   protected override seedWorkspace(): void {
     this.seedRomTable();
     this.setBreakType(2);
