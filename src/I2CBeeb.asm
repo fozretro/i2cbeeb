@@ -552,7 +552,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	RTS				\and return
 
 \------------------------------------------------------------------------------
-\Handler for OSWORD calls implemented in I2C rom. Currently, $0E Type 1 and 4 
+\Handler for OSWORD calls implemented in I2C rom. Currently, $0E Types 0, 1, 2 and 4 
 
 .xosword	
 	LDA	OSW_A		\get unknown OSWORD call
@@ -567,8 +567,11 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	BNE	xosw_a1		\not a Type 4, try next type
 	JMP	OSW0E4		\else jump to our OSWORD &0E Type 4
 .xosw_a1	CMP	#1	\Type 1? 
-	BNE	xosw_a2		\no, test next OSWORD call
+	BNE	xosw_a1b	\no, test next OSWORD type
 	JMP	OSW0E1		\else jump to our OSWORD &0E Type 1		
+.xosw_a1b	CMP	#2	\Type 2? (convert 7-byte BCD to string)
+	BNE	xosw_a2		\no, test next OSWORD call
+	JMP	OSW0E2		\else jump to our OSWORD &0E Type 2
 .xosw_a2	
 	LDA	OSW_A		\get unknown OSWORD call
 	NOP				\further OSWORD tests go here
@@ -633,6 +636,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 
 .OSW0E0:
     JSR getrtc		; get RTC time & date to buffer
+.OSW0E0fmt			; format buf00-buf06 to Compact string at (OSW_X),Y
     LDY #0			; start at beginning of output buffer    
    					; Day of week (e.g., "Fri")
     LDA buf03		; get 1-7 weekday number
@@ -735,6 +739,37 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
     INY    
     LDA #0         ; claim call and return to MOS
     RTS
+
+\------------------------------------------------------------------------------
+\OSWORD call &0E Type 2 - convert a caller-supplied 7-byte Acorn BCD block into
+\the Compact date/time string. Byte 0 of the control block holds the subcall;
+\the BCD fields are one-byte shifted at offsets 1..7 in Acorn order
+\(year, month, date, weekday, hour, minute, second). We copy them into the
+\shared RTC buffer and reuse the OSW0E0 formatter (century inferred at &80).
+
+.OSW0E2
+    LDY #1			; data is one byte shifted past the subcall byte
+    LDA (OSW_X),Y	; year
+    STA buf06
+    INY
+    LDA (OSW_X),Y	; month
+    STA buf05
+    INY
+    LDA (OSW_X),Y	; date (day of month)
+    STA buf04
+    INY
+    LDA (OSW_X),Y	; weekday
+    STA buf03
+    INY
+    LDA (OSW_X),Y	; hours
+    STA buf02
+    INY
+    LDA (OSW_X),Y	; minutes
+    STA buf01
+    INY
+    LDA (OSW_X),Y	; seconds
+    STA buf00
+    JMP OSW0E0fmt	; format buffer to string (claims call, A=0)
 
 ; Helper routine to convert byte to hex string (00-99)
 .byte2hex	

@@ -11,8 +11,12 @@ const romVariants = requireConfiglessRomVariants();
 /** OSWORD 14 subcalls implemented by I²C ROM today (see `xosword` in I2CBeeb.asm). */
 const IMPLEMENTED_OSWORD14_SUBCALLS = [0, 1, 4] as const;
 
-/** Subcalls exercised by RTCRead.bas that the ROM leaves untouched (No response). */
-const UNIMPLEMENTED_OSWORD14_SUBCALLS = [2, 3, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15] as const;
+/**
+ * Subcalls exercised by RTCRead.bas that the ROM leaves untouched (No response).
+ * Type 2 (convert 7-byte BCD → string) is implemented separately below — it takes a
+ * caller-supplied BCD block rather than reading the RTC, so it is asserted on its own.
+ */
+const UNIMPLEMENTED_OSWORD14_SUBCALLS = [3, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15] as const;
 
 /**
  * Maps each OSWORD 14 subcall to its call site in `src/tests/native/RTCRead.bas`
@@ -105,6 +109,29 @@ describe("OSWORD 14 / 15 via service 8 (#33 — RTCRead / RTCTest intent)", () =
         }
       },
     );
+
+    /**
+     * Replicates `src/tests/native/RTCTest.bas` OSWORD 14 type 2 convert (DATA line 37
+     * "Convert 7-byte BCD"; vector line 19 test 1) and `RTCRead.bas` PROCosw14_2 (lines
+     * 37–41 → PROCstring). Byte 0 = subcall; bytes 1–7 = Acorn BCD one-byte shifted in
+     * order [year, month, date, weekday, hour, minute, second]; the result string is
+     * written back over the block (Compact `Day,DD MMM YYYY.HH:MM:SS`, century inferred
+     * at the &80 pivot — year &80 ⇒ 1980).
+     */
+    it("OSWORD 14 subcall 2 converts a 7-byte Acorn BCD block to the Compact string (RTCTest.bas:19,37; RTCRead.bas:37–41)", () => {
+      // Given — RTCTest.bas line 19 vector (test 1): 1980-01-01, weekday 7 (Sat), 11:22:33
+      const bcd = [0x80, 0x01, 0x01, 0x07, 0x11, 0x22, 0x33];
+
+      // When — RTCRead.bas:11 → PROCosw14_2(2): `?X%=2 … A%=14:CALL OSWORD`
+      const result = harness.invokeUnknownOsword({ wordNumber: 14, subcall: 2, seed: bcd });
+
+      // Then — ROM claims (A=0) and writes the Compact date/time string over the block
+      expect(result.run.reason).toBe("return");
+      expect(result.claimed).toBe(true);
+      expect(harness.registers().a).toBe(0);
+      expect(harness.mos.unexpected).toHaveLength(0);
+      expect(nullTerminatedAscii(result.block)).toBe("Sat,01 Jan 1980.11:22:33");
+    });
 
     /**
      * Replicates `src/tests/native/RTCRead.bas` subcalls where `IF !X%=sub%` prints
