@@ -1,6 +1,6 @@
 {
   "romBase": 32768,
-  "i2cImageOffset": 2048,
+  "i2cImageOffset": 1842,
   "i2cLabelsSource": "C.I2CEAP6.labels",
   "compositeRom": "ap6-i2c.labels"
 }

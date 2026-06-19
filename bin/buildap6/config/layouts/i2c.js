@@ -15,7 +15,14 @@ module.exports = {
         {
             path: "tmp/i2c-reloc.rom",
             name: "I2C",
-            pageAlignment: true,
+            // pageAlignment intentionally false: previously required because the I²C
+            // command table (comtab) stored handler addresses big-endian inline and the
+            // *HELP/matcher pointers were set via LDA #HI(comtab)/#LO(comtab) immediates.
+            // Both confused the little-endian SMJoin relocator at non-page-aligned offsets.
+            // I2CBeeb.asm now uses a token-terminated comtab + little-endian comtab_addrs
+            // (EQUW handler-1) and loads the comtab pointer from EQUW words, so the module
+            // relocates cleanly at any offset. Keeping this false reclaims 206 bytes.
+            pageAlignment: false,
         },
         {
             path: "../../bin/buildrommanager/out/AP6v134",

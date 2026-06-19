@@ -188,6 +188,8 @@ dash	=	45			\<->
 bkspc	=	8			\<backspace> (ascii 'BS')
 upper	=	$DF			\lower to upper case mask (b5=0 on AND)
 lower	=	$20			\upper to lower case mask (b5=1 on ORA)
+tokbit	=	$80			\b7 flag: marks a comtab name terminator/dispatch token
+tokmask	=	tokbit-1	\$7F: strips tokbit to recover the comtab_addrs offset
 
 \end of declarations
 
@@ -310,9 +312,9 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	LDA	#cr				\tidy cursor to left
 	JSR	OSASCI			\OSASCI will add a <lf>
 						\now process help text
-	LDA	#LO(comtab)		\initialise character pointer
+	LDA	p_comtab		\initialise character pointer (reloc-safe EQUW)
 	STA	htextl
-	LDA	#HI(comtab)
+	LDA	p_comtab+1
 	STA	htexth
 	LDY	#0				\Y used as character index (always 0)
 .help_a6	
@@ -333,8 +335,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	BEQ	help_a9			\yes, goto exit
 	LDA	#cr				\else <cr><lf> after each command
 	JSR	OSASCI
-	INY					\at each command end incr pointer by two
-	INC	htextl			\..to skip action address
+	INC	htextl			\skip the single token byte to next command
 	BNE	help_a6
 	INC	htexth
 	BNE	help_a6			\not at end yet so loop back for next
@@ -359,9 +360,9 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	TYA					\save Y on the stack for restoration..
 	PHA					\..(re-increment if passing on)
 	\Initialize command table pointer to comtab-1 (will be incremented first)
-	LDA	#LO(comtab-1)	\initialise command table pointer
+	LDA	p_comtab_m1		\initialise command table pointer (reloc-safe EQUW)
 	STA	htextl
-	LDA	#HI(comtab-1)
+	LDA	p_comtab_m1+1
 	STA	htexth
 	LDX	#0				\X stays at 0 for indirect addressing
 	LDA	#0
@@ -429,10 +430,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	INC	htexth			\handle page boundary
 .comm_a7_cont
 	LDA	(htextl,X)		\get next chr of failed comtab command (X=0)
-	BPL	comm_a7			\repeat till we hit the -ve exe address
-	INC	htextl			\then skip the second address byte
-	BNE	comm_a7_skip	\no page wrap
-	INC	htexth			\handle page boundary
+	BPL	comm_a7			\repeat till we hit the -ve token byte
 .comm_a7_skip
 	LDA	#0
 	STA	i2cstat
@@ -446,21 +444,14 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	TAY
 	INY
 	PHA					\re-save for handler exit (PLA/TAY/PLA/TAX)
-	LDA	(htextl,X)		\get command exeHi from comtab.. (X=0)
-	STA	temp1
-	INC	htextl			\point pointer at next address byte
-	BNE	comm_a3_cont	\no page wrap
-	INC	htexth			\handle page boundary
-.comm_a3_cont
-	LDA	(htextl,X)		\get command exeLo from comtab.. (X=0)
-	SEC
-	SBC	#1				\RTS return address is (stack)+1
-	STA	temp2
-	LDA	temp1
-	SBC	#0				\propagate borrow into hi byte (page-aligned handlers)
+	LDA	(htextl,X)		\get the command's token byte (X=0)
+	AND	#tokmask		\strip tokbit -> byte offset into comtab_addrs
+	TAX
+	LDA	comtab_addrs+1,X	\HI(handler-1) (little-endian EQUW)
 	PHA					\push handler-1 (hi, lo) for RTS dispatch
-	LDA	temp2
+	LDA	comtab_addrs,X		\LO(handler-1)
 	PHA
+	LDX	#0				\restore X=0 for handler entry convention
 	RTS					\dispatch to handler without touching INDV3
 .comm_a4	PLA			\wasn't one of our commands so..
 	TAY
@@ -474,53 +465,97 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 \Command table as	'*COMMAND <spc> *HELP dialogue'
 \		 <command label>
 
+\Each entry is a command name terminated by a single 'token' byte (tokbit set).
+\The token = (offset-of-this-command's-address within comtab_addrs) OR tokbit, so
+\(token AND tokmask) is the byte offset into the little-endian comtab_addrs table.
+\This JGH-style split (constant token terminators + a separate EQUW address table)
+\keeps the dispatch relocation-safe under SMJoin: only the EQUW entries hold $8x
+\high bytes, and they are stored little-endian exactly as the relocator expects,
+\so the I2C module no longer needs page alignment in the AP6 amalgam.
+\
+\Pointers to comtab are held as little-endian EQUW (NOT loaded via #LO/#HI
+\immediates): an immediate operand byte that happens to be $80-$BF and changes
+\between the $8000/$8100 builds is mistaken by the SMJoin relocator for an address
+\high byte, which then corrupts the preceding opcode at non-page-aligned offsets.
+\Loading from these EQUW words keeps the pointer init relocation-safe.
+.p_comtab	EQUW	comtab			\reloc-safe pointer to comtab (for *HELP walk)
+.p_comtab_m1	EQUW	comtab-1		\reloc-safe pointer to comtab-1 (for matcher)
 .comtab	
 	\Production build: include all commands except I2CTEST
 	EQUS	"I2C"
-	EQUB 	HI(stari2c), LO(stari2c)
+	EQUB	(adr_stari2c-comtab_addrs) OR tokbit
 	EQUS	"I2CRESET"
-	EQUB	HI(starrst), LO(starrst)
+	EQUB	(adr_starrst-comtab_addrs) OR tokbit
 	EQUS	"I2CQUERY (Q)"
-	EQUB	HI(i2cquery), LO(i2cquery)
+	EQUB	(adr_i2cquery-comtab_addrs) OR tokbit
 	EQUS	"I2CTXB <addr> (<#nn>) <byte>(;)"
-	EQUB	HI(i2ctxb), LO(i2ctxb)
+	EQUB	(adr_i2ctxb-comtab_addrs) OR tokbit
 	EQUS	"I2CTXD <addr> <#nn> <bytes>"
-	EQUB	HI(i2ctxd), LO(i2ctxd)
+	EQUB	(adr_i2ctxd-comtab_addrs) OR tokbit
 	EQUS	"I2CRXB <addr> (<#nn>) (A%-Z%)"
-	EQUB	HI(i2crxb), LO(i2crxb)
+	EQUB	(adr_i2crxb-comtab_addrs) OR tokbit
 	EQUS	"I2CRXD <addr> (<#nn>) <no.bytes>"
-	EQUB	HI(i2crxd), LO(i2crxd)
+	EQUB	(adr_i2crxd-comtab_addrs) OR tokbit
 	EQUS	"I2CSTOP"
-	EQUB	HI(starstp), LO(starstp)
+	EQUB	(adr_starstp-comtab_addrs) OR tokbit
 	IF INC_TESTS
 	EQUS	"I2CTEST"
-	EQUB	HI(staritest), LO(staritest)
+	EQUB	(adr_staritest-comtab_addrs) OR tokbit
 	ENDIF
 	EQUS	"TBRK"
-	EQUB	HI(xtbrk), LO(xtbrk)
+	EQUB	(adr_xtbrk-comtab_addrs) OR tokbit
 	EQUS	"TIME"
-	EQUB	HI(xtime), LO(xtime)
+	EQUB	(adr_xtime-comtab_addrs) OR tokbit
 	EQUS	"DATE"
-	EQUB	HI(xdate), LO(xdate)
+	EQUB	(adr_xdate-comtab_addrs) OR tokbit
 	EQUS	"TEMP"
-	EQUB	HI(xtemp), LO(xtemp)
+	EQUB	(adr_xtemp-comtab_addrs) OR tokbit
 	EQUS	"NOW"
-	EQUB	HI(xnow), LO(xnow)
+	EQUB	(adr_xnow-comtab_addrs) OR tokbit
 	EQUS	"NOW$"
-	EQUB	HI(xi2crtc), LO(xi2crtc)		
+	EQUB	(adr_xi2crtc-comtab_addrs) OR tokbit
 	EQUS	"TSET <hh:mm:ss>"
-	EQUB	HI(xtset), LO(xtset)
+	EQUB	(adr_xtset-comtab_addrs) OR tokbit
 	EQUS	"DSET <day> <dd-mm-yy>"
-	EQUB	HI(xdset), LO(xdset)
+	EQUB	(adr_xdset-comtab_addrs) OR tokbit
 	IF INC_CONFIG
 	EQUS	"CONFIGURE (<config>)"
-	EQUB	HI(xconfigure), LO(xconfigure)
+	EQUB	(adr_xconfigure-comtab_addrs) OR tokbit
 	EQUS	"STATUS (<config>)"
-	EQUB	HI(xstatus), LO(xstatus)
+	EQUB	(adr_xstatus-comtab_addrs) OR tokbit
 	\ INSERT and UNPLUG removed - ROM Manager handles these commands
 	\ I2CBeeb provides NVRAM via OSBYTE 161/162 instead
 	ENDIF
 	EQUB	$FF		\end of table marker
+
+\Command dispatch addresses: little-endian EQUW of (handler-1), pre-decremented
+\for RTS dispatch.  Order and IF guards MUST mirror comtab above so the computed
+\token offsets line up.  Stored as EQUW so the SMJoin little-endian relocator
+\fixes up the $8xxx addresses correctly at any image offset (no page alignment).
+.comtab_addrs
+.adr_stari2c	EQUW	stari2c-1
+.adr_starrst	EQUW	starrst-1
+.adr_i2cquery	EQUW	i2cquery-1
+.adr_i2ctxb	EQUW	i2ctxb-1
+.adr_i2ctxd	EQUW	i2ctxd-1
+.adr_i2crxb	EQUW	i2crxb-1
+.adr_i2crxd	EQUW	i2crxd-1
+.adr_starstp	EQUW	starstp-1
+	IF INC_TESTS
+.adr_staritest	EQUW	staritest-1
+	ENDIF
+.adr_xtbrk	EQUW	xtbrk-1
+.adr_xtime	EQUW	xtime-1
+.adr_xdate	EQUW	xdate-1
+.adr_xtemp	EQUW	xtemp-1
+.adr_xnow	EQUW	xnow-1
+.adr_xi2crtc	EQUW	xi2crtc-1
+.adr_xtset	EQUW	xtset-1
+.adr_xdset	EQUW	xdset-1
+	IF INC_CONFIG
+.adr_xconfigure	EQUW	xconfigure-1
+.adr_xstatus	EQUW	xstatus-1
+	ENDIF
 
 \-------------------------------------------------------------------------------
 
