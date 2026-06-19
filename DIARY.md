@@ -3,6 +3,15 @@ I2CBeeb Developer Diary
 
 A reverse-chronological log of development status and milestones for the I2CBeeb ROM project. See the [README](README.md) for current usage, build, and feature documentation.
 
+OSWORD &0F (15) Write Path — Completing RTC Clock API Parity (Jun 2026)
+-----------------------------------------------------------------------
+
+With the OSWORD &0E (14) read subcalls all in place, the last substantive gap from JGH's [`RTCTest.bas`](src/tests/native/RTCTest.bas) probe was the **write** path, [OSWORD &0F (15)](https://beebwiki.mdfs.net/OSWORD_%260F). This is now implemented (`xosw15` in [`src/I2CBeeb.asm`](src/I2CBeeb.asm)), covering both the **BCD block** writes (subcall 3 = time, 4 = date, 7 = 7-byte time & date, 8 = 8-byte with century) and the **string** writes (8 = `"hh:mm:ss"`, 11 = `"dd mmm yyyy"`, 15 = `"DDD,dd mmm yyyy"`, 20 = `"dd mmm yyyy.hh:mm:ss"`, 24 = `"DDD,dd mmm yyyy.hh:mm:ss"`) — following JGH's convention that the subcall number is the data length and the component positions in `"DDD,dd mmm yyyy.hh:mm:ss"` are fixed. Subcall 8 is overloaded (8-byte BCD *or* `"hh:mm:ss"`), disambiguated on the byte at XY+3 (a BCD month is `<&20`; the string's `':'` is `&3A`). Centisecond (5) and timezone (9) writes are left out of scope, consistent with the read side.
+
+The implementation reuses the existing `*TSET`/`*DSET` machinery: `getrtc` loads the current clock (preserving the Time-on-Break flag and any fields the subcall does not set), the caller's fields are overwritten, the buffer is range-checked, then `writetd` commits it. Out-of-range values (e.g. `RTCTest`'s deliberate `"34:34:45"`) leave the RTC unchanged while still claiming the call — exactly the "IGNORED" behaviour the probe expects. New parse helpers (`p2bcd`, `p4year`, `pmonth`, `pweekday`) reuse `asc_bcd` and the existing month/day name tables.
+
+A key architectural point: **neither RTC chip stores the century** (the DS3231 write is seven bytes; the PCF8583 keeps only a 2-bit year plus a leap-year offset). So an explicit century supplied to the 4-/8-byte or 4-digit-year forms is *validated but not persisted* — reads re-derive it at the `&80` pivot, exactly as before. The practical consequence is that years **1980–2079 round-trip exactly**, which the tests now verify end-to-end (write via OSWORD 15, read back via OSWORD 14 type 1) rather than via the old `*TSET` stand-in. Full `./bin/build.sh` green: standalone 228/228, AP6 composite 45/45, classic 8/8; the write path cost 624 bytes, leaving ≈1221 free in the 16 KiB AP6 amalgam. With this, OSWORD 14/15 RTC API parity with JGH's probes is complete bar the cosmetic Master string read layout.
+
 OSWORD 14/15 Parity: Tracing JGH's RTC API Back to Its Sources (Jun 2026)
 -------------------------------------------------------------------------
 

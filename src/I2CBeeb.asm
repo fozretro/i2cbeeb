@@ -588,12 +588,17 @@ tokmask	=	tokbit-1	\$7F: strips tokbit to recover the comtab_addrs offset
 	RTS				\and return
 
 \------------------------------------------------------------------------------
-\Handler for OSWORD calls implemented in I2C rom. Currently, $0E Types 0, 1, 2, 4, 8, 9 and 10 
+\Handler for OSWORD calls implemented in I2C rom. Currently, $0E (14) read Types 0, 1, 2, 4, 8,
+\9 and 10, plus $0F (15) write subcalls 3, 4, 7, 8 (BCD) and 8, 11, 15, 20, 24 (string).
 
 .xosword	
 	LDA	OSW_A		\get unknown OSWORD call
-	CMP	#14			\is it a Real Time Clock call?
-	BNE	xosw_a2		\not RTC read, try next
+	CMP	#14			\is it a Real Time Clock read?
+	BEQ	xosw_rtc14	\yes, handle OSWORD 14 read
+	CMP	#15			\is it a Real Time Clock write?
+	BNE	xosw_a2		\no, not an RTC call we implement
+	JMP	xosw15		\else handle OSWORD 15 write
+.xosw_rtc14
 	LDY	#0			\else test OWORD 14 function
 	LDA	(OSW_X),Y	\Type is provided by caller at XY+0
 	CMP	#0			\is it function 0? (Compact *TIME/TIME$)
@@ -874,6 +879,391 @@ tokmask	=	tokbit-1	\$7F: strips tokbit to recover the comtab_addrs offset
 .osw_cc_set
 	STA	buf07		; BCD century for the formatter
 	RTS
+
+\------------------------------------------------------------------------------
+\OSWORD call &0F (15) - write Real Time Clock. XY?0 holds the subcall, which is
+\also the length of the data that follows at XY+1 (JGH RTC OSWORD convention,
+\https://mdfs.net/Docs/Comp/BBC/Osword/RTCOswords). We implement the BCD block
+\forms (3=time, 4=date, 7=7-byte t&d, 8=8-byte t&d with century) and the string
+\forms (8="hh:mm:ss", 11/15/20/24 date/time strings). Subcall 8 is overloaded:
+\a byte < &20 at XY+3 is a BCD month (8-byte block); >= &20 is the ':' of the
+\"hh:mm:ss" string. Timezone (9) and centisecond (5) writes are out of scope.
+\
+\The RTC chips store only a 2-digit year (DS3231 writes 7 bytes, PCF8583 keeps a
+\2-bit year + leap offset), so an explicit century is validated but NOT persisted
+\- reads re-derive it at the &80 pivot. Years 1980-2079 therefore round-trip
+\exactly. We getrtc first (to preserve Time-on-Break and any unset fields), fill
+\the caller's fields, range-check, then writetd. Invalid data is left unwritten
+\but the call is still claimed (RTC unchanged => "IGNORED" to a probing caller).
+
+.xosw15
+	LDY	#0
+	LDA	(OSW_X),Y	\subcall (also the data length)
+	CMP	#3
+	BEQ	osw15_ok
+	CMP	#4
+	BEQ	osw15_ok
+	CMP	#7
+	BEQ	osw15_ok
+	CMP	#8
+	BEQ	osw15_ok
+	CMP	#11
+	BEQ	osw15_ok
+	CMP	#15
+	BEQ	osw15_ok
+	CMP	#20
+	BEQ	osw15_ok
+	CMP	#24
+	BEQ	osw15_ok
+	LDA	#8			\not a subcall we implement (5, 9, ...)
+	RTS				\restore service number, leave call unclaimed
+.osw15_ok
+	PHA				\save subcall
+	JSR	getrtc		\load current t&d (preserve ToB + unset fields)
+	PLA				\restore subcall
+	CMP	#3
+	BNE	osw15_d4
+	JMP	osw15_t3
+.osw15_d4
+	CMP	#4
+	BNE	osw15_d7
+	JMP	osw15_t4
+.osw15_d7
+	CMP	#7
+	BNE	osw15_d8
+	JMP	osw15_t7
+.osw15_d8
+	CMP	#8
+	BNE	osw15_d11
+	JMP	osw15_t8
+.osw15_d11
+	CMP	#11
+	BNE	osw15_d15
+	JMP	osw15_s11
+.osw15_d15
+	CMP	#15
+	BNE	osw15_d20
+	JMP	osw15_s15
+.osw15_d20
+	CMP	#20
+	BNE	osw15_s24j
+	JMP	osw15_s20
+.osw15_s24j
+	JMP	osw15_s24	\only 24 remains
+
+\..............................................................................
+\Subcall 3 - 3-byte BCD time block at XY+1: [hour, minute, second]
+
+.osw15_t3
+	LDY	#1
+	LDA	(OSW_X),Y	\hour
+	STA	buf02
+	INY
+	LDA	(OSW_X),Y	\minute
+	STA	buf01
+	INY
+	LDA	(OSW_X),Y	\second
+	STA	buf00
+	JMP	osw15_write
+
+\..............................................................................
+\Subcall 4 - 4-byte BCD date block at XY+1: [century, year, month, date]
+
+.osw15_t4
+	LDY	#1
+	LDA	(OSW_X),Y	\century (validated, not persisted)
+	STA	buf07
+	INY
+	LDA	(OSW_X),Y	\year
+	STA	buf06
+	INY
+	LDA	(OSW_X),Y	\month
+	STA	buf05
+	INY
+	LDA	(OSW_X),Y	\date
+	STA	buf04
+	JMP	osw15_write
+
+\..............................................................................
+\Subcall 7 - 7-byte BCD t&d block at XY+1: [year, month, date, day, h, m, s]
+
+.osw15_t7
+	LDY	#1
+	LDA	(OSW_X),Y	\year
+	STA	buf06
+	INY
+	LDA	(OSW_X),Y	\month
+	STA	buf05
+	INY
+	LDA	(OSW_X),Y	\date
+	STA	buf04
+	INY
+	LDA	(OSW_X),Y	\day of week
+	STA	buf03
+	INY
+	LDA	(OSW_X),Y	\hour
+	STA	buf02
+	INY
+	LDA	(OSW_X),Y	\minute
+	STA	buf01
+	INY
+	LDA	(OSW_X),Y	\second
+	STA	buf00
+	JMP	osw15_write
+
+\..............................................................................
+\Subcall 8 - either an 8-byte BCD t&d block [century, year, month, date, day,
+\h, m, s] or the "hh:mm:ss" string. Disambiguate on XY+3: a BCD month is < &20,
+\the ':' of the string is &3A.
+
+.osw15_t8
+	LDY	#3
+	LDA	(OSW_X),Y	\XY+3 = month (BCD) or ':' (string)
+	CMP	#$20
+	BCS	osw15_s8	\>= &20 -> "hh:mm:ss" string
+	LDY	#1
+	LDA	(OSW_X),Y	\century (validated, not persisted)
+	STA	buf07
+	INY
+	LDA	(OSW_X),Y	\year
+	STA	buf06
+	INY
+	LDA	(OSW_X),Y	\month
+	STA	buf05
+	INY
+	LDA	(OSW_X),Y	\date
+	STA	buf04
+	INY
+	LDA	(OSW_X),Y	\day of week
+	STA	buf03
+	INY
+	LDA	(OSW_X),Y	\hour
+	STA	buf02
+	INY
+	LDA	(OSW_X),Y	\minute
+	STA	buf01
+	INY
+	LDA	(OSW_X),Y	\second
+	STA	buf00
+	JMP	osw15_write
+
+\..............................................................................
+\String write handlers. The canonical layout is "DDD,dd mmm yyyy.hh:mm:ss" with
+\fixed component positions; each subcall is the length of its substring. Field
+\offsets below are XY-relative (string starts at XY+1). Helpers: p2bcd reads two
+\ASCII digits, p4year a 4-digit year, pmonth a 3-char month, pweekday a 3-char day.
+
+.osw15_s8			\"hh:mm:ss"  (hh@1 mm@4 ss@7)
+	LDY	#1
+	JSR	p2bcd
+	STA	buf02		\hour
+	LDY	#4
+	JSR	p2bcd
+	STA	buf01		\minute
+	LDY	#7
+	JSR	p2bcd
+	STA	buf00		\second
+	JMP	osw15_write
+
+.osw15_s11			\"dd mmm yyyy"  (dd@1 mmm@4 yyyy@8)
+	LDY	#1
+	JSR	p2bcd
+	STA	buf04		\date
+	LDY	#4
+	JSR	pmonth		\month -> buf05
+	LDY	#8
+	JSR	p4year		\century -> buf07, year -> buf06
+	JMP	osw15_write
+
+.osw15_s15			\"DDD,dd mmm yyyy"  (DDD@1 dd@5 mmm@8 yyyy@12)
+	LDY	#1
+	JSR	pweekday	\day of week -> buf03
+	LDY	#5
+	JSR	p2bcd
+	STA	buf04		\date
+	LDY	#8
+	JSR	pmonth		\month -> buf05
+	LDY	#12
+	JSR	p4year		\century -> buf07, year -> buf06
+	JMP	osw15_write
+
+.osw15_s20			\"dd mmm yyyy.hh:mm:ss"  (dd@1 mmm@4 yyyy@8 hh@13 mm@16 ss@19)
+	LDY	#1
+	JSR	p2bcd
+	STA	buf04		\date
+	LDY	#4
+	JSR	pmonth		\month -> buf05
+	LDY	#8
+	JSR	p4year		\century -> buf07, year -> buf06
+	LDY	#13
+	JSR	p2bcd
+	STA	buf02		\hour
+	LDY	#16
+	JSR	p2bcd
+	STA	buf01		\minute
+	LDY	#19
+	JSR	p2bcd
+	STA	buf00		\second
+	JMP	osw15_write
+
+.osw15_s24			\"DDD,dd mmm yyyy.hh:mm:ss"  (DDD@1 dd@5 mmm@8 yyyy@12 hh@17 mm@20 ss@23)
+	LDY	#1
+	JSR	pweekday	\day of week -> buf03
+	LDY	#5
+	JSR	p2bcd
+	STA	buf04		\date
+	LDY	#8
+	JSR	pmonth		\month -> buf05
+	LDY	#12
+	JSR	p4year		\century -> buf07, year -> buf06
+	LDY	#17
+	JSR	p2bcd
+	STA	buf02		\hour
+	LDY	#20
+	JSR	p2bcd
+	STA	buf01		\minute
+	LDY	#23
+	JSR	p2bcd
+	STA	buf00		\second
+	JMP	osw15_write
+
+\..............................................................................
+\Common exit: range-check the assembled buffer; write only if valid; always
+\claim the call (A=0). Invalid data leaves the RTC unchanged (IGNORED).
+
+.osw15_write
+	JSR	osw15_valid	\C set if any field out of range
+	BCS	osw15_claim	\invalid - skip write but still claim
+	JSR	writetd		\write full t&d buffer to the RTC
+.osw15_claim
+	LDA	#0			\claim call and return to MOS
+	RTS
+
+\..............................................................................
+\Validate buf00-buf06 as in-range BCD time & date. Returns C set if invalid.
+\(CMP is unaffected by the decimal flag, so plain binary compares suffice for
+\in-range BCD values.)
+
+.osw15_valid
+	LDA	buf00		\seconds 00-59
+	CMP	#$60
+	BCS	osw15_inv
+	LDA	buf01		\minutes 00-59
+	CMP	#$60
+	BCS	osw15_inv
+	LDA	buf02		\hours 00-23
+	CMP	#$24
+	BCS	osw15_inv
+	LDA	buf04		\date 01-31
+	BEQ	osw15_inv
+	CMP	#$32
+	BCS	osw15_inv
+	LDA	buf05		\month 01-12
+	BEQ	osw15_inv
+	CMP	#$13
+	BCS	osw15_inv
+	LDA	buf06		\year 00-99 (high nibble <= 9)
+	CMP	#$A0
+	BCS	osw15_inv
+	CLC				\all in range
+	RTS
+.osw15_inv
+	SEC				\flag invalid
+	RTS
+
+\..............................................................................
+\p2bcd - read two ASCII digits at (OSW_X),Y into a packed BCD byte (A). Y is
+\advanced by 2 so successive fields (e.g. a 4-digit year) can chain calls.
+
+.p2bcd
+	LDA	(OSW_X),Y	\tens digit (ASCII)
+	STA	bcdt
+	INY
+	LDA	(OSW_X),Y	\units digit (ASCII)
+	STA	bcdu
+	INY
+	JSR	asc_bcd		\-> packed BCD in A
+	RTS
+
+\p4year - read a 4-digit "yyyy" at (OSW_X),Y: first pair -> century (buf07,
+\validated only), second pair -> 2-digit year (buf06).
+
+.p4year
+	JSR	p2bcd		\century e.g. "19" -> &19
+	STA	buf07
+	JSR	p2bcd		\year e.g. "79" -> &79 (Y already advanced)
+	STA	buf06
+	RTS
+
+\pmonth - match the 3 chars at (OSW_X),Y against the month-name table; store the
+\month number (1-12 BCD) in buf05. No match leaves buf05 (from getrtc) intact.
+
+.pmonth
+	STY	temp1		\input offset
+	LDX	#0			\month-name table index (entries are 4 bytes)
+	LDA	#1
+	STA	temp2		\month counter 1..12
+.pm_try
+	LDY	temp1
+	LDA	(OSW_X),Y
+	CMP	months,X
+	BNE	pm_next
+	INY
+	LDA	(OSW_X),Y
+	CMP	months+1,X
+	BNE	pm_next
+	INY
+	LDA	(OSW_X),Y
+	CMP	months+2,X
+	BNE	pm_next
+	LDA	temp2		\matched
+	STA	buf05
+	RTS
+.pm_next
+	TXA
+	CLC
+	ADC	#4			\next 4-byte table entry
+	TAX
+	INC	temp2
+	LDA	temp2
+	CMP	#13
+	BCC	pm_try
+	RTS				\no match - leave buf05 unchanged
+
+\pweekday - match the 3 chars at (OSW_X),Y against the day-name table (1=Sun..
+\7=Sat); store the weekday number in buf03. No match leaves buf03 intact.
+
+.pweekday
+	STY	temp1		\input offset
+	LDX	#0			\day-name table index (entries are 4 bytes)
+	LDA	#1
+	STA	temp2		\weekday counter 1..7
+.pw_try
+	LDY	temp1
+	LDA	(OSW_X),Y
+	CMP	days,X
+	BNE	pw_next
+	INY
+	LDA	(OSW_X),Y
+	CMP	days+1,X
+	BNE	pw_next
+	INY
+	LDA	(OSW_X),Y
+	CMP	days+2,X
+	BNE	pw_next
+	LDA	temp2		\matched
+	STA	buf03
+	RTS
+.pw_next
+	TXA
+	CLC
+	ADC	#4			\next 4-byte table entry
+	TAX
+	INC	temp2
+	LDA	temp2
+	CMP	#8
+	BCC	pw_try
+	RTS				\no match - leave buf03 unchanged
 
 ; Helper routine to convert byte to hex string (00-99)
 .byte2hex	

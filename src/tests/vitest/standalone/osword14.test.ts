@@ -8,6 +8,9 @@ import {
 
 const romVariants = requireConfiglessRomVariants();
 
+/** ASCII byte array for an OSWORD 15 string control block (seeded from XY+1). */
+const ascii = (text: string): number[] => Array.from(text, (c) => c.charCodeAt(0) & 0xff);
+
 /** OSWORD 14 subcalls implemented by I²C ROM today (see `xosword` in I2CBeeb.asm). */
 const IMPLEMENTED_OSWORD14_SUBCALLS = [0, 1, 4, 8] as const;
 
@@ -210,28 +213,226 @@ describe("OSWORD 14 / 15 via service 8 (#33 — RTCRead / RTCTest intent)", () =
     );
 
     /**
-     * Replicates `src/tests/native/RTCTest.bas` OSWORD 15 write loop (lines 43–95),
-     * specifically subcall 3 "Write 3-byte BCD time" (DATA line 98; vectors lines 54–57)
-     * and the IGNORED contract (lines 91–92: `IF U%=&FF OR … PRINT"IGNORED"`).
-     * ROM does not claim word 15 today — full vector matrix blocked by #36.
+     * Replicates `src/tests/native/RTCTest.bas` OSWORD 15 write loop (lines 43–95).
+     * The ROM now claims the BCD block writes (3,4,7,8) and the string writes
+     * (8,11,15,20,24); see `xosw15` in `src/I2CBeeb.asm`. Each write goes getrtc →
+     * overwrite the caller's fields → validate → writetd, so unspecified fields are
+     * preserved. The century in 4-/8-byte and 4-digit-year forms is validated but not
+     * persisted (no RTC stores it), so reads re-derive it at the &80 pivot.
+     *
+     * The harness RTC mock captures buf00–buf06 on writetd, so getRtcState() reflects
+     * the written values (and never a century). beforeEach seeds 2026-05-31 (BCD),
+     * weekday 3 (Tue), 09:30:15.
      */
-    it("OSWORD 15 write subcalls are not claimed (RTCTest IGNORED contract)", () => {
-      // Given — RTCTest.bas lines 51–57 (subcall 3, test 1 BCD vector)
-      const before = harness.getRtcState();
-
-      // When — RTCTest.bas line 91: `A%=15` via USR OSWORD
+    it("OSWORD 15 subcall 3 writes a 3-byte BCD time, preserving the date (RTCTest.bas:54–57,98)", () => {
+      // When — RTCTest.bas line 53/91: write [hour, minute, second]
       const result = harness.invokeUnknownOsword({
         wordNumber: 15,
         subcall: 3,
-        seed: [0x22, 0x33, 0x44],
+        seed: [0x14, 0x25, 0x36],
       });
 
-      // Then — RTCTest.bas lines 91–92: write IGNORED; FNtime (lines 104–105) unchanged
+      // Then — ROM claims (A=0); time updated, date untouched
+      expect(result.run.reason).toBe("return");
+      expect(result.claimed).toBe(true);
+      expect(harness.registers().a).toBe(0);
+      expect(harness.mos.unexpected).toHaveLength(0);
+      const rtc = harness.getRtcState();
+      expect([rtc.hours, rtc.minutes, rtc.seconds]).toEqual([0x14, 0x25, 0x36]);
+      expect([rtc.date, rtc.month, rtc.year]).toEqual([0x31, 0x05, 0x26]);
+    });
+
+    it("OSWORD 15 subcall 4 writes a 4-byte BCD date, preserving the time (RTCTest.bas:58–61,98)", () => {
+      // When — RTCTest.bas line 58: write [century, year, month, date]
+      const result = harness.invokeUnknownOsword({
+        wordNumber: 15,
+        subcall: 4,
+        seed: [0x20, 0x26, 0x12, 0x25],
+      });
+
+      // Then — ROM claims; date updated (century dropped), time untouched
+      expect(result.claimed).toBe(true);
+      expect(harness.registers().a).toBe(0);
+      const rtc = harness.getRtcState();
+      expect([rtc.date, rtc.month, rtc.year]).toEqual([0x25, 0x12, 0x26]);
+      expect([rtc.hours, rtc.minutes, rtc.seconds]).toEqual([0x09, 0x30, 0x15]);
+    });
+
+    it("OSWORD 15 subcall 7 writes a 7-byte BCD time & date (RTCTest.bas:66–69,98)", () => {
+      // When — RTCTest.bas line 66: [year, month, date, day, hour, min, sec]
+      const result = harness.invokeUnknownOsword({
+        wordNumber: 15,
+        subcall: 7,
+        seed: [0x80, 0x01, 0x01, 0x07, 0x11, 0x22, 0x33],
+      });
+
+      // Then — ROM claims; all seven fields written (1980-01-01 Sat 11:22:33)
+      expect(result.claimed).toBe(true);
+      expect(harness.registers().a).toBe(0);
+      const rtc = harness.getRtcState();
+      expect([rtc.year, rtc.month, rtc.date, rtc.weekday]).toEqual([0x80, 0x01, 0x01, 0x07]);
+      expect([rtc.hours, rtc.minutes, rtc.seconds]).toEqual([0x11, 0x22, 0x33]);
+    });
+
+    it("OSWORD 15 subcall 8 writes an 8-byte BCD time & date with century (RTCTest.bas:70–73,98)", () => {
+      // When — RTCTest.bas line 70: [century, year, month, date, day, hour, min, sec]
+      // XY+3 = month (&12 < &20) selects the BCD path, not the "hh:mm:ss" string.
+      const result = harness.invokeUnknownOsword({
+        wordNumber: 15,
+        subcall: 8,
+        seed: [0x20, 0x99, 0x12, 0x31, 0x04, 0x22, 0x33, 0x44],
+      });
+
+      // Then — ROM claims; all fields written (century dropped on store)
+      expect(result.claimed).toBe(true);
+      expect(harness.registers().a).toBe(0);
+      const rtc = harness.getRtcState();
+      expect([rtc.year, rtc.month, rtc.date, rtc.weekday]).toEqual([0x99, 0x12, 0x31, 0x04]);
+      expect([rtc.hours, rtc.minutes, rtc.seconds]).toEqual([0x22, 0x33, 0x44]);
+    });
+
+    it('OSWORD 15 subcall 8 writes the "hh:mm:ss" string (overloaded with 8-byte BCD)', () => {
+      // When — RTCTest.bas line 70 num%=6 string form; XY+3 = ':' (&3A) selects string
+      const result = harness.invokeUnknownOsword({
+        wordNumber: 15,
+        subcall: 8,
+        seed: ascii("12:34:56"),
+      });
+
+      // Then — time updated, date preserved
+      expect(result.claimed).toBe(true);
+      expect(harness.registers().a).toBe(0);
+      const rtc = harness.getRtcState();
+      expect([rtc.hours, rtc.minutes, rtc.seconds]).toEqual([0x12, 0x34, 0x56]);
+      expect([rtc.date, rtc.month, rtc.year]).toEqual([0x31, 0x05, 0x26]);
+    });
+
+    it('OSWORD 15 subcall 11 writes the "dd mmm yyyy" string (RTCTest.bas:74)', () => {
+      // When — RTCTest.bas line 74: "07 Jan 1979"
+      const result = harness.invokeUnknownOsword({
+        wordNumber: 15,
+        subcall: 11,
+        seed: ascii("07 Jan 1979"),
+      });
+
+      // Then — date updated (Jan=01, year 79); time preserved
+      expect(result.claimed).toBe(true);
+      const rtc = harness.getRtcState();
+      expect([rtc.date, rtc.month, rtc.year]).toEqual([0x07, 0x01, 0x79]);
+      expect([rtc.hours, rtc.minutes, rtc.seconds]).toEqual([0x09, 0x30, 0x15]);
+    });
+
+    it('OSWORD 15 subcall 15 writes the "DDD,dd mmm yyyy" string (RTCTest.bas:78)', () => {
+      // When — RTCTest.bas line 78: "Mon,27 May 2099"
+      const result = harness.invokeUnknownOsword({
+        wordNumber: 15,
+        subcall: 15,
+        seed: ascii("Mon,27 May 2099"),
+      });
+
+      // Then — weekday (Mon=2), date, month (May=05), year written
+      expect(result.claimed).toBe(true);
+      const rtc = harness.getRtcState();
+      expect([rtc.weekday, rtc.date, rtc.month, rtc.year]).toEqual([2, 0x27, 0x05, 0x99]);
+    });
+
+    it('OSWORD 15 subcall 20 writes the "dd mmm yyyy.hh:mm:ss" string (RTCTest.bas:82)', () => {
+      // When — RTCTest.bas line 82: "04 Sep 1979.12:23:34"
+      const result = harness.invokeUnknownOsword({
+        wordNumber: 15,
+        subcall: 20,
+        seed: ascii("04 Sep 1979.12:23:34"),
+      });
+
+      // Then — full date & time written (Sep=09, year 79)
+      expect(result.claimed).toBe(true);
+      const rtc = harness.getRtcState();
+      expect([rtc.date, rtc.month, rtc.year]).toEqual([0x04, 0x09, 0x79]);
+      expect([rtc.hours, rtc.minutes, rtc.seconds]).toEqual([0x12, 0x23, 0x34]);
+    });
+
+    it('OSWORD 15 subcall 24 writes the "DDD,dd mmm yyyy.hh:mm:ss" string (RTCTest.bas:86)', () => {
+      // When — RTCTest.bas line 86: "Thu,29 Jan 2099.01:12:23"
+      const result = harness.invokeUnknownOsword({
+        wordNumber: 15,
+        subcall: 24,
+        seed: ascii("Thu,29 Jan 2099.01:12:23"),
+      });
+
+      // Then — every field written (Thu=5, Jan=01, year 99)
+      expect(result.claimed).toBe(true);
+      const rtc = harness.getRtcState();
+      expect([rtc.weekday, rtc.date, rtc.month, rtc.year]).toEqual([5, 0x29, 0x01, 0x99]);
+      expect([rtc.hours, rtc.minutes, rtc.seconds]).toEqual([0x01, 0x12, 0x23]);
+    });
+
+    /**
+     * RTCTest.bas line 73 string vector "01:22:33" is valid, but line 70's "34:34:45"
+     * has an out-of-range hour (&34 ≥ &24). The ROM claims the call but leaves the RTC
+     * unchanged (validation fails before writetd), which `RTCTest.bas` lines 91–92
+     * report as "IGNORED".
+     */
+    it('OSWORD 15 rejects an out-of-range time, leaving the RTC unchanged (RTCTest IGNORED)', () => {
+      // Given
+      const before = harness.getRtcState();
+
+      // When — invalid "hh:mm:ss" with hour 34
+      const result = harness.invokeUnknownOsword({
+        wordNumber: 15,
+        subcall: 8,
+        seed: ascii("34:34:45"),
+      });
+
+      // Then — claimed (A=0) but RTC untouched
+      expect(result.claimed).toBe(true);
+      expect(harness.registers().a).toBe(0);
+      expect(harness.getRtcState()).toEqual(before);
+    });
+
+    /**
+     * RTCTest.bas exercises subcalls 5 (centisecond) and 9 (timezone) too; both are
+     * out-of-scope for an I²C clock ROM, so the ROM does not claim them (A=8) and the
+     * RTC is untouched.
+     */
+    it.each([5, 9])("OSWORD 15 subcall %i is out-of-scope and not claimed", (subcall) => {
+      // Given
+      const before = harness.getRtcState();
+
+      // When
+      const result = harness.invokeUnknownOsword({
+        wordNumber: 15,
+        subcall,
+        seed: [0x00, 0x00, 0x00, 0x00, 0x00],
+      });
+
+      // Then — unclaimed (A=8), RTC unchanged
       expect(result.run.reason).toBe("return");
       expect(result.claimed).toBe(false);
       expect(harness.registers().a).toBe(8);
       expect(harness.getRtcState()).toEqual(before);
       expect(harness.mos.unexpected).toHaveLength(0);
+    });
+
+    /**
+     * End-to-end round-trip: write via OSWORD 15 then read back via OSWORD 14 type 1
+     * (BCD). Replaces the *TSET stand-in now that the write path exists. Year &80 ⇒
+     * 1980, inside the &80-pivot range, so the round-trip is exact.
+     */
+    it("OSWORD 15 write → OSWORD 14 type 1 read round-trips the BCD block", () => {
+      // When — write 7-byte t&d: 1980-01-02 Wed 11:22:33
+      const write = harness.invokeUnknownOsword({
+        wordNumber: 15,
+        subcall: 7,
+        seed: [0x80, 0x01, 0x02, 0x04, 0x11, 0x22, 0x33],
+      });
+      expect(write.claimed).toBe(true);
+
+      // Then — read it back as 7-byte BCD [year, month, date, weekday, h, m, s]
+      const read = harness.invokeUnknownOsword({ wordNumber: 14, subcall: 1 });
+      expect(read.claimed).toBe(true);
+      expect(Array.from(read.block.slice(0, 7))).toEqual([
+        0x80, 0x01, 0x02, 0x04, 0x11, 0x22, 0x33,
+      ]);
     });
 
     /**
