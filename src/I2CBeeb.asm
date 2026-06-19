@@ -588,7 +588,7 @@ tokmask	=	tokbit-1	\$7F: strips tokbit to recover the comtab_addrs offset
 	RTS				\and return
 
 \------------------------------------------------------------------------------
-\Handler for OSWORD calls implemented in I2C rom. Currently, $0E Types 0, 1, 2, 4 and 9 
+\Handler for OSWORD calls implemented in I2C rom. Currently, $0E Types 0, 1, 2, 4, 9 and 10 
 
 .xosword	
 	LDA	OSW_A		\get unknown OSWORD call
@@ -609,8 +609,11 @@ tokmask	=	tokbit-1	\$7F: strips tokbit to recover the comtab_addrs offset
 	BNE	xosw_a1c	\no, test next OSWORD type
 	JMP	OSW0E2		\else jump to our OSWORD &0E Type 2
 .xosw_a1c	CMP	#9	\Type 9? (read 8-byte BCD with century)
-	BNE	xosw_a2		\no, test next OSWORD call
+	BNE	xosw_a1d	\no, test next OSWORD type
 	JMP	OSW0E9		\else jump to our OSWORD &0E Type 9
+.xosw_a1d	CMP	#10	\Type 10? (convert 8-byte BCD to string)
+	BNE	xosw_a2		\no, test next OSWORD call
+	JMP	OSW0E10		\else jump to our OSWORD &0E Type 10
 .xosw_a2	
 	LDA	OSW_A		\get unknown OSWORD call
 	NOP				\further OSWORD tests go here
@@ -696,7 +699,8 @@ tokmask	=	tokbit-1	\$7F: strips tokbit to recover the comtab_addrs offset
 
 .OSW0E0:
     JSR getrtc		; get RTC time & date to buffer
-.OSW0E0fmt			; format buf00-buf06 to Compact string at (OSW_X),Y
+    JSR osw_infercc	; derive BCD century from year into buf07
+.OSW0E0fmt			; format buf00-buf06 (+buf07 century) to Compact string at (OSW_X),Y
     LDY #0			; start at beginning of output buffer    
    					; Day of week (e.g., "Fri")
     LDA buf03		; get 1-7 weekday number
@@ -751,28 +755,13 @@ tokmask	=	tokbit-1	\$7F: strips tokbit to recover the comtab_addrs offset
     LDA #' '
     STA (OSW_X),Y
     INY    
-    ; Year (YYYY) with century detection
-    LDA buf06      ; get year
-    PHA            ; save for later
-    CMP #$80       ; is it >= 80? (20th century)
-    BCC comp_century21	; no, assume 21st century
-    LDA #'1'       ; 19xx
-    STA (OSW_X),Y
-    INY
-    LDA #'9'
-    STA (OSW_X),Y
-    INY
-    BNE comp_year_ok
-.comp_century21	
-	LDA #'2'		; 20xx
-	STA (OSW_X),Y
-	INY
-	LDA #'0'
-	STA (OSW_X),Y
-	INY
-.comp_year_ok
-    PLA				; restore year
-    JSR byte2hex	; convert to hex string    
+    ; Century (CC) + Year (YY) as four digits. buf07 holds the BCD century:
+    ; types 0/2 derive it from the year (&80 pivot via osw_infercc); type 10
+    ; supplies it explicitly from the caller's 8-byte block.
+    LDA buf07      ; BCD century (e.g. &19 / &20)
+    JSR byte2hex   ; print two century digits
+    LDA buf06      ; BCD year
+    JSR byte2hex   ; print two year digits
     ; Add "." after year
     LDA #'.'
     STA (OSW_X),Y
@@ -829,7 +818,57 @@ tokmask	=	tokbit-1	\$7F: strips tokbit to recover the comtab_addrs offset
     INY
     LDA (OSW_X),Y	; seconds
     STA buf00
+    JSR osw_infercc	; derive BCD century from year (no explicit century in 7-byte block)
     JMP OSW0E0fmt	; format buffer to string (claims call, A=0)
+
+\------------------------------------------------------------------------------
+\OSWORD call &0E Type 10 - convert a caller-supplied 8-byte Acorn BCD block into
+\the Compact date/time string. As Type 2 but the block carries an explicit BCD
+\century at offset 1, with the 7 fields at offsets 2..8 (century, year, month,
+\date, weekday, hour, minute, second). The century is honoured verbatim rather
+\than inferred at the &80 pivot.
+
+.OSW0E10
+    LDY #1			; data is one byte shifted past the subcall byte
+    LDA (OSW_X),Y	; century (BCD)
+    STA buf07
+    INY
+    LDA (OSW_X),Y	; year
+    STA buf06
+    INY
+    LDA (OSW_X),Y	; month
+    STA buf05
+    INY
+    LDA (OSW_X),Y	; date (day of month)
+    STA buf04
+    INY
+    LDA (OSW_X),Y	; weekday
+    STA buf03
+    INY
+    LDA (OSW_X),Y	; hours
+    STA buf02
+    INY
+    LDA (OSW_X),Y	; minutes
+    STA buf01
+    INY
+    LDA (OSW_X),Y	; seconds
+    STA buf00
+    JMP OSW0E0fmt	; format buffer to string (claims call, A=0)
+
+\------------------------------------------------------------------------------
+\Derive the BCD century into buf07 from the year in buf06 using the Acorn &80
+\pivot (year >= &80 => 19xx, else 20xx). Used by the Compact formatter for the
+\read/convert paths that do not carry an explicit century (Types 0 and 2).
+
+.osw_infercc
+	LDA	buf06		; year
+	CMP	#$80		; year >= &80 ?
+	LDA	#$19		; assume 19xx (BCD)
+	BCS	osw_cc_set	; year >= &80 -> 19xx
+	LDA	#$20		; else 20xx
+.osw_cc_set
+	STA	buf07		; BCD century for the formatter
+	RTS
 
 ; Helper routine to convert byte to hex string (00-99)
 .byte2hex	

@@ -13,10 +13,11 @@ const IMPLEMENTED_OSWORD14_SUBCALLS = [0, 1, 4] as const;
 
 /**
  * Subcalls exercised by RTCRead.bas that the ROM leaves untouched (No response).
- * Type 2 (convert 7-byte BCD → string) is implemented separately below — it takes a
- * caller-supplied BCD block rather than reading the RTC, so it is asserted on its own.
+ * Types 2 and 10 (convert 7-/8-byte BCD → string) are implemented separately below —
+ * they take a caller-supplied BCD block rather than reading the RTC, so they are
+ * asserted on their own.
  */
-const UNIMPLEMENTED_OSWORD14_SUBCALLS = [3, 5, 6, 7, 10, 11, 12, 13, 14, 15] as const;
+const UNIMPLEMENTED_OSWORD14_SUBCALLS = [3, 5, 6, 7, 11, 12, 13, 14, 15] as const;
 
 /**
  * Maps each OSWORD 14 subcall to its call site in `src/tests/native/RTCRead.bas`
@@ -160,6 +161,29 @@ describe("OSWORD 14 / 15 via service 8 (#33 — RTCRead / RTCTest intent)", () =
       expect(result.block[6]).toBe(0x30); // minutes
       expect(result.block[7]).toBe(0x15); // seconds
       expect(harness.mos.unexpected).toHaveLength(0);
+    });
+
+    /**
+     * Replicates `src/tests/native/RTCRead.bas` PROCosw14_2(10) (line 19 → PROCstring,
+     * lines 37–41) and RTCTest.bas "Convert 8-byte BCD". OSWORD 14 type 10 converts a
+     * caller-supplied 8-byte Acorn BCD block to the Compact string. Byte 0 = subcall;
+     * bytes 1–8 = [century, year, month, date, weekday, hour, minute, second]. Unlike
+     * type 2 (century inferred at the &80 pivot), type 10 honours the explicit century
+     * byte — here &19 with year &26 yields 1926, not the inferred 2026.
+     */
+    it("OSWORD 14 subcall 10 converts an 8-byte Acorn BCD block (explicit century) to the Compact string (RTCRead.bas:19,37–41; RTCTest.bas)", () => {
+      // Given — explicit century &19 (1900s) with year &26: Fri 03 Jul 1926, 16:55:30
+      const bcd = [0x19, 0x26, 0x07, 0x03, 0x06, 0x16, 0x55, 0x30];
+
+      // When — RTCRead.bas:19 → PROCosw14_2(10): `?X%=10 … A%=14:CALL OSWORD`
+      const result = harness.invokeUnknownOsword({ wordNumber: 14, subcall: 10, seed: bcd });
+
+      // Then — ROM claims (A=0) and writes the Compact string honouring the explicit century
+      expect(result.run.reason).toBe("return");
+      expect(result.claimed).toBe(true);
+      expect(harness.registers().a).toBe(0);
+      expect(harness.mos.unexpected).toHaveLength(0);
+      expect(nullTerminatedAscii(result.block)).toBe("Fri,03 Jul 1926.16:55:30");
     });
 
     /**
