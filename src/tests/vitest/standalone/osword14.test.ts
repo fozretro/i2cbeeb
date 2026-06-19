@@ -11,6 +11,62 @@ const romVariants = requireConfiglessRomVariants();
 /** ASCII byte array for an OSWORD 15 string control block (seeded from XY+1). */
 const ascii = (text: string): number[] => Array.from(text, (c) => c.charCodeAt(0) & 0xff);
 
+const MONTHS = "JANFEBMARAPRMAYJUNJULAUGSEPOCTNOVDEC";
+const DAYS = "SUNMONTUEWEDTHUFRISAT";
+
+/**
+ * Mirrors `src/tests/native/RTCRead.bas` PROCstring1 (lines 63–81): parse the Master
+ * read-string layout `"DDD,dd mmm yyyy.hh:mm:ss"` by the exact fixed 1-indexed MID$
+ * positions and apply the same validity checks (FNchk digit pairs, month/day INSTR).
+ * Returns the decoded fields (1-based day/month indices as PROCstring1 computes them).
+ */
+function parseMasterString(s: string): {
+  dayOfWeek: number;
+  date: number;
+  month: number;
+  year: number;
+  century: string;
+  hour: number;
+  minute: number;
+  second: number;
+} {
+  const at = (start1: number, len: number): string => s.slice(start1 - 1, start1 - 1 + len);
+  const isDigits = (pair: string): boolean => /^[0-9][0-9]$/.test(pair); // FNchk inverse
+
+  // Punctuation at the fixed separator positions (PROCstring1 assumes these slots).
+  expect(s[3]).toBe(","); // pos 4
+  expect(s[6]).toBe(" "); // pos 7
+  expect(s[10]).toBe(" "); // pos 11
+  expect(s[15]).toBe("."); // pos 16
+  expect(s[18]).toBe(":"); // pos 19
+  expect(s[21]).toBe(":"); // pos 22
+
+  expect(isDigits(at(5, 2))).toBe(true); // date 01–31
+  expect(isDigits(at(14, 2))).toBe(true); // year 00–99
+  expect(isDigits(at(12, 2))).toBe(true); // century 00–99
+  expect(isDigits(at(17, 2))).toBe(true); // hour 00–23
+  expect(isDigits(at(20, 2))).toBe(true); // minute 00–59
+  expect(isDigits(at(23, 2))).toBe(true); // second 00–60
+
+  const monthIdx = MONTHS.indexOf(at(8, 3).toUpperCase()); // INSTR-1
+  expect(monthIdx).toBeGreaterThanOrEqual(0);
+  expect(monthIdx % 3).toBe(0); // aligned to a 3-char month token
+  const dayIdx = DAYS.indexOf(at(1, 3).toUpperCase());
+  expect(dayIdx).toBeGreaterThanOrEqual(0);
+  expect(dayIdx % 3).toBe(0);
+
+  return {
+    dayOfWeek: dayIdx / 3 + 1,
+    date: Number(at(5, 2)),
+    month: monthIdx / 3 + 1,
+    year: Number(at(12, 4)),
+    century: at(12, 2),
+    hour: Number(at(17, 2)),
+    minute: Number(at(20, 2)),
+    second: Number(at(23, 2)),
+  };
+}
+
 /** OSWORD 14 subcalls implemented by I²C ROM today (see `xosword` in I2CBeeb.asm). */
 const IMPLEMENTED_OSWORD14_SUBCALLS = [0, 1, 4, 8] as const;
 
@@ -486,26 +542,80 @@ describe("OSWORD 14 / 15 via service 8 (#33 — RTCRead / RTCTest intent)", () =
 
     /**
      * Replicates `src/tests/native/RTCRead.bas` PROCstring / PROCstring1 intent for
-     * OSWORD 14 type 0 Compact string (lines 62–80). Layout is `Day, DD MMM YYYY.HH:MM:SS`
-     * from OSW0E0 — not the Master spacing PROCstring1 assumes for type 2/4 outputs.
+     * OSWORD 14 type 0 (lines 62–80). OSW0E0 emits the Master read-string layout
+     * `"DDD,dd mmm yyyy.hh:mm:ss"` exactly — the same fixed positions PROCstring1
+     * decodes (PROCstring falls through into PROCstring1, so the probe runs these very
+     * checks on hardware). beforeEach seeds Tue 2026-05-31 09:30:15.
      */
-    it("RTCRead string fields are well-formed for OSWORD 14 type 0 Compact (RTCRead.bas lines 62–80)", () => {
-      // When — RTCRead.bas:9 → PROCosw14_0(0) → PROCstring
+    it("OSWORD 14 type 0 conforms to the PROCstring1 Master layout (RTCRead.bas lines 62–80)", () => {
+      // When — RTCRead.bas:9 → PROCosw14_0(0) → PROCstring → PROCstring1
       const result = harness.invokeUnknownOsword({ wordNumber: 14, subcall: 0 });
-      const text = nullTerminatedAscii(result.block);
+      const fields = parseMasterString(nullTerminatedAscii(result.block));
 
-      // Then — Compact string: `Day,DD MMM YYYY.HH:MM:SS` (no space after comma in OSW0E0)
-      expect(text).toMatch(/^[A-Z][a-z]{2},\d{2} [A-Z][a-z]{2} \d{4}\.\d{2}:\d{2}:\d{2}/);
-      const day = Number(text.match(/,(\d{2}) /)?.[1]);
-      expect(day).toBeGreaterThanOrEqual(1);
-      expect(day).toBeLessThanOrEqual(31);
-      const month = text.match(/,\d{2} ([A-Z][a-z]{2}) /)?.[1]?.toUpperCase();
-      expect(month).toBeDefined();
-      expect("JANFEBMARAPRMAYJUNJULAUGSEPOCTNOVDEC").toContain(month!);
-      const [hours, minutes, seconds] = text.split(".")[1]!.split(":").map(Number);
-      expect(hours).toBeLessThanOrEqual(23);
-      expect(minutes).toBeLessThanOrEqual(59);
-      expect(seconds).toBeLessThanOrEqual(60);
+      // Then — fields decode at the Master positions and match the seeded clock
+      expect(fields).toEqual({
+        dayOfWeek: 3, // Tue (DAYS index 6 → 6/3+1)
+        date: 31,
+        month: 5, // May
+        year: 2026,
+        century: "20",
+        hour: 9,
+        minute: 30,
+        second: 15,
+      });
+    });
+
+    /**
+     * The convert subcalls reuse the same OSW0E0 formatter, so their output must also
+     * satisfy the PROCstring1 layout. Type 2 infers the century at the &80 pivot
+     * (year &80 ⇒ 1980); type 10 honours the explicit century byte (&19 ⇒ 1926).
+     */
+    it("OSWORD 14 type 2 output conforms to the PROCstring1 Master layout", () => {
+      const result = harness.invokeUnknownOsword({
+        wordNumber: 14,
+        subcall: 2,
+        seed: [0x80, 0x01, 0x01, 0x07, 0x11, 0x22, 0x33],
+      });
+      expect(parseMasterString(nullTerminatedAscii(result.block))).toEqual({
+        dayOfWeek: 7, // Sat
+        date: 1,
+        month: 1, // Jan
+        year: 1980,
+        century: "19",
+        hour: 11,
+        minute: 22,
+        second: 33,
+      });
+    });
+
+    it("OSWORD 14 type 10 output conforms to the PROCstring1 Master layout (explicit century)", () => {
+      const result = harness.invokeUnknownOsword({
+        wordNumber: 14,
+        subcall: 10,
+        seed: [0x19, 0x26, 0x07, 0x03, 0x06, 0x16, 0x55, 0x30],
+      });
+      expect(parseMasterString(nullTerminatedAscii(result.block))).toEqual({
+        dayOfWeek: 6, // Fri
+        date: 3,
+        month: 7, // Jul
+        year: 1926,
+        century: "19",
+        hour: 16,
+        minute: 55,
+        second: 30,
+      });
+    });
+
+    /**
+     * Type 8 (read clock string, 8-byte family) reuses OSW0E0, so it conforms to the
+     * Master layout identically to type 0.
+     */
+    it("OSWORD 14 type 8 output conforms to the PROCstring1 Master layout (== type 0)", () => {
+      const result = harness.invokeUnknownOsword({ wordNumber: 14, subcall: 8 });
+      const fields = parseMasterString(nullTerminatedAscii(result.block));
+      expect(fields.dayOfWeek).toBe(3);
+      expect(fields.year).toBe(2026);
+      expect([fields.hour, fields.minute, fields.second]).toEqual([9, 30, 15]);
     });
 
     /**
