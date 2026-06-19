@@ -588,7 +588,7 @@ tokmask	=	tokbit-1	\$7F: strips tokbit to recover the comtab_addrs offset
 	RTS				\and return
 
 \------------------------------------------------------------------------------
-\Handler for OSWORD calls implemented in I2C rom. Currently, $0E Types 0, 1, 2, 4, 9 and 10 
+\Handler for OSWORD calls implemented in I2C rom. Currently, $0E Types 0, 1, 2, 4, 8, 9 and 10 
 
 .xosword	
 	LDA	OSW_A		\get unknown OSWORD call
@@ -612,8 +612,11 @@ tokmask	=	tokbit-1	\$7F: strips tokbit to recover the comtab_addrs offset
 	BNE	xosw_a1d	\no, test next OSWORD type
 	JMP	OSW0E9		\else jump to our OSWORD &0E Type 9
 .xosw_a1d	CMP	#10	\Type 10? (convert 8-byte BCD to string)
-	BNE	xosw_a2		\no, test next OSWORD call
+	BNE	xosw_a1e	\no, test next OSWORD type
 	JMP	OSW0E10		\else jump to our OSWORD &0E Type 10
+.xosw_a1e	CMP	#8	\Type 8? (read clock string; 8-byte family of Type 0)
+	BNE	xosw_a2		\no, not an RTC read we implement
+	JMP	OSW0E0		\else reuse the Type 0 Compact string formatter
 .xosw_a2	
 	LDA	OSW_A		\get unknown OSWORD call
 	NOP				\further OSWORD tests go here
@@ -696,6 +699,8 @@ tokmask	=	tokbit-1	\$7F: strips tokbit to recover the comtab_addrs offset
 \------------------------------------------------------------------------------
 \OSWORD call &0E Type 0 - returns an ASCII BCD time and date string in Compact format
 \This is needed for Master Compact *TIME/TIME$. Format: "Day, DD MMM YYYY.HH:MM:SS"
+\Type 8 (the 8-byte family "read clock string") is routed here too: the rendered
+\string already carries the full century+year, so its output is identical to Type 0.
 
 .OSW0E0:
     JSR getrtc		; get RTC time & date to buffer

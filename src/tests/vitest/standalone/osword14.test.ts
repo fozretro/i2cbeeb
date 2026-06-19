@@ -9,7 +9,7 @@ import {
 const romVariants = requireConfiglessRomVariants();
 
 /** OSWORD 14 subcalls implemented by I²C ROM today (see `xosword` in I2CBeeb.asm). */
-const IMPLEMENTED_OSWORD14_SUBCALLS = [0, 1, 4] as const;
+const IMPLEMENTED_OSWORD14_SUBCALLS = [0, 1, 4, 8] as const;
 
 /**
  * Subcalls exercised by RTCRead.bas that the ROM leaves untouched (No response).
@@ -94,8 +94,9 @@ describe("OSWORD 14 / 15 via service 8 (#33 — RTCRead / RTCTest intent)", () =
           expect(result.block[6]).toBe(0x15);
         }
 
-        if (subcall === 0) {
-          // RTCRead.bas:9 → PROCstring / PROCstring1 (lines 62–80) — Compact string
+        if (subcall === 0 || subcall === 8) {
+          // RTCRead.bas:9/17 → PROCstring / PROCstring1 (lines 62–80) — Compact string.
+          // Type 8 is the 8-byte family of type 0 and renders the identical string.
           const text = nullTerminatedAscii(result.block);
           expect(text).toMatch(/^Tue,/);
           expect(text).toContain("2026");
@@ -259,9 +260,12 @@ describe("OSWORD 14 / 15 via service 8 (#33 — RTCRead / RTCTest intent)", () =
 
     /**
      * Replicates `src/tests/native/RTCTest.bas` opening snapshot (line 6) and FNtime
-     * (lines 104–105): tries OSWORD 14 type 8, falls back to type 0 for clock string.
+     * (lines 104–105): tries OSWORD 14 type 8 first, falling back to type 0. The ROM now
+     * implements type 8 (8-byte family of the clock string), so FNtime's first branch is
+     * claimed and yields the same Compact string the type 0 fallback would — the fallback
+     * path is therefore never reached on this ROM.
      */
-    it("RTCTest FNtime: type 8 unclaimed, type 0 returns clock string (RTCTest.bas lines 6, 104–105)", () => {
+    it("RTCTest FNtime: type 8 returns the clock string, identical to type 0 (RTCTest.bas lines 6, 104–105)", () => {
       // When — RTCTest.bas line 6: `?X%=0:A%=14:CALL OSWORD` (type 0 snapshot → T$)
       const type0 = harness.invokeUnknownOsword({ wordNumber: 14, subcall: 0 });
       expect(type0.claimed).toBe(true);
@@ -269,14 +273,14 @@ describe("OSWORD 14 / 15 via service 8 (#33 — RTCRead / RTCTest intent)", () =
       expect(snapshot).toMatch(/^Tue,/);
       expect(snapshot).toContain("09:30:15");
 
-      // When — RTCTest.bas line 104: `?X%=8:A%=14:CALL OSWORD` first branch
+      // When — RTCTest.bas line 104: `?X%=8:A%=14:CALL OSWORD` first branch (now claimed)
       const type8 = harness.invokeUnknownOsword({ wordNumber: 14, subcall: 8 });
-      expect(type8.claimed).toBe(false);
+      expect(type8.claimed).toBe(true);
+      expect(harness.registers().a).toBe(0);
+      expect(harness.mos.unexpected).toHaveLength(0);
 
-      // When — RTCTest.bas lines 104–105: fallback `?X%=0:CALL OSWORD`
-      const fallback = harness.invokeUnknownOsword({ wordNumber: 14, subcall: 0 });
-      expect(fallback.claimed).toBe(true);
-      expect(nullTerminatedAscii(fallback.block)).toBe(snapshot);
+      // Then — type 8 renders the identical clock string to the type 0 fallback
+      expect(nullTerminatedAscii(type8.block)).toBe(snapshot);
     });
 
     /**
