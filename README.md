@@ -205,3 +205,10 @@ Various reference resources, forum posts etc..
 - [Interesting base code for ROMS](https://mdfs.net/Software/BBC/SROM/Tools/MiniROM.src)
 - [Source code AP6Count useful ref](https://mdfs.net/Software/BBC/SROM/AP6Count.bas)
 - [Source code AP6 Plus 1 ROM](https://mdfs.net/Software/BBC/SROM/Plus1/)
+
+RTC OSWORD support ([&0E](https://beebwiki.mdfs.net/OSWORD_%260E) / [&0F](https://beebwiki.mdfs.net/OSWORD_%260F))
+------------------------------------------------------------------------------------------------------------
+
+I2CBeeb implements the **clock-reading** subcalls of [OSWORD &0E (14)](https://beebwiki.mdfs.net/OSWORD_%260E): read as a Compact string (types 0 and 8), read as an Acorn BCD block (type 1, and type 9 with a leading century byte), and convert a caller-supplied BCD block to a string (type 2, and type 10 with an explicit century). Following [J.G.Harston's RTC OSWORD matrix](https://mdfs.net/Docs/Comp/BBC/Osword/RTCOswords), the "+8" variants select the 8-byte (with-century) form of the same operation. We also provide a local type 4 that returns the `*NOW$` string (time, date and temperature) — documented on BeebWiki as the *"(I2C Control ROM)"* extension. Two-digit years use the 1980–2079 (`&80`) century pivot.
+
+The remaining &0E subcalls are intentionally **not** implemented, because they belong to other subsystems rather than an I²C clock ROM: filing-system / Econet **fileserver** time (the server form of 4, and 12), the ANFS-claimed reads (3 and 11), **timezone** configuration (5 and 13, marked *provisional* upstream), **alarm** reads (6 and 14, also *provisional*), and reserved/unallocated codes (7 and 15). The **write** path, [OSWORD &0F (15)](https://beebwiki.mdfs.net/OSWORD_%260F), is not yet implemented; setting the clock is currently done via the ROM's own `*` commands.
