@@ -214,3 +214,18 @@ I2CBeeb implements the **clock-reading** subcalls of [OSWORD &0E (14)](https://b
 The remaining &0E subcalls are intentionally **not** implemented, because they belong to other subsystems rather than an I²C clock ROM: filing-system / Econet **fileserver** time (the server form of 4, and 12), the ANFS-claimed reads (3 and 11), **timezone** configuration (5 and 13, marked *provisional* upstream), **alarm** reads (6 and 14, also *provisional*), and reserved/unallocated codes (7 and 15).
 
 For the **write** path, [OSWORD &0F (15)](https://beebwiki.mdfs.net/OSWORD_%260F), I2CBeeb implements both the BCD block writes (subcall 3 = time, 4 = date, 7 = 7-byte time & date, 8 = 8-byte with century) and the string writes (subcall 8 = `"hh:mm:ss"`, 11 = `"dd mmm yyyy"`, 15 = `"DDD,dd mmm yyyy"`, 20 = `"dd mmm yyyy.hh:mm:ss"`, 24 = `"DDD,dd mmm yyyy.hh:mm:ss"`), where the subcall number is the data length. Centisecond (5) and timezone (9) writes are out of scope. As with reads, the century is accepted but not stored (the RTC chips hold only a two-digit year), so years **1980–2079** round-trip exactly. Out-of-range values leave the clock unchanged.
+
+NVRAM OSBYTE support ([&A1](https://beebwiki.mdfs.net/OSBYTE_%26A1) / [&A2](https://beebwiki.mdfs.net/OSBYTE_%26A2))
+----------------------------------------------------------------------------------------------------------
+
+On **Electron AP6 configure builds** (`i2ceap6c.rom`, or the I2CBeeb slice embedded in `ap6.rom`), I2CBeeb exposes the BBC Master's NVRAM read/write OSBYTEs, backed by the **PCF8583** RTC's free RAM over the I²C bus. This is the same programmatic API the AP6 **ROM Manager** and **Plus 1 Support ROM** use to persist `*INSERT`/`*UNPLUG` state and to read `*CONFIGURE` settings, so existing Master-style software that reads or writes CMOS/NVRAM bytes works unchanged.
+
+| Call | On entry | On exit |
+|------|----------|---------|
+| **OSBYTE &A1 (161)** — read NVRAM byte | `X` = logical address `0`–`237` | `Y` = byte value |
+| **OSBYTE &A1 (161)** — capacity query | `X` = `255`, `Y` = `49` | `Y` = highest valid address (`237`, i.e. 238 logical bytes) |
+| **OSBYTE &A2 (162)** — write NVRAM byte | `X` = logical address `0`–`237`, `Y` = byte value | — |
+
+Logical addresses **0–17** are used by the configure layer (settings 0–16 and an initialised marker at 17); **18–237** are free for your own persisted data. Logical **238+** wraps into the RTC clock registers and must not be used. The bytes map to PCF8583 chip register `12h` + address; chip registers `10h`–`11h` (year offset / year copy / `*TBRK` toggle) sit below the NVRAM window and are reserved.
+
+These OSBYTEs are claimed **only** on configure builds; on the config-less and BBC/Electron DS3231 ROMs the calls are passed on unclaimed (those targets have no user-accessible RAM, and Master machines provide their own CMOS). The behaviour is exercised against a mocked RTC by the ROM unit tests (`*CONFIGURE`/`*STATUS` and the OSBYTE 161 capacity query).
