@@ -457,6 +457,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	SBC	#1				\RTS return address is (stack)+1
 	STA	temp2
 	LDA	temp1
+	SBC	#0				\propagate borrow into hi byte (page-aligned handlers)
 	PHA					\push handler-1 (hi, lo) for RTS dispatch
 	LDA	temp2
 	PHA
@@ -552,7 +553,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	RTS				\and return
 
 \------------------------------------------------------------------------------
-\Handler for OSWORD calls implemented in I2C rom. Currently, $0E Types 0, 1, 2 and 4 
+\Handler for OSWORD calls implemented in I2C rom. Currently, $0E Types 0, 1, 2, 4 and 9 
 
 .xosword	
 	LDA	OSW_A		\get unknown OSWORD call
@@ -570,8 +571,11 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	BNE	xosw_a1b	\no, test next OSWORD type
 	JMP	OSW0E1		\else jump to our OSWORD &0E Type 1		
 .xosw_a1b	CMP	#2	\Type 2? (convert 7-byte BCD to string)
-	BNE	xosw_a2		\no, test next OSWORD call
+	BNE	xosw_a1c	\no, test next OSWORD type
 	JMP	OSW0E2		\else jump to our OSWORD &0E Type 2
+.xosw_a1c	CMP	#9	\Type 9? (read 8-byte BCD with century)
+	BNE	xosw_a2		\no, test next OSWORD call
+	JMP	OSW0E9		\else jump to our OSWORD &0E Type 9
 .xosw_a2	
 	LDA	OSW_A		\get unknown OSWORD call
 	NOP				\further OSWORD tests go here
@@ -588,6 +592,7 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 
 .OSW0E1	
 	JSR	getrtc		\first fetch rtc data block and then
+.OSW0E1bcd				\write 7 BCD fields to (OSW_X),Y from current Y
 					\get DS3231 BCD values, mask & save..
 	LDA	buf06		\year
 	AND	#cyy
@@ -618,6 +623,26 @@ lower	=	$20			\upper to lower case mask (b5=1 on ORA)
 	STA	(OSW_X),Y
 	LDA	#0			\claim call and return to MOS
 	RTS				\simple RTS, registers not preserved
+
+\------------------------------------------------------------------------------
+\OSWORD call &0E Type 9 - read date & time as 8-byte Acorn BCD with century.
+\As Type 1 but the 7 BCD fields are shifted to offsets 1..7 and a BCD century
+\byte (derived from the year at the &80 pivot) is written at offset 0.
+
+.OSW0E9	
+	JSR	getrtc		\fetch rtc data block (fills buf00-buf06)
+	LDY	#0
+	LDA	buf06		\year decides the century
+	CMP	#$80		\year >= &80 ?
+	BCC	osw0e9_c20	\no, assume 20xx
+	LDA	#$19		\else 19xx
+	BNE	osw0e9_cw
+.osw0e9_c20	
+	LDA	#$20		\20xx
+.osw0e9_cw	
+	STA	(OSW_X),Y	\century BCD at offset 0
+	LDY	#1			\BCD fields shifted by one for century
+	JMP	OSW0E1bcd	\reuse Type 1 BCD writer (claims call, A=0)
 
 \------------------------------------------------------------------------------
 \OSWORD call &0E Type 4 - returns an ASCII BCD time and date string as per

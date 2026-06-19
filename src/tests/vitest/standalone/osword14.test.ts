@@ -16,7 +16,7 @@ const IMPLEMENTED_OSWORD14_SUBCALLS = [0, 1, 4] as const;
  * Type 2 (convert 7-byte BCD → string) is implemented separately below — it takes a
  * caller-supplied BCD block rather than reading the RTC, so it is asserted on its own.
  */
-const UNIMPLEMENTED_OSWORD14_SUBCALLS = [3, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15] as const;
+const UNIMPLEMENTED_OSWORD14_SUBCALLS = [3, 5, 6, 7, 10, 11, 12, 13, 14, 15] as const;
 
 /**
  * Maps each OSWORD 14 subcall to its call site in `src/tests/native/RTCRead.bas`
@@ -131,6 +131,35 @@ describe("OSWORD 14 / 15 via service 8 (#33 — RTCRead / RTCTest intent)", () =
       expect(harness.registers().a).toBe(0);
       expect(harness.mos.unexpected).toHaveLength(0);
       expect(nullTerminatedAscii(result.block)).toBe("Sat,01 Jan 1980.11:22:33");
+    });
+
+    /**
+     * Replicates `src/tests/native/RTCRead.bas` PROCosw14_1(9) (line 18 → PROCbcd, lines
+     * 83–100) and RTCTest.bas DATA line 40 "Read 8-byte BCD": OSWORD 14 type 9 reads the
+     * clock as 8-byte Acorn BCD. Layout is type 1 shifted one byte for a leading BCD
+     * century at offset 0 (`PROCbcd1` line 97: 8-byte path reads century from `X%?0`),
+     * then [year, month, date, weekday, hour, minute, second] at offsets 1–7. Century is
+     * derived at the &80 pivot — mock year &26 ⇒ 20xx ⇒ &20.
+     */
+    it("OSWORD 14 subcall 9 reads 8-byte BCD with a leading century byte (RTCRead.bas:18,83–100; RTCTest.bas:40)", () => {
+      // Given — beforeEach mockRtc: 2026-05-31, weekday 3, 09:30:15 (BCD)
+
+      // When — RTCRead.bas:18 → PROCosw14_1(9): `?X%=9 … A%=14:CALL OSWORD`
+      const result = harness.invokeUnknownOsword({ wordNumber: 14, subcall: 9 });
+
+      // Then — ROM claims (A=0) and writes century@0 then 7-byte BCD at offsets 1–7
+      expect(result.run.reason).toBe("return");
+      expect(result.claimed).toBe(true);
+      expect(harness.registers().a).toBe(0);
+      expect(result.block[0]).toBe(0x20); // century (20xx)
+      expect(result.block[1]).toBe(0x26); // year
+      expect(result.block[2]).toBe(0x05); // month
+      expect(result.block[3]).toBe(0x31); // date
+      expect(result.block[4]).toBe(0x03); // weekday
+      expect(result.block[5]).toBe(0x09); // hours
+      expect(result.block[6]).toBe(0x30); // minutes
+      expect(result.block[7]).toBe(0x15); // seconds
+      expect(harness.mos.unexpected).toHaveLength(0);
     });
 
     /**
