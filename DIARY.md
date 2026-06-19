@@ -3,6 +3,53 @@ I2CBeeb Developer Diary
 
 A reverse-chronological log of development status and milestones for the I2CBeeb ROM project. See the [README](README.md) for current usage, build, and feature documentation.
 
+OSWORD 14/15 Parity: Tracing JGH's RTC API Back to Its Sources (Jun 2026)
+-------------------------------------------------------------------------
+
+While closing the OSWORD 14/15 test gaps from JGH's shared `RTCRead.bas`/`RTCTest.bas` probes (issue #36), a puzzle emerged: the probes exercise subtypes — notably the **8-byte BCD block with explicit century** (read subcalls 8, 9, 10) — that simply do not appear in the canonical Acorn documentation. Our copy of *The New Advanced User Guide* (`refs/NewAdvancedUserGuide.pdf`, p.356) documents only OSWORD &0E (14) read subcalls **0, 1, 2** and a string format of `ddd,nn mmm yyyy.hh:mm:ss`. So where did the rest come from? This entry records the research and how it shaped the code and tests.
+
+### What the research found
+
+The "missing" subtypes are not undocumented Acorn behaviour — **JGH (J.G.Harston) is effectively the source.** He maintains the reference works that collate every known RTC implementation and then systematise them into a Y2K-safe API:
+
+- [mdfs.net — RTC OSWORDs](https://mdfs.net/Docs/Comp/BBC/Osword/RTCOswords)
+- [BeebWiki — OSWORD &0E (read)](https://beebwiki.mdfs.net/OSWORD_&0E)
+- [BeebWiki — OSWORD &0F (write)](https://beebwiki.mdfs.net/OSWORD_%260F)
+
+Key facts established:
+
+1. **The AUG is accurate for 1986 hardware — it just predates the extensions.** BeebWiki notes *"The Master MOS 3 and MOS 4 implements subcalls 0,1,2. Unsupported subcodes are silently swallowed… Unpatched versions always consistently return the year in the date string as 19xx."* So stock Master MOS only ever did 0/1/2; the guide documents exactly that.
+
+2. **The AUG even carries a known error here.** [adsb.co.uk — BBC Master 128 and Y2000](http://www.adsb.co.uk/bbc/bbc_master.html) documents a documentation bug in *both* the Master Series Reference Manual (p.D.3-25) and the New Advanced User Guide (**p.356** — the page we read) regarding the OSWORD &0F write parameter block, plus the underlying Y2K faults: the read code hardwires "19" as the century, and the write code ignores the user-supplied century. This Y2K problem is what motivated the extended API.
+
+3. **JGH's unifying rule: "+8 selects the 8-byte (with-century) block."** Adding 8 to a subcall switches the 7-byte (no-century) variant to the 8-byte (with-century) variant, giving clean pairs:
+
+   | 7-byte | 8-byte | Operation                |
+   |:------:|:------:|--------------------------|
+   |   0    |   8    | Read as string           |
+   |   1    |   9    | Read as BCD              |
+   |   2    |   10   | Convert BCD → string     |
+
+   He filled the gaps by collating the real-world subsets each implementation provided: **Master ANFS 4.2x** (0,1,3,4), **RISC OS** (0,1,2,3), **BBC ANFS 4.0x/4.1x** (only 4).
+
+4. **I2CBeeb is itself cited in the reference.** BeebWiki documents read subcall 4 as: *"`XY?0=4` Return `"hh:mm:ss DDD dd-mm-yy tt"`,CR where tt is temperature. **(I2C Control ROM)**"* — i.e. JGH wrote *our* `*NOW$` / type-4 behaviour into his reference page. The relationship is genuinely two-way.
+
+5. **Century-pivot divergence (a real parity decision).** Two conventions exist:
+   - **JGH/MDFS + the Master Y2K patch:** years 1980–2079 (`year >= &80` ⇒ 19xx, else 20xx) — the `&80` pivot.
+   - **RISC OS Open** ([OS_Word 14,1 BCD Format](https://www.riscosopen.org/wiki/documentation/show/OS_Word%2014_1%20BCD%20Format)): 0–65 ⇒ 2000–2065, 66–99 ⇒ 1966–1999 (and explicitly deprecates the 2-digit-year call as non-Y2K-compliant).
+
+### How it drove the code and tests
+
+This research turned the probe matrix from a black box into an intentional design, and directly shaped what we built:
+
+- **Implemented type 10** (convert 8-byte BCD → Compact string) to pair with the existing type 2, following JGH's "+8" rule. The 8-byte handler reads an explicit century byte and reuses the existing `OSW0E0fmt` formatter.
+- **Unified century handling** in `OSW0E0fmt`: the formatter now prints a BCD century from `buf07`, and a new `osw_infercc` helper derives it for the no-century callers (types 0 and 2). We deliberately used the **`&80` pivot (1980–2079)** to match JGH's probe matrix rather than the RISC OS split.
+- **Pinned the test expectations to the source.** The vitest cases in `src/tests/vitest/standalone/osword14.test.ts` assert the exact Compact strings JGH's probes expect (e.g. type 10 with explicit century `&19` → `"Fri,03 Jul 1926.16:55:30"`), and the reconciliation table in [`refs/JGH-native-probes-vitest.md`](refs/JGH-native-probes-vitest.md) maps every probe subtype to its vitest coverage so remaining gaps stay visible.
+
+### What it tells us about the next step (OSWORD 15 write)
+
+The same sources resolve the string-vs-BCD question that was blocking the write path: JGH's OSWORD 15 (&0F) supports **both** — BCD writes (`3`=3-byte, `4`=4-byte, `7`=7-byte, `8`=8-byte-with-century) **and** string writes (`8`="hh:mm:ss", `15`="DDD,dd mmm yyyy", `24`="DDD,dd mmm yyyy.hh:mm:ss"). Note `8` is overloaded (8-byte BCD *or* the "hh:mm:ss" string), disambiguated by content/length. For reference, RISC OS implements `5,8,15,24` and Master MOS only `8,15,24`. `RTCTest.bas` exercises the **BCD** write forms, so that is the parity target for our write path.
+
 Status - Release v3.3 In Progress - Configure Refinements and ROM Unit Testing (May/Jun 2026)
 --------------------------------------------------------------------------------------------
 
