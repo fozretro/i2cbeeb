@@ -47,7 +47,7 @@ My originally-installed UPURS ROM is built with `bufsize = $40`; the auto-select
 1. **Plus 1 side — disable the 100 Hz ADC poll.** Pro: any `bufsize` works. Con: sacrifices ADC/joystick auto-conversion for everyone, and only stops *one* writer into the overlapped page rather than fixing the overlap.
 2. **UPURSFS side — keep `bufsize = $40`** (or relocate `serbuf` off Plus 1's page) so the buffer never reaches `&0D68`. Pro: leaves Plus 1 Support fully functional, fixes the collision at source, and is the config my machine ran cleanly for years. Con: marginally smaller serial buffer (more CTS toggles, no timing impact). **This is my recommended real fix.**
 
-I validated both on hardware. My final test build — the exact original UPURS ROM with **only** the `DEFAULT_FS` byte flipped (`0xAB: $04→$0E`) so it auto-selects on a plain Break, `bufsize` left at `$40` — runs with the **stock, unmodified AP6** and gives me both clean large-file transfers *and* working `*CONFIGURE FILE`.
+I validated both on hardware. My final test build — the exact original UPURS ROM with **only** the `DEFAULT_FS` byte flipped (`0xAB: $04→$0E`) so it auto-selects on a plain Break, `bufsize` left at `$40` — runs with the **stock, unmodified AP6** and gives me both clean large-file transfers *and* working `*CONFIGURE FILE`. That build config is checked in as [`bin/upursfs/rom/src/upursfs-defaultfs-buf40.txt`](bin/upursfs/rom/src/upursfs-defaultfs-buf40.txt) (`DEFAULT_FS = TRUE`, `bufsize = $40`, `USER_PORT = &FCB1`).
 
 OSWORD &0F (15) Write Path — Completing RTC Clock API Parity (Jun 2026)
 -----------------------------------------------------------------------
