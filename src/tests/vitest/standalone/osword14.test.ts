@@ -306,6 +306,28 @@ describe("OSWORD 14 / 15 via service 8 (#33 — RTCRead / RTCTest intent)", () =
     });
 
     /**
+     * Replicates `src/tests/native/RTCTest.bas` "Convert 8-byte BCD" test 4 (line 26:
+     * `X%!1=&31129920:X%!5=&33221100`), whose block carries weekday=&00 — JGH's spec
+     * permits &00 as "unsupported". This is the regression guard for the Compact
+     * formatter: an unsupported weekday must render a fixed-width 3-space day so the
+     * rest of the string stays aligned (otherwise the day-name index underflows and
+     * corrupts the whole string). Verified on hardware: "   ,31 Dec 2099.11:22:33".
+     */
+    it("OSWORD 14 subcall 10 renders an unsupported weekday (&00) as a blank, keeping alignment (RTCTest.bas:26)", () => {
+      // Given — 8-byte block [century, year, month, date, weekday, hour, min, sec]
+      const block = [0x20, 0x99, 0x12, 0x31, 0x00, 0x11, 0x22, 0x33];
+
+      // When — convert 8-byte BCD to string
+      const result = harness.invokeUnknownOsword({ wordNumber: 14, subcall: 10, seed: block });
+      expect(result.claimed).toBe(true);
+      expect(harness.registers().a).toBe(0);
+      expect(harness.mos.unexpected).toHaveLength(0);
+
+      // Then — day is three spaces; remaining fields stay in their fixed positions
+      expect(nullTerminatedAscii(result.block).slice(0, 24)).toBe("   ,31 Dec 2099.11:22:33");
+    });
+
+    /**
      * Replicates `src/tests/native/RTCRead.bas` subcalls where `IF !X%=sub%` prints
      * "No response" (e.g. lines 29, 34, 40, 45, 51, 57). Full string/BCD validation
      * from PROCstring/PROCbcd is deferred until ROM implements each subcall (#36).
