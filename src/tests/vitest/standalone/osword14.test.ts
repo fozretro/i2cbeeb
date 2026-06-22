@@ -67,6 +67,35 @@ function parseMasterString(s: string): {
   };
 }
 
+/**
+ * Mirrors `src/tests/native/RTCRead.bas` PROCosw14_2 (line 39) buffer construction
+ * *literally* — the fixed probe constants, NOT a hand-picked valid date:
+ *   X%!1=&03072620 : X%!5=&30551606 : IF sub%<8 : X%!1=X%!2 : X%!5=X%!6
+ * In JGH's offset order this is century=20, year=26, month=07, date=03, day=06 (Fri),
+ * hour=16, minute=55, second=30 ⇒ "Fri,03 Jul 2026.16:55:30". Returns the bytes the
+ * probe places from control-block offset 1 onward (offset 0 holds the subcall, written
+ * by the harness). For sub<8 the 7-byte form shifts the block down one byte (dropping
+ * the leading century), exactly as the `.bas` does.
+ */
+function procOsw14_2Block(sub: number): number[] {
+  const b = new Array<number>(16).fill(0);
+  const pokeLE = (off: number, val: number): void => {
+    b[off] = val & 0xff;
+    b[off + 1] = (val >>> 8) & 0xff;
+    b[off + 2] = (val >>> 16) & 0xff;
+    b[off + 3] = (val >>> 24) & 0xff;
+  };
+  const readLE = (off: number): number =>
+    (b[off]! | (b[off + 1]! << 8) | (b[off + 2]! << 16) | (b[off + 3]! << 24)) >>> 0;
+  pokeLE(1, 0x03072620);
+  pokeLE(5, 0x30551606);
+  if (sub < 8) {
+    pokeLE(1, readLE(2));
+    pokeLE(5, readLE(6));
+  }
+  return b.slice(1, 1 + (sub < 8 ? 7 : 8));
+}
+
 /** OSWORD 14 subcalls implemented by I²C ROM today (see `xosword` in I2CBeeb.asm). */
 const IMPLEMENTED_OSWORD14_SUBCALLS = [0, 1, 4, 8] as const;
 
@@ -163,10 +192,21 @@ describe("OSWORD 14 / 15 via service 8 (#33 — RTCRead / RTCTest intent)", () =
         }
 
         if (subcall === 4) {
-          // RTCRead.bas:13 — I²C type 4 (*NOW$ string via OSW0E4, not server BCD)
-          const text = nullTerminatedAscii(result.block);
-          expect(text).toContain("09:30:15");
-          expect(text).toMatch(/Tue|Wed|Thu|Fri|Sat|Sun|Mon/);
+          // RTCRead.bas:13 → PROCosw14_4 (lines 49–53) → "Appears to be string" branch
+          // (line 53) → PROCstring1 (lines 62–80). Subcall 4 is a documented clashing
+          // subcode (I2C Control ROM vs ANFS); the ROM now aligns with Acorn's standard
+          // OSWORD &0E and returns the Master Compact string (identical to type 0/8), so
+          // PROCstring1 decodes it cleanly on hardware. Faithful mirror of the .bas.
+          expect(parseMasterString(nullTerminatedAscii(result.block))).toEqual({
+            dayOfWeek: 3, // Tue
+            date: 31,
+            month: 5, // May
+            year: 2026,
+            century: "20",
+            hour: 9,
+            minute: 30,
+            second: 15,
+          });
         }
       },
     );
@@ -179,19 +219,29 @@ describe("OSWORD 14 / 15 via service 8 (#33 — RTCRead / RTCTest intent)", () =
      * written back over the block (Compact `Day,DD MMM YYYY.HH:MM:SS`, century inferred
      * at the &80 pivot — year &80 ⇒ 1980).
      */
-    it("OSWORD 14 subcall 2 converts a 7-byte Acorn BCD block to the Compact string (RTCTest.bas:19,37; RTCRead.bas:37–41)", () => {
-      // Given — RTCTest.bas line 19 vector (test 1): 1980-01-01, weekday 7 (Sat), 11:22:33
-      const bcd = [0x80, 0x01, 0x01, 0x07, 0x11, 0x22, 0x33];
+    it("OSWORD 14 subcall 2 — PROCosw14_2(2) literal block conforms to PROCstring1 (RTCRead.bas:11,37–41,62–80)", () => {
+      // Given — RTCRead.bas:39 literal probe buffer (NOT a hand-picked valid date)
+      const block = procOsw14_2Block(2);
 
-      // When — RTCRead.bas:11 → PROCosw14_2(2): `?X%=2 … A%=14:CALL OSWORD`
-      const result = harness.invokeUnknownOsword({ wordNumber: 14, subcall: 2, seed: bcd });
-
-      // Then — ROM claims (A=0) and writes the Compact date/time string over the block
-      expect(result.run.reason).toBe("return");
+      // When — RTCRead.bas:40 `?X%=2 … A%=14:CALL OSWORD`
+      const result = harness.invokeUnknownOsword({ wordNumber: 14, subcall: 2, seed: block });
       expect(result.claimed).toBe(true);
       expect(harness.registers().a).toBe(0);
       expect(harness.mos.unexpected).toHaveLength(0);
-      expect(nullTerminatedAscii(result.block)).toBe("Sat,01 Jan 1980.11:22:33");
+
+      // Then — PROCstring falls through to PROCstring1 (lines 62–80): the probe's own
+      // positional/range checks pass and decode the corrected probe vector (century
+      // inferred at the &80 pivot: year &26 ⇒ 20xx).
+      expect(parseMasterString(nullTerminatedAscii(result.block))).toEqual({
+        dayOfWeek: 6, // Fri
+        date: 3,
+        month: 7, // Jul
+        year: 2026,
+        century: "20",
+        hour: 16,
+        minute: 55,
+        second: 30,
+      });
     });
 
     /**
@@ -231,19 +281,28 @@ describe("OSWORD 14 / 15 via service 8 (#33 — RTCRead / RTCTest intent)", () =
      * type 2 (century inferred at the &80 pivot), type 10 honours the explicit century
      * byte — here &19 with year &26 yields 1926, not the inferred 2026.
      */
-    it("OSWORD 14 subcall 10 converts an 8-byte Acorn BCD block (explicit century) to the Compact string (RTCRead.bas:19,37–41; RTCTest.bas)", () => {
-      // Given — explicit century &19 (1900s) with year &26: Fri 03 Jul 1926, 16:55:30
-      const bcd = [0x19, 0x26, 0x07, 0x03, 0x06, 0x16, 0x55, 0x30];
+    it("OSWORD 14 subcall 10 — PROCosw14_2(10) literal block conforms to PROCstring1 (RTCRead.bas:19,37–41,62–80)", () => {
+      // Given — RTCRead.bas:39 literal probe buffer (8-byte form, no sub<8 shift → explicit century)
+      const block = procOsw14_2Block(10);
 
       // When — RTCRead.bas:19 → PROCosw14_2(10): `?X%=10 … A%=14:CALL OSWORD`
-      const result = harness.invokeUnknownOsword({ wordNumber: 14, subcall: 10, seed: bcd });
-
-      // Then — ROM claims (A=0) and writes the Compact string honouring the explicit century
-      expect(result.run.reason).toBe("return");
+      const result = harness.invokeUnknownOsword({ wordNumber: 14, subcall: 10, seed: block });
       expect(result.claimed).toBe(true);
       expect(harness.registers().a).toBe(0);
       expect(harness.mos.unexpected).toHaveLength(0);
-      expect(nullTerminatedAscii(result.block)).toBe("Fri,03 Jul 1926.16:55:30");
+
+      // Then — PROCstring1 checks (lines 62–80) pass; 8-byte form honours the explicit
+      // century byte (&20) verbatim ⇒ 2026.
+      expect(parseMasterString(nullTerminatedAscii(result.block))).toEqual({
+        dayOfWeek: 6, // Fri
+        date: 3,
+        month: 7, // Jul
+        year: 2026,
+        century: "20",
+        hour: 16,
+        minute: 55,
+        second: 30,
+      });
     });
 
     /**
@@ -562,47 +621,6 @@ describe("OSWORD 14 / 15 via service 8 (#33 — RTCRead / RTCTest intent)", () =
         hour: 9,
         minute: 30,
         second: 15,
-      });
-    });
-
-    /**
-     * The convert subcalls reuse the same OSW0E0 formatter, so their output must also
-     * satisfy the PROCstring1 layout. Type 2 infers the century at the &80 pivot
-     * (year &80 ⇒ 1980); type 10 honours the explicit century byte (&19 ⇒ 1926).
-     */
-    it("OSWORD 14 type 2 output conforms to the PROCstring1 Master layout", () => {
-      const result = harness.invokeUnknownOsword({
-        wordNumber: 14,
-        subcall: 2,
-        seed: [0x80, 0x01, 0x01, 0x07, 0x11, 0x22, 0x33],
-      });
-      expect(parseMasterString(nullTerminatedAscii(result.block))).toEqual({
-        dayOfWeek: 7, // Sat
-        date: 1,
-        month: 1, // Jan
-        year: 1980,
-        century: "19",
-        hour: 11,
-        minute: 22,
-        second: 33,
-      });
-    });
-
-    it("OSWORD 14 type 10 output conforms to the PROCstring1 Master layout (explicit century)", () => {
-      const result = harness.invokeUnknownOsword({
-        wordNumber: 14,
-        subcall: 10,
-        seed: [0x19, 0x26, 0x07, 0x03, 0x06, 0x16, 0x55, 0x30],
-      });
-      expect(parseMasterString(nullTerminatedAscii(result.block))).toEqual({
-        dayOfWeek: 6, // Fri
-        date: 3,
-        month: 7, // Jul
-        year: 1926,
-        century: "19",
-        hour: 16,
-        minute: 55,
-        second: 30,
       });
     });
 

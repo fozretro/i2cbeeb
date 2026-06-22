@@ -36,7 +36,7 @@ PROCbcd:ENDPROC
 :
 DEFPROCosw14_2(sub%)
 PRINT"OSWORD 14,";sub%;": Convert ";7+sub%DIV8;"-byte BCD to string"
-X%!1=&03072620:X%!5=&16553000:IF sub%<8:X%!1=X%!2:X%!5=X%!6:REM It's friday, it's five to five
+X%!1=&03072620:X%!5=&30551606:IF sub%<8:X%!1=X%!2:X%!5=X%!6:REM It's friday, it's five to five
 ?X%=sub%:PROCcall:IF ?X%=sub%:PRINT"No response":ENDPROC
 PROCstring:ENDPROC
 :

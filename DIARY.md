@@ -3,6 +3,52 @@ I2CBeeb Developer Diary
 
 A reverse-chronological log of development status and milestones for the I2CBeeb ROM project. See the [README](README.md) for current usage, build, and feature documentation.
 
+OSWORD &0E (14) — Reconciling JGH's `RTCRead.bas` With Real Hardware (Jun 2026)
+-------------------------------------------------------------------------------
+
+I re-ran J.G.Harston's [`RTCRead.bas`](src/tests/native/RTCRead.bas) probe on real hardware and hit three failures — subcalls 2, 4 and 10 — even though my Vitest suite was green. Rather than invent a new test method, I treated the probe as ground truth and worked each failure back to its cause against JGH's [OSWORD &0E spec](https://beebwiki.mdfs.net/OSWORD_%260E). Two were genuine bugs; one was a documented standards clash.
+
+### Subcalls 2 & 10 — convert a caller-supplied BCD block to a string
+
+Two separate problems were hiding behind one symptom (a completely garbled string). First, the probe's own convert vector was internally inconsistent: its time half encoded a weekday of `&00` and an out-of-range hour, so it never matched the *"It's friday, it's five to five"* intent in the comment. I corrected the constant so it feeds a valid `Fri 03 Jul 2026 16:55:30`. Second — and this was a real ROM bug — my Compact formatter mishandled a weekday of `&00`, which JGH's spec explicitly allows as "unsupported". The day-name index computed `(weekday AND 7) − 1`, underflowed to `&FF`, and ran off the end of the day-name table, emitting a wrong-length day field that misaligned *every* subsequent field. I added a guard that renders a fixed-width three-space day for the unsupported case, so alignment is always preserved.
+
+### Subcall 4 — a documented clashing subcode
+
+This one wasn't a bug at all. JGH's spec lists subcall 4 twice: as the ANFS fileserver read, and as the I2C Control ROM's `"hh:mm:ss DDD dd-mm-yy tt"` temperature string — which is exactly what my ROM returned. But his generic probe decodes the standard Master layout `"DDD,dd mmm yyyy.hh:mm:ss"`, so it always reported my I²C string as malformed. Since the whole reason I'm doing this work is to align the ROM with Acorn's standards as JGH documents them, I changed `OSWORD 14,4` to return the standard Master string, sharing the existing type-0/8 formatter (types 0, 4 and 8 now converge on one routine). The `"hh:mm:ss DDD dd-mm-yy tt"` string is unchanged and still available through the `*NOW$`, `*NOW` and `*TEMP` commands.
+
+### Result
+
+All sixteen subcalls now behave correctly on hardware: strings for 0/4/8, BCD for 1/9, converts for 2/10, and a clean "No response" for 3/5/6/7 and 11–15. The lesson I keep relearning is that when a faithful probe disagrees with my unit tests, the unit tests are the thing to distrust: I'd been feeding them hand-picked clean data instead of the probe's literal vectors. The Vitest suite now replays the probe's exact buffers and mirrors hardware, and is green across every ROM variant.
+
+UPURSFS `*CAT` Corruption on Electron+AP6 — A Workspace Overlap, Not a Timing Bug (Jun 2026)
+-------------------------------------------------------------------------------------------
+
+While hardware-testing my new `*CONFIGURE FILE` / Service 3 default-filing-system work, I hit a nasty symptom: with the **AP6 ROM (Plus 1 Support) loaded alongside UPURSFS** on my Acorn Electron, `*CAT` listings showed random `£` characters where spaces should be, and tokenised BASIC files failed to load with *"Bad program"*. `*UNPLUG`ging the AP6 ROM made it vanish. It only ever worked in MODE 6, and small files / `*COLD` loads usually escaped it — which initially smelled to me like a marginal cycle-timing problem in UPURS's bit-banged serial receive. **That hypothesis was wrong.** The real cause turned out to be a RAM **workspace overlap**, and it's a good reminder not to trust the first plausible story.
+
+### Bisection
+
+I ran a ROM-by-ROM bisection to rule out the obvious suspects: the corruption persisted with I²CBeeb, TUBEelk and AP6Count removed (classic AP6), and disappeared entirely when I swapped AP6 for a passive boot-counter ROM — so it wasn't mere ROM *presence*, it was **Plus 1 Support's code**. Narrowing further, Plus 1's serial IRQ turned out to be innocent; the trigger was its **ADC / 100 Hz poll** (`L8182`). So the culprit was the 100 Hz poll — but *why* a single, systematic **bit-6** error (`space &20` → `£ &60`)?
+
+### Root cause: the UPURS receive buffer sits on top of Plus 1's workspace
+
+UPURS receives into a buffer in the NMI/workspace page: `serbuf = $0D10`, filled `serbuf,X` for `X = 0 … bufsize (+overrun)`. Plus 1 Support keeps **its** workspace in the *same page* — `&0D68–&0D6C` (flags at `&0D68`, serial mask at `&0D6A`). The buffer index of `&0D68` is `$0D68 − $0D10 = $58 = 88`:
+
+- **`bufsize = $60` (96):** the buffer's **tail (indices 88–95) lands directly on `&0D68–&0D6F`** — it overlaps Plus 1's live workspace.
+- **`bufsize = $40` (64):** the buffer ends at `$0D50`, comfortably **below `&0D68`** — no overlap.
+
+The damage happens in the **drain window, not the fill**. `getbytes` runs the whole burst under `SEI`, so the 100 Hz poll cannot fire mid-reception; the buffer is received intact. But `getbytes` then `CLI`s and `ReadData` copies the bytes out **with interrupts enabled** — and in that window the poll executes `ORA`/`STA &0D68` (its `&40` = printer-active / `&20` = ADC bits), overwriting the buffered bytes parked at `&0D68+` *before* they're read out. A space (`&20`) gets bit 6 (`&40`) forced on → `&60` = `£`. That single mechanism explains **every** observation I'd made: only with `$60` (overlap), gone with `$40` (no overlap), gone with the poll disabled (nothing writes `&0D68` during the drain), always bit 6 (the poll's flag bit), and data-dependent/intermittent (only the byte landing on `&0D68` at a tick is hit). It's a pre-existing UPURSFS-on-Electron-with-Plus-1 incompatibility that my `*CONFIGURE FILE` work merely *surfaced* by putting both ROMs together — not anything the new code caused.
+
+### Why it had "always worked" before
+
+My originally-installed UPURS ROM is built with `bufsize = $40`; the auto-select variant I first built for hardware testing used `$60`. The only difference between my installed FCB1 ROM and a fresh vendored build was likewise that single `bufsize` byte (`$40` vs `$60`, at file offset `0xC90`) — and I'd earlier dismissed it as harmless because the receive loop's `.T0…xskip` section is cycle-balanced to 15 cycles either way. It *is* timing-neutral; what it actually changes is **how far the buffer's tail reaches into the workspace page**. My `$40` build was simply never reaching `&0D68`.
+
+### Two ways to fix it
+
+1. **Plus 1 side — disable the 100 Hz ADC poll.** Pro: any `bufsize` works. Con: sacrifices ADC/joystick auto-conversion for everyone, and only stops *one* writer into the overlapped page rather than fixing the overlap.
+2. **UPURSFS side — keep `bufsize = $40`** (or relocate `serbuf` off Plus 1's page) so the buffer never reaches `&0D68`. Pro: leaves Plus 1 Support fully functional, fixes the collision at source, and is the config my machine ran cleanly for years. Con: marginally smaller serial buffer (more CTS toggles, no timing impact). **This is my recommended real fix.**
+
+I validated both on hardware. My final test build — the exact original UPURS ROM with **only** the `DEFAULT_FS` byte flipped (`0xAB: $04→$0E`) so it auto-selects on a plain Break, `bufsize` left at `$40` — runs with the **stock, unmodified AP6** and gives me both clean large-file transfers *and* working `*CONFIGURE FILE`.
+
 OSWORD &0F (15) Write Path — Completing RTC Clock API Parity (Jun 2026)
 -----------------------------------------------------------------------
 

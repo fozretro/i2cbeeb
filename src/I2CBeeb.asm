@@ -76,13 +76,17 @@
 \	b) *NOW$ creates a 25-character ASCII BCD string at i2cbuf (&0A00) in
 \	   the form of 21:14:35<spc>Fri<spc>19-10-18<spc>21<cr>
 \
-\	c) Implements new OSWORD &0E Type 4 call to return time string :
+\	c) Implements OSWORD &0E Type 4 call to return a time & date string.
+\	   NOTE: subcall 4 is a documented clashing subcode (I2C Control ROM vs
+\	   ANFS). To align with Acorn's standard OSWORD &0E it returns the Compact
+\	   (Master-layout) string, identical to Type 0/8 :
 \
 \		On entry:
 \		  XY+0=function code
-\		Type 4 - Return BCD time and date string.
+\		Type 4 - Return time & date string.
 \		On exit:
-\		  XY?0 to XY?24 = 21:14:35<spc>Fri<spc>19-10-18<spc>21<cr>
+\		  XY?0 to XY?24 = Day,DD MMM YYYY.HH:MM:SS<cr>
+\	   The I2C "hh:mm:ss DDD dd-mm-yy tt" string remains via *NOW$/*NOW/*TEMP.
 \
 \	d) Implements OSWORD &0E Type 1 call to return time parameter block :
 \
@@ -604,9 +608,9 @@ tokmask	=	tokbit-1	\$7F: strips tokbit to recover the comtab_addrs offset
 	CMP	#0			\is it function 0? (Compact *TIME/TIME$)
 	BNE	xosw_a0
 	JMP	OSW0E0		\handle function 0
-.xosw_a0	CMP	#4	\is it our new time$ call?
+.xosw_a0	CMP	#4	\Type 4? (I2C clashes with ANFS; align to Acorn standard)
 	BNE	xosw_a1		\not a Type 4, try next type
-	JMP	OSW0E4		\else jump to our OSWORD &0E Type 4
+	JMP	OSW0E0		\reuse the Type 0 Compact string formatter (Master layout)
 .xosw_a1	CMP	#1	\Type 1? 
 	BNE	xosw_a1b	\no, test next OSWORD type
 	JMP	OSW0E1		\else jump to our OSWORD &0E Type 1		
@@ -691,15 +695,11 @@ tokmask	=	tokbit-1	\$7F: strips tokbit to recover the comtab_addrs offset
 	JMP	OSW0E1bcd	\reuse Type 1 BCD writer (claims call, A=0)
 
 \------------------------------------------------------------------------------
-\OSWORD call &0E Type 4 - returns an ASCII BCD time and date string as per
-\the new *NOW$ function of this rom. See that command header for details of the
-\string noting that here, the string is returned at the address pointed to by
-\the OSWORD entry XY (lo/hi)
-
-.OSW0E4	
-	JSR	xxi2crtc	\duplicate *NOW$ function
-	LDA	#0			\claim call and return to MOS
-	RTS				\simple RTS, registers not preserved
+\OSWORD call &0E Type 4 - historically returned the I2C *NOW$ string
+\("hh:mm:ss DDD dd-mm-yy tt"). Subcall 4 is a documented clashing subcode (I2C
+\vs ANFS), so to align with Acorn's standard OSWORD &0E it now reuses the Type 0
+\Compact-string formatter (Master layout) via the dispatch above. The original
+\*NOW$ temperature string remains available through *NOW$, *NOW and *TEMP.
 
 \------------------------------------------------------------------------------
 \OSWORD call &0E Type 0 - returns an ASCII BCD time and date string in Compact format
@@ -715,6 +715,7 @@ tokmask	=	tokbit-1	\$7F: strips tokbit to recover the comtab_addrs offset
    					; Day of week (e.g., "Fri")
     LDA buf03		; get 1-7 weekday number
     AND #cwd		; mask
+    BEQ comp_day_blank	; weekday 0 = unsupported (JGH spec): render 3 spaces, keep alignment
     SEC				; subtract 1 to index days as 0..6
     SBC #1
     ASL A			; multiply by 4 (days are 3 chr + <cr>)
@@ -728,6 +729,14 @@ tokmask	=	tokbit-1	\$7F: strips tokbit to recover the comtab_addrs offset
 	INY
 	INX				; incr day chr read pointer
 	BNE comp_day_loop	; and loop for next day chr
+.comp_day_blank
+	LDX #3			; unsupported weekday -> 3 spaces (fixed width keeps alignment)
+	LDA #' '
+.comp_day_blank_loop
+	STA (OSW_X),Y
+	INY
+	DEX
+	BNE comp_day_blank_loop
 .comp_day_end    
     ; Add "," after day
     LDA #','
