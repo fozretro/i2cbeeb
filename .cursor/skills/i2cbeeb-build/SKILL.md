@@ -31,7 +31,7 @@ Layout selected by **`--layout`** on **`./bin/buildap6/build.sh`** (or **`AP6_SM
 ### Classic layout — second AP6 step in `./bin/build.sh`
 
 - TreeCopy slot uses **`roms/TreeROM-v1.62.rom`** (relocatable). **AP6Count omitted** — 1.62 does not fit in 16 KiB with the other modules (1.61 + AP6Count fits; see layout comment).
-- Writes **`bin/buildap6/out/ap6-classic.rom`** and **`dev/eap6/AP6-classic`** (no I²C pre-build; steps 1–2 skipped). Output is a test fixture only — not copied to **`dist/`**.
+- Writes **`bin/buildap6/out/ap6-classic.rom`** (no I²C pre-build; steps 1–2 skipped). Output is a test fixture only — Step 5 is skipped for the classic layout, so it is **not** staged to **`dev/eap6/`** nor copied to **`dist/`**.
 - Step 4a-classic: **`npm run test:classic-composite`** — Vitest project **`classic-composite`** (standalone + **`fixtures/ap6-classic/`**, 79 tests). **`./bin/build.sh`** uses **`npm run test:classic-only`** instead (7 tests only — standalone already ran).
 - Also invoked by **`./bin/buildap6/build.sh --layout classic`** alone.
 

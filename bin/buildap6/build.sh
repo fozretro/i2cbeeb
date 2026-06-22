@@ -192,15 +192,16 @@ if [ -f "$OUTPUT_ROM" ]; then
     ls -la "$OUTPUT_ROM"
     echo "✅ Build completed successfully!"
     
-    # Copy ROM and create INF file for /dev/eap6
+    # Copy ROM and create INF file for /dev/eap6 (i2c layout only;
+    # the classic amalgam is a test/build artifact and is not staged)
+    if [ "$AP6_LAYOUT" = "classic" ]; then
+        echo ""
+        echo "📋 Step 5: Skipped (classic layout — not staged to dev/eap6)"
+    else
     echo ""
     echo "📋 Step 5: Copying ROM to /dev/eap6..."
     EAP6_DIR="dev/eap6"
-    if [ "$AP6_LAYOUT" = "classic" ]; then
-        ROM_NAME="AP6-classic"
-    else
-        ROM_NAME="AP6"
-    fi
+    ROM_NAME="AP6"
     
     # Copy ROM file
     cp "$OUTPUT_ROM" "$EAP6_DIR/$ROM_NAME"
@@ -254,6 +255,7 @@ PYEOF
         fi
     else
         echo "⚠️  Warning: Failed to copy ROM to $EAP6_DIR"
+    fi
     fi
 else
     echo "❌ Output ROM not found at $OUTPUT_ROM"
