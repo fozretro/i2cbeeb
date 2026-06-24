@@ -15,26 +15,26 @@
 \   *I2CTEST with I2CTROM in slot 12 hangs on test 1 and can corrupt EEPROM.
 \-------------------------------------------------------------------------------
 
-OSASCI		=	&FFE3
-OSNEWL		=	&FFE7
-AP6REG		=	&FCD6
-AP6IDLE		=	&11
-XSDAHI		=	&80
-XSDALO		=	&7F
-XSCLHI		=	&40
-XSCLLO		=	&BF
+OSASCI  =	&FFE3
+OSNEWL  =	&FFE7
+AP6REG  =	&FCD6
+AP6IDLE =	&11
+XSDAHI  =	&80
+XSDALO  =	&7F
+XSCLHI  =	&40
+XSCLLO  =	&BF
 
-RTC		=	&50
-USERNV		=	&80
-TESTPAT		=	&AA
+RTC     =	&50
+USERNV  =	&80
+TESTPAT =	&AA
 
-ap6regc		=	&A8
-addrbyte	=	&AA
-testptrl	=	&AB
-testptrh	=	&AC
-temp1		=	&AD
-temp2		=	&AE
-comdata		=	&AF
+ap6regc =	&A8
+addrbyte=	&AA
+testptrl=	&AB
+testptrh=	&AC
+temp1   =	&AD
+temp2   =	&AE
+comdata =	&AF
 
 \-------------------------------------------------------------------------------
 \ AP6 I²C bit-bang macros (&FCD6). ap6regc holds the last value written.
