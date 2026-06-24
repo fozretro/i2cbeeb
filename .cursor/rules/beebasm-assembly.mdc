@@ -1,0 +1,47 @@
+---
+description: BeebAsm assembly style — tabs, constant alignment, comment blocks, TARGET build flag, binary output
+globs: "**/*.asm"
+alwaysApply: false
+---
+
+# BeebAsm assembly style
+
+## Tabs and alignment
+
+- **Code body:** tabs with **8-column tab stops** (see `.editorconfig` and `.vscode/settings.json`).
+- **Constant / equate blocks:** **space-pad** symbol names to a fixed width so `=` aligns in Cursor and GitHub. Do not rely on extra tabs before `=` — tab width differs between editors (4 vs 8) and breaks alignment for short names like `RTC`.
+
+Example (8-character name field):
+
+```asm
+OSASCI  =	&FFE3
+RTC     =	&50
+addrbyte=	&AA
+```
+
+## Comment blocks
+
+Use banner blocks for tests, macros, and subroutines — even for one-line descriptions:
+
+```asm
+\-------------------------------------------------------------------------------
+\ Short description here.
+\-------------------------------------------------------------------------------
+.label
+```
+
+## Build targets (dual-target sources)
+
+Use a **single** numeric define, not paired flags:
+
+- `-D TARGET=1` — sideways ROM
+- `-D TARGET=2` — RAM utility
+
+Gate with `IF TARGET=1` / `IF TARGET=2`. No startup `ERROR` guards required; an invalid `TARGET` simply omits `SAVE`.
+
+## BeebAsm output
+
+- **Standalone binary:** `beebasm -i file.asm -D TARGET=n -o OUTNAME` (writes raw file to cwd; use `-o` basename only, or `cd` to the output directory first).
+- **Disc image:** add `-do disc.ssd` only when a DFS/SSD artefact is needed.
+
+`SAVE` is still required in source; `-o` supplies the filename when omitted from `SAVE`.

@@ -1,0 +1,47 @@
+---
+description: Standalone AP6 I²C test repro (src.i2ctest) — scope, hardware behaviour, safe NVRAM, tests
+globs: src.i2ctest/**/*
+alwaysApply: false
+---
+
+# I2CTest minimal repro (`src.i2ctest/`)
+
+Shareable **AP6 I²C bus test** for Electron Plus 1 slot 12 / `&FCD6`. Primary artefact: **`i2ctest.asm`** (standalone; build commands in file header).
+
+## Purpose and scope
+
+- Reproduce bus-level tests 01–10 without full I2CBeeb.
+- **Keep it minimal:** no help service, no I2CBeeb command layer, no configure/RTC commands.
+- Add byte-level routines only when tests need them (`i2ctxbyte`, `i2crxbyte`, `i2ctxack`).
+- Do not grow this into a second I2CBeeb; extend bus tests only with clear hardware motivation.
+
+## Known hardware behaviour (header comments)
+
+Document and preserve unless hardware proves otherwise:
+
+- `*RUN I2CT` (TARGET=2 RAM) **works**.
+- `*I2CTEST` with I2CTROM in **any slot other than 12** **works**.
+- `*I2CTEST` with I2CTROM in **slot 12** **hangs on test 1** and **can corrupt EEPROM**.
+
+## Safe test locations
+
+- **Device:** PCF8583 at I²C address **`&50`** (`RTC`).
+- **NVRAM register for tests 09–10:** **`USERNV = &80`** (address 110 — above I2CBeeb’s used range 0–16).
+- **Pattern byte:** `TESTPAT = &AA`.
+
+## Build and test
+
+Not part of `./bin/build.sh`. Use **`i2ctest-build`** skill or:
+
+```bash
+./src.i2ctest/bin/build.sh
+cd src.i2ctest/tests && npm test
+```
+
+Changes to **`bin/rom-unittest/src/i2c/bus-mock.ts`** affect main ROM tests too — run **`./bin/build.sh`** (or at least `cd bin/rom-unittest && npm test`) when editing the shared bus mock.
+
+## Vitest harness
+
+- **`src.i2ctest/tests/i2ctest-harness.ts`** — ROM (`invokeI2CTest`) and RAM (`runExec`) entry points.
+- **`enableNvram(0x50)`** on bus mock for tests 09–10 read-back.
+- Hook only symbols present in the sample (`i2ctestBusHookAddresses`); address `0` skips patching.

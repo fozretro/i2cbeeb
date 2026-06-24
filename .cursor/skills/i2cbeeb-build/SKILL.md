@@ -1,6 +1,6 @@
 ---
 name: i2cbeeb-build
-description: Builds I2CBeeb and related Electron ROM artefacts in this repo. Use when validating changes before commit, when the user mentions BeebAsm, build.sh, Time-Config extract, AP6 build (i2c or classic layout), ROM Manager / Plus 1 Support BAS pipelines, dist ROMs, Vitest composite/classic fixtures, or dev/eap6.
+description: Builds I2CBeeb and related Electron ROM artefacts in this repo. Use when validating changes before commit, when the user mentions BeebAsm, build.sh, Time-Config extract, AP6 build (i2c or classic layout), ROM Manager / Plus 1 Support BAS pipelines, dist ROMs, Vitest composite/classic fixtures, dev/eap6, or src.i2ctest minimal repro.
 ---
 
 # I2CBeeb build workflow
@@ -72,3 +72,15 @@ Console labels like `AP1v131` / `AP6v134` may reflect **config** filenames; rely
 | ROM Manager from BASIC | `./bin/buildrommanager/build.sh` |
 
 For artefact filenames and behaviour, **`README.md`** (Building / distributions) and **`bin/rom-unittest/README.md`** (fixtures) are authoritative.
+
+## Minimal AP6 I²C repro (`src.i2ctest/`)
+
+**Not** invoked by `./bin/build.sh`. Standalone shareable sample for slot 12 / `&FCD6` investigation.
+
+| Goal | Command |
+|------|---------|
+| Build I2CTROM + I2CT + stage `dev/eap6/` | `./src.i2ctest/bin/build.sh` |
+| Vitest (2 tests) | `cd src.i2ctest/tests && npm test` |
+| Share asm only | `beebasm -i i2ctest.asm -D TARGET=1 -o I2CTROM` etc. |
+
+Use the **`i2ctest-build`** skill and **`i2ctest-minimal-repro`** rule for scope and hardware behaviour.
