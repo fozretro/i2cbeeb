@@ -12,7 +12,7 @@
 \ Known behaviour (Electron AP6 / slot 12 / &FCD6):
 \   *RUN I2CT works.
 \   *I2CTEST with I2CTROM in any sideways slot other than 12 works.
-\   *I2CTEST with I2CTROM in slot 12 hangs and can corrupt EEPROM.
+\   *I2CTEST with I2CTROM in slot 12 hangs on test 1 and can corrupt EEPROM.
 \-------------------------------------------------------------------------------
 
 OSASCI		=	&FFE3
