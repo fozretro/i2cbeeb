@@ -22,6 +22,7 @@ __pycache__/
 
 # Build output directories
 src/out/
+src.i2ctest/out/
 bin/buildrommanager/out/
 bin/buildplus1support/out/
 bin/buildap6/out/

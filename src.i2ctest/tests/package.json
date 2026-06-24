@@ -1,0 +1,21 @@
+{
+  "name": "i2ctest-repro-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.29",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.6"
+  },
+  "dependencies": {
+    "jsbeeb": "github:stardot/jsbeeb"
+  },
+  "overrides": {
+    "vite": "^7.3.5",
+    "esbuild": "^0.28.1",
+    "serialize-javascript": "^7.0.6"
+  }
+}

@@ -35,6 +35,11 @@ export class I2cBusMock {
   rxAckCalls = 0;
 
   private lastAddress = 0;
+  private nvramDevice: number | null = null;
+  private nvramMem = new Map<number, number>();
+  private nvramReg = 0;
+  private expectRegByte = false;
+  private expectReadByte = false;
   private hooks: Array<{ remove(): void }> = [];
   private patched: Array<{ address: number; opcode: number }> = [];
 
@@ -45,6 +50,15 @@ export class I2cBusMock {
     this.addrLog.length = 0;
     this.rxAckCalls = 0;
     this.lastAddress = 0;
+    this.nvramMem.clear();
+    this.nvramReg = 0;
+    this.expectRegByte = false;
+    this.expectReadByte = false;
+  }
+
+  /** PCF8583-style register file: first tx byte selects reg, second stores data. */
+  enableNvram(device: number): void {
+    this.nvramDevice = device & 0x7f;
   }
 
   addDevice(address: number): void {
@@ -60,6 +74,15 @@ export class I2cBusMock {
     this.patch(cpu, hooks.i2caddr, () => {
       this.lastAddress = cpu.a & 0x7f;
       this.addrLog.push(this.lastAddress);
+      if (this.nvramDevice === this.lastAddress) {
+        if (cpu.p.c) {
+          this.expectReadByte = true;
+          this.expectRegByte = false;
+        } else {
+          this.expectRegByte = true;
+          this.expectReadByte = false;
+        }
+      }
     });
     this.patch(cpu, hooks.i2crxack, () => {
       this.rxAckCalls++;
@@ -67,9 +90,23 @@ export class I2cBusMock {
       cpu.p.c = !ack;
     });
     this.patch(cpu, hooks.i2ctxbyte, () => {
-      this.txBytes.push(cpu.a & 0xff);
+      const byte = cpu.a & 0xff;
+      this.txBytes.push(byte);
+      if (this.nvramDevice === this.lastAddress) {
+        if (this.expectRegByte) {
+          this.nvramReg = byte;
+          this.expectRegByte = false;
+        } else {
+          this.nvramMem.set(this.nvramReg, byte);
+        }
+      }
     });
     this.patch(cpu, hooks.i2crxbyte, () => {
+      if (this.nvramDevice === this.lastAddress && this.expectReadByte) {
+        cpu.a = this.nvramMem.get(this.nvramReg) ?? 0;
+        this.expectReadByte = false;
+        return;
+      }
       cpu.a = this.rxBytes.shift() ?? 0;
     });
     this.patch(cpu, hooks.i2ctxack, () => {});
@@ -94,6 +131,9 @@ export class I2cBusMock {
   }
 
   private patch(cpu: JsbeebCpu, address: number, onEntry: () => void): void {
+    if (address === 0) {
+      return;
+    }
     const opcode = cpu.readmem(address);
     cpu.writemem(address, 0x60);
     this.patched.push({ address, opcode });
