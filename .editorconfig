@@ -1,0 +1,4 @@
+# BeebAsm / BBC Micro assembly uses 8-column tab stops for aligned constants.
+[*.asm]
+indent_style = tab
+tab_width = 8

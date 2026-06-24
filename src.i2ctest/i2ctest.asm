@@ -24,7 +24,7 @@ XSDALO		=	&7F
 XSCLHI		=	&40
 XSCLLO		=	&BF
 
-RTC			=	&50
+RTC		=	&50
 USERNV		=	&80
 TESTPAT		=	&AA
 
