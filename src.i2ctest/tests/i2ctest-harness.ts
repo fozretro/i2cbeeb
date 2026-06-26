@@ -47,7 +47,7 @@ export class I2CTestHarness {
   readonly busMock = new I2cBusMock();
 
   private readonly labelsPath: string;
-  private ap6Mock?: { remove(): void };
+  private ap6Mock?: ReturnType<typeof installAp6Mock>;
 
   constructor(options: I2CTestHarnessOptions) {
     this.labelsPath = options.labelsPath;
@@ -133,6 +133,11 @@ export class I2CTestHarness {
 
   outputText(): string {
     return this.mos.getOutputText();
+  }
+
+  /** Null if every &FCD6 write had D0/D4 safe; otherwise the first violation message. */
+  ap6SafeBitViolation(): string | null {
+    return this.ap6Mock?.safeBitViolation() ?? null;
   }
 }
 

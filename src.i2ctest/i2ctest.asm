@@ -13,31 +13,38 @@
 \   *RUN I2CT works.
 \   *I2CTEST with I2CTROM in any sideways slot other than 12 works.
 \   *I2CTEST with I2CTROM in slot 12 hangs on test 1 and can corrupt EEPROM.
+\   All &FCD6 writes keep D0/D4 set (AP6_SAFE); ORA paths use merged masks, AND paths ORA safe after.
 \-------------------------------------------------------------------------------
 
 OSASCI  =	&FFE3
 OSNEWL  =	&FFE7
 AP6REG  =	&FCD6
+\ Initial shadow: SCL/SDA low; D0/D4 high (A14 upper, write inhibited).
 AP6IDLE =	&11
+\ OR'd after AND writes — D0/D4 are not read back from &FCD6.
+AP6_SAFE=	&11
 XSDAHI  =	&80
 XSDALO  =	&7F
 XSCLHI  =	&40
 XSCLLO  =	&BF
+XSCLHI_SAFE=	XSCLHI + AP6_SAFE
+XSDAHI_SAFE=	XSDAHI + AP6_SAFE
 
 RTC     =	&50
 USERNV  =	&80
 TESTPAT =	&AA
 
-ap6regc =	&A8
-addrbyte=	&AA
-testptrl=	&AB
-testptrh=	&AC
-temp1   =	&AD
-temp2   =	&AE
-comdata =	&AF
+\ Private ZP (&70–&7F): MOS does not use this block during OSASCI (unlike &A8–&AF).
+ap6regc =	&70
+addrbyte=	&71
+testptrl=	&72
+testptrh=	&73
+temp1   =	&74
+temp2   =	&75
+comdata =	&76
 
 \-------------------------------------------------------------------------------
-\ AP6 I²C bit-bang macros (&FCD6). ap6regc holds the last value written.
+\ AP6 I²C bit-bang (&FCD6). ap6regc tracks SCL/SDA; D0/D4 in each macro ORA/AND.
 \-------------------------------------------------------------------------------
 
 \-------------------------------------------------------------------------------
@@ -45,7 +52,7 @@ comdata =	&AF
 \-------------------------------------------------------------------------------
 MACRO sclhi
 	LDA	ap6regc
-	ORA	#(XSCLHI)
+	ORA	#XSCLHI_SAFE
 	STA	ap6regc
 	STA	AP6REG
 ENDMACRO
@@ -56,6 +63,7 @@ ENDMACRO
 MACRO scllo
 	LDA	ap6regc
 	AND	#(XSCLLO)
+	ORA	#AP6_SAFE
 	STA	ap6regc
 	STA	AP6REG
 ENDMACRO
@@ -65,7 +73,7 @@ ENDMACRO
 \-------------------------------------------------------------------------------
 MACRO sdahi
 	LDA	ap6regc
-	ORA	#(XSDAHI)
+	ORA	#XSDAHI_SAFE
 	STA	ap6regc
 	STA	AP6REG
 ENDMACRO
@@ -76,6 +84,7 @@ ENDMACRO
 MACRO sdalo
 	LDA	ap6regc
 	AND	#(XSDALO)
+	ORA	#AP6_SAFE
 	STA	ap6regc
 	STA	AP6REG
 ENDMACRO
@@ -125,8 +134,8 @@ ENDMACRO
 \-------------------------------------------------------------------------------
 MACRO i2cstartm
 	LDA	#AP6IDLE
-	STA	AP6REG
 	STA	ap6regc
+	STA	AP6REG
 	i2cidle
 	sdalo
 	scllo
@@ -478,7 +487,7 @@ ENDIF
 
 \-------------------------------------------------------------------------------
 \ Test runner: walk testtab, print description, run handler, show Pass/Fail.
-\ Re-inits ap6regc before each test (MOS may clobber &A8–&AF during OSASCI).
+\ Re-inits ap6regc before each test; runner ZP at &70–&76 avoids MOS OSASCI scratch.
 \-------------------------------------------------------------------------------
 .runtests
 	LDA	#LO(testtab)
@@ -525,7 +534,7 @@ ENDIF
 	TXA
 	PHA
 	LDA	#AP6IDLE
-	STA	ap6regc
+	JSR	ap6poke
 	JSR	calltest
 	PLA
 	TAX
@@ -602,6 +611,14 @@ ENDIF
 .faildone
 	RTS
 .failmsg	EQUS	"Fail", 0
+
+\-------------------------------------------------------------------------------
+\ Initialise ap6regc and sync &FCD6. Call with A = AP6IDLE.
+\-------------------------------------------------------------------------------
+.ap6poke
+	STA	ap6regc
+	STA	AP6REG
+	RTS
 
 \-------------------------------------------------------------------------------
 \ Subroutine wrapper for i2cstartm (JSR target for tests and mocking).

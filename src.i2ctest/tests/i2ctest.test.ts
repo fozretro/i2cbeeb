@@ -16,6 +16,7 @@ describe("I2CTEST minimal repro", () => {
       expect(result.reason).toBe("return");
       expect(text.match(/Pass/g)?.length).toBe(10);
       expect(text).not.toMatch(/Fail/);
+      expect(harness.ap6SafeBitViolation()).toBeNull();
     });
   });
 
@@ -33,6 +34,7 @@ describe("I2CTEST minimal repro", () => {
       expect(result.reason).toBe("return");
       expect(text.match(/Pass/g)?.length).toBe(10);
       expect(text).not.toMatch(/Fail/);
+      expect(harness.ap6SafeBitViolation()).toBeNull();
     });
   });
 });
