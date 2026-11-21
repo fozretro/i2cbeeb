@@ -1,0 +1,98 @@
+Name     AP62V0IC10 ;
+PartNo   IC10 ;
+Date     05/07/2021 ;
+Revision 1V0 ;
+Designer Dave Hitchins ;
+Company  Retro Hardware ;
+Assembly AP6 2V0 ;
+Location IC10 ;
+Device   g22v10 ;
+
+/****************** Notes  **************************************************************/
+/* AD8x is partial addressing for IC9 due to lack of pins!                              */
+/*                                                                                      */
+/* &FCD6 is the control address for the following:                                      */
+/*                                                                                      */
+/* Bit 0 = IC1 address 14          - reset = H       - Write Bit 0 = L = IC1 A14 = L    */
+/* Bit 4 = IC1 Write enable latch  - reset = H       - Write Bit 4 = L = write enabled  */
+/* Bit 6 = IIC SCL control         - reset = H       - Write Bit 6 = L = SCL = L        */
+/* Bit 7 = IIC SDA Control         - reset = H       - Write Bit 7 = L = SDA = L        */
+/*                                                                                      */
+/* Read &FCD6 transfers the current SDA value to the data bus bit 7                     */
+/*                                                                                      */
+/* Default value for &FCD6 = &D1 or &FF!                                                */
+/*                                                                                      */
+/****************** INPUT PINS **********************************************************/
+PIN 1    =  nRST                    ; /* Active low reset                               */
+PIN 2    =  BnWR                    ; /* Active low Write                               */
+PIN 3    =  A6                      ; /* Address 6                                      */
+PIN 4    =  A7                      ; /* Address 7                                      */
+PIN 5    =  A5                      ; /* Address 5                                      */
+PIN 6    =  A3                      ; /* Address 3                                      */
+PIN 7    =  A2                      ; /* Address 2                                      */
+PIN 8    =  A4                      ; /* Address 4                                      */
+PIN 9    =  nPFC                    ; /* Active low address FCxx                        */
+PIN 10   =  A1                      ; /* Address 1                                      */
+PIN 11   =  A0                      ; /* Address 0                                      */
+PIN 13   =  D6                      ; /* Data 6                                         */
+PIN 17   =  D0                      ; /* Data 0                                         */
+PIN 22   =  D4                      ; /* Data 4                                         */
+/*                                                                                      */
+/****************** OUTPUT PINS *********************************************************/
+PIN 14   = !IC1WR                   ; /* IC1 write (gated)                              */
+PIN 15   =  D7                      ; /* SDA Data I/O to processor                      */
+PIN 16   =  IC1A14                  ; /* IC1 A14 control                                */
+PIN 18   =  SDAOE                   ; /* SDA tristate output control                    */
+PIN 19   =  SDA                     ; /* SDA Data I/O to RTC                            */
+PIN 20   =  SCL                     ; /* IIC Clock out                                  */
+PIN 21   =  IC1WL                   ; /* IC1 write latch control                        */
+PIN 23   = !AD8x                    ; /* Address D8>&DB (part lock control)             */
+/*                                                                                      */
+/****************** Declarations and Intermediate Variable Definitions ******************/
+D8TOB    = !nPFC & A7 & A6 & !A5 & A4 &  A3 & !A2            ; /* Part address(FCD8>DB) */
+FCD6     = !nPFC & A7 & A6 & !A5 & A4 & !A3 &  A2 &  A1 & !A0; /* Address FCD6          */
+
+IC1A14H  =  FCD6 & !BnWR &  D0 ;                   /* Set IC1 A14 latch=H with D0=H (%) */
+IC1A14L  =  FCD6 & !BnWR & !D0 ;                   /* Clear IC1 A14 latch=L with D0=L   */
+
+IC1WLH   =  FCD6 & !BnWR &  D4 ;                   /* IC1 WR inhibit=H with D4=H    (%) */
+IC1WLL   =  FCD6 & !BnWR & !D4 ;                   /* IC1 WR enable=L with D4=L         */
+
+SCLH     =  FCD6 & !BnWR &  D6 ;                   /* Clock High FCD6 D6=H          (%) */
+SCLL     =  FCD6 & !BnWR & !D6 ;                   /* Clock Low latched FCD6 D6=L       */
+
+SDAH     =  FCD6 & !BnWR &  D7 ;                   /* SDA High FCD6 D7=H            (%) */
+SDAL     =  FCD6 & !BnWR & !D7 ;                   /* SDA Low latched FCD6 D7=L         */
+/*                                                                                      */
+/* (%) = Reset condition                                                                */
+/*                                                                                      */
+/****************** EQUATIONS ***********************************************************/
+IC1WR    = !IC1WL & !BnWR ;                        /* Gated IC1 write                   */
+
+IC1WL    =  IC1WLH                                 /* Write inhibit - FCD6 bit 4=H      */
+         # !IC1WLH & !IC1WLL & IC1WL               /* Write enable - FCD6 bit 4=L       */
+         # !nRST ;                                 /* Ensure write inhibit on reset     */
+
+IC1A14   =  IC1A14H                                /* IC1 A14 set high=FCD6 bit 0=H     */
+         # !IC1A14H & !IC1A14L & IC1A14            /* IC1 A14 set low=FCD6 bit 0=L      */
+         # !nRST ;                                 /* Ensure IC1 A14 is high on reset   */
+
+D7       =  SDA ;                                  /* SDA input transferred to D7       */
+D7.OE    =  FCD6 & BnWR ;                          /*  output on read of FCD6           */
+
+SCL      =  SCLH                                   /* IIC clock low = FCD6 & D6=0       */
+         # !SCLH & !SCLL & SCL                     /* IIC clock high = FCD6 & D6=1      */
+         # !nRST ;                                 /* Ensure SCL is high on reset       */
+
+SDAOE  =  SDAH                                     /* Set high - write FCD6 with D7=H   */
+         # !SDAH & !SDAL & SDAOE                   /* Active low - write FCD6 with D7=0 */
+         # !nRST ;                                 /* Set high - on reset               */
+
+SDA.OE   = !SDAOE ;                                /* Only on when 'LOW' out required   */
+
+SDA      =  'b'0 ;                                 /* Always low when output enabled    */
+                                                   /* Pulled high with 4K7 externally   */
+
+AD8x     =  D8TOB ;                                /* D8 to DB address decode for IC9   */
+/*                                                                                      */
+/* END **********************************************************************************/

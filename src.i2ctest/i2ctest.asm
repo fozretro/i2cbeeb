@@ -1,12 +1,15 @@
 \ Minimal AP6 I²C test
 \
 \ Two targets — pass -D TARGET=n:
-\   TARGET=1   sideways ROM  → I2CTROM → Command *I2CTEST
+\   TARGET=1   sideways ROM  → I2CTROM → Command *I2CTEST [n]
 \   TARGET=2   program RAM   → I2CT
 \
 \ Build with BeebAsm
 \   beebasm -i i2ctest.asm -D TARGET=1 -o I2CTROM 
 \   beebasm -i i2ctest.asm -D TARGET=2 -o I2CT
+\
+\ *I2CTEST       — run suite tests 01–10
+\ *I2CTEST n     — run only test n (1–10, or 11 = address-TX soak loop)
 \
 \-------------------------------------------------------------------------------
 \ Known behaviour (Electron AP6 / slot 12 / &FCD6):
@@ -20,13 +23,13 @@ OSASCI  =	&FFE3
 OSNEWL  =	&FFE7
 AP6REG  =	&FCD6
 \ Initial shadow: SCL/SDA low; D0/D4 high (A14 upper, write inhibited).
-AP6IDLE =	&11
+AP6IDLE =	&FF
 \ OR'd after AND writes — D0/D4 are not read back from &FCD6.
 AP6_SAFE=	&11
-XSDAHI  =	&80
-XSDALO  =	&7F
-XSCLHI  =	&40
-XSCLLO  =	&BF
+XSDAHI  =	&80				\ %10000000 — SDA high (D7)
+XSDALO  =	&7F				\ %01111111 — SDA low mask (AND clears D7)
+XSCLHI  =	&40				\ %01000000 — SCL high (D6)
+XSCLLO  =	&BF				\ %10111111 — SCL low mask (AND clears D6)
 XSCLHI_SAFE=	XSCLHI + AP6_SAFE
 XSDAHI_SAFE=	XSDAHI + AP6_SAFE
 
@@ -42,6 +45,7 @@ testptrh=	&73
 temp1   =	&74
 temp2   =	&75
 comdata =	&76
+testsel =	&77				\ 0 = suite 01–10; N = run only test N
 
 \-------------------------------------------------------------------------------
 \ AP6 I²C bit-bang (&FCD6). ap6regc tracks SCL/SDA; D0/D4 in each macro ORA/AND.
@@ -55,6 +59,7 @@ MACRO sclhi
 	ORA	#XSCLHI_SAFE
 	STA	ap6regc
 	STA	AP6REG
+	NOP
 ENDMACRO
 
 \-------------------------------------------------------------------------------
@@ -66,6 +71,7 @@ MACRO scllo
 	ORA	#AP6_SAFE
 	STA	ap6regc
 	STA	AP6REG
+	NOP
 ENDMACRO
 
 \-------------------------------------------------------------------------------
@@ -76,6 +82,7 @@ MACRO sdahi
 	ORA	#XSDAHI_SAFE
 	STA	ap6regc
 	STA	AP6REG
+	NOP
 ENDMACRO
 
 \-------------------------------------------------------------------------------
@@ -87,6 +94,7 @@ MACRO sdalo
 	ORA	#AP6_SAFE
 	STA	ap6regc
 	STA	AP6REG
+	NOP
 ENDMACRO
 
 \-------------------------------------------------------------------------------
@@ -136,6 +144,7 @@ MACRO i2cstartm
 	LDA	#AP6IDLE
 	STA	ap6regc
 	STA	AP6REG
+	NOP
 	i2cidle
 	sdalo
 	scllo
@@ -179,6 +188,8 @@ ENDIF
 
 \-------------------------------------------------------------------------------
 \ Official AP6 bus-level tests 01-10; 09-10 use PCF8583 NVRAM at USERNV.
+\ Default *I2CTEST stops at the first $FF. Extra tests after that are numbered
+\ only (*I2CTEST n); a second $FF ends the table.
 \-------------------------------------------------------------------------------
 
 \-------------------------------------------------------------------------------
@@ -215,6 +226,10 @@ ENDIF
 	EQUS	"10. Byte Read"
 	EQUB	0
 	EQUB	LO(test10_byte_read), HI(test10_byte_read)
+	EQUB	$FF
+	EQUS	"11. Address TX Loop"
+	EQUB	0
+	EQUB	LO(test11_addr_tx_loop), HI(test11_addr_tx_loop)
 	EQUB	$FF
 
 \-------------------------------------------------------------------------------
@@ -486,21 +501,91 @@ ENDIF
 	RTS
 
 \-------------------------------------------------------------------------------
-\ Test runner: walk testtab, print description, run handler, show Pass/Fail.
-\ Re-inits ap6regc before each test; runner ZP at &70–&76 avoids MOS OSASCI scratch.
+\ Test 11: Address Transmission (continuous)
+\ Copy of test 08, repeated forever for soak / scope. *I2CTEST 11 only —
+\ not part of the default suite (lives after the first $FF in testtab).
 \-------------------------------------------------------------------------------
+.test11_addr_tx_loop
+.t11_loop
+	JSR	i2cstart
+	LDA	#RTC
+	CLC
+	JSR	i2caddr
+	JSR	i2crxack
+	BCC	t11_ok1
+	JMP	t11_loop
+.t11_ok1
+	JSR	i2cstart
+	LDA	#$80
+	CLC
+	JSR	i2caddr
+	JSR	i2crxack
+	JMP	t11_loop
+
+\-------------------------------------------------------------------------------
+\ Test runner: walk testtab, print description, run handler, show Pass/Fail.
+\ testsel=0 runs suite until first $FF; testsel=N runs only test N (scans past
+\ $FF separators so numbered extras like 11 are reachable).
+\ Re-inits ap6regc before each test; runner ZP at &70–&77 avoids MOS OSASCI scratch.
+\ runtests_default clears testsel (EXEC / *RUN entry). ROM *I2CTEST sets testsel
+\ then JSRs runtests.
+\-------------------------------------------------------------------------------
+.runtests_default
+	LDA	#0
+	STA	testsel
 .runtests
 	LDA	#LO(testtab)
 	STA	testptrl
 	LDA	#HI(testtab)
 	STA	testptrh
+	LDA	testsel
+	BNE	run_selected
 	LDY	#0
 .testloop
 	LDA	(testptrl),Y
 	CMP	#$FF
 	BNE	test_not_done
-	JMP	testsdone
+	RTS
 .test_not_done
+	JSR	run_current
+	JMP	testloop
+
+\-------------------------------------------------------------------------------
+\ Find 1-based testsel in testtab (skipping $FF section markers) and run it.
+\-------------------------------------------------------------------------------
+.run_selected
+	LDA	#0
+	STA	comdata
+.find_loop
+	LDY	#0
+	LDA	(testptrl),Y
+	CMP	#$FF
+	BNE	find_entry
+	INC	testptrl
+	BNE	find_ff_ok
+	INC	testptrh
+.find_ff_ok
+	LDA	(testptrl),Y
+	CMP	#$FF
+	BNE	find_entry
+	JMP	test_bad
+.find_entry
+	INC	comdata
+	LDA	comdata
+	CMP	testsel
+	BEQ	find_run
+	JSR	skip_entry
+	JMP	find_loop
+.find_run
+	JSR	run_current
+	RTS
+
+\-------------------------------------------------------------------------------
+\ Print description at testptr, call handler, print Pass/Fail + newline.
+\ Leaves testptr on the next table entry. Clobbers X/Y; preserves C from handler
+\ only transiently.
+\-------------------------------------------------------------------------------
+.run_current
 	LDX	#0
 .printdesc
 	LDY	#0
@@ -541,16 +626,56 @@ ENDIF
 	BCS	testfailed
 	JSR	printspaces
 	JSR	printsuccess
-	JMP	nexttest
+	JMP	test_result_done
 .testfailed
 	JSR	printspaces
 	JSR	printfail
-.nexttest
+.test_result_done
 	JSR	OSNEWL
-	LDY	#0
-	JMP	testloop
-.testsdone
 	RTS
+
+\-------------------------------------------------------------------------------
+\ Advance testptr past one table entry (description + handler address).
+\-------------------------------------------------------------------------------
+.skip_entry
+.skip_desc
+	LDY	#0
+	LDA	(testptrl),Y
+	BEQ	skip_desc_done
+	INC	testptrl
+	BNE	skip_desc
+	INC	testptrh
+	BNE	skip_desc
+.skip_desc_done
+	INC	testptrl
+	BNE	skip_addr_lo
+	INC	testptrh
+.skip_addr_lo
+	INC	testptrl
+	BNE	skip_addr_hi
+	INC	testptrh
+.skip_addr_hi
+	INC	testptrl
+	BNE	skip_entry_done
+	INC	testptrh
+.skip_entry_done
+	RTS
+
+\-------------------------------------------------------------------------------
+\ Unknown test number / bad parameter.
+\-------------------------------------------------------------------------------
+.test_bad
+	LDX	#0
+.bad_loop
+	LDA	badmsg,X
+	BEQ	bad_done
+	JSR	OSASCI
+	INX
+	BNE	bad_loop
+.bad_done
+	JSR	OSNEWL
+	RTS
+.badmsg	EQUS	"Bad", 0
 
 \-------------------------------------------------------------------------------
 \ Call test handler via indirect jump (temp1/temp2 hold address).
@@ -618,6 +743,7 @@ ENDIF
 .ap6poke
 	STA	ap6regc
 	STA	AP6REG
+	NOP
 	RTS
 
 \-------------------------------------------------------------------------------
@@ -749,14 +875,14 @@ ENDIF
 
 IF TARGET=2
 
-SAVE "I2CT", start, endtests, runtests, start
+SAVE "I2CT", start, endtests, runtests_default, start
 
 ENDIF
 
 IF TARGET=1
 
 \-------------------------------------------------------------------------------
-\ ROM service entry: service 4 (*I2CTEST command) only; others RTS.
+\ ROM service entry: service 4 (*I2CTEST [n] command) only; others RTS.
 \-------------------------------------------------------------------------------
 .service
 	CMP	#4
@@ -769,7 +895,7 @@ IF TARGET=1
 	EQUS	"I2CTEST", 0
 
 \-------------------------------------------------------------------------------
-\ Match *I2CTEST on the MOS command line; run tests if matched.
+\ Match *I2CTEST on the MOS command line; optional decimal test number.
 \-------------------------------------------------------------------------------
 .command
 	TXA
@@ -790,15 +916,54 @@ IF TARGET=1
 	INX
 	LDA	cmdname,X
 	BNE	cmd_match
+	LDA	#0
+	STA	testsel
 	INY
 	LDA	(&F2),Y
 	CMP	#13
 	BEQ	cmd_run
 	CMP	#32
-	BEQ	cmd_run
+	BEQ	cmd_skip_sp
 	BNE	cmd_notours
+.cmd_skip_sp
+	INY
+	LDA	(&F2),Y
+	CMP	#32
+	BEQ	cmd_skip_sp
+	CMP	#13
+	BEQ	cmd_run
+.cmd_parse
+	CMP	#'0'
+	BCC	cmd_bad
+	CMP	#'9'+1
+	BCS	cmd_bad
+	AND	#&0F
+	STA	temp1
+	LDA	testsel
+	ASL	A
+	STA	temp2
+	ASL	A
+	ASL	A
+	CLC
+	ADC	temp2
+	ADC	temp1
+	STA	testsel
+	INY
+	LDA	(&F2),Y
+	CMP	#13
+	BEQ	cmd_run
+	CMP	#32
+	BNE	cmd_parse
 .cmd_run
 	JSR	runtests
+	PLA
+	TAY
+	PLA
+	TAX
+	LDA	#0
+	RTS
+.cmd_bad
+	JSR	test_bad
 	PLA
 	TAY
 	PLA

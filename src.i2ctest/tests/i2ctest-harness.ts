@@ -55,7 +55,10 @@ export class I2CTestHarness {
     const symbols = loadBeebAsmLabels(options.labelsPath);
     this.serviceEntry = symbolAddress(symbols, "service") ?? 0;
     this.execLoad = symbolAddress(symbols, "start") ?? 0;
-    this.execRun = symbolAddress(symbols, "runtests") ?? 0;
+    this.execRun =
+      symbolAddress(symbols, "runtests_default") ??
+      symbolAddress(symbols, "runtests") ??
+      0;
 
     if (options.romPath) {
       this.rom = loadBinary(options.romPath);
@@ -69,7 +72,7 @@ export class I2CTestHarness {
         throw new Error("EXEC harness requires start symbol in labels");
       }
       if (this.execRun === 0) {
-        throw new Error("EXEC harness requires runtests symbol in labels");
+        throw new Error("EXEC harness requires runtests_default/runtests symbol in labels");
       }
     }
 

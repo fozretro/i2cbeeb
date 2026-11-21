@@ -5,17 +5,24 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 BEEBASM="${BEEBASM:-$ROOT/bin/beebasm}"
-ASM="$ROOT/src.i2ctest/i2ctest.asm"
+ASM_NAME="${1:-i2ctest.asm}"
+ASM="$ROOT/src.i2ctest/$ASM_NAME"
 OUT="src.i2ctest"
 OUTDIR="$OUT/out"
 ROM_NAME="I2CTROM"
 EXEC_NAME="I2CT"
 
+if [[ ! -f "$ASM" ]]; then
+	echo "Source not found: $ASM" >&2
+	echo "Usage: $0 [i2ctest.asm|i2ctest-ram.asm]" >&2
+	exit 1
+fi
+
 rm -f "$OUT/i2ctest.ssd" "$ROOT/$ROM_NAME" "$ROOT/$EXEC_NAME"
 rm -rf "$OUTDIR"
 mkdir -p "$OUTDIR/rom" "$OUTDIR/exec"
 
-echo "*** Building I2CTEST minimal repro (ROM + EXEC) ***"
+echo "*** Building I2CTEST minimal repro from $ASM_NAME (ROM + EXEC) ***"
 
 (
 	cd "$OUTDIR/rom"
@@ -81,7 +88,7 @@ padded16 = rom_raw + bytes([0xFF] * (16384 - len(rom_raw)))
 
 exec_labels = parse_labels(out / "i2ctest-exec.labels")
 exec_load = exec_labels["start"]
-exec_run = exec_labels["runtests"]
+exec_run = exec_labels.get("runtests_default", exec_labels["runtests"])
 
 write_inf(out / "rom" / f"{rom_name}.inf", rom_name, 0x8000, 0x8000, rom_raw)
 write_inf(out / f"{rom_name}-16k.inf", rom_name, 0x8000, 0x8000, padded16)
